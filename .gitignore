@@ -1,0 +1,8 @@
+.idea/
+.vscode/
+target/
+.mvn/timing.properties
+.env
+http/http-client.private.env.json
+*.iml
+

@@ -1,0 +1,32 @@
+### 查询医院
+GET {{baseUrl}}/api/v1/hospitals
+Authorization: Bearer {{accessToken}}
+
+### 查询医院 1 的科室
+GET {{baseUrl}}/api/v1/hospitals/1/departments
+Authorization: Bearer {{accessToken}}
+
+### 查询科室 1 的医生
+GET {{baseUrl}}/api/v1/departments/1/doctors
+Authorization: Bearer {{accessToken}}
+
+### 查询医生 1 的可用号源
+GET {{baseUrl}}/api/v1/doctors/1/schedules
+Authorization: Bearer {{accessToken}}
+
+### 提交预约，首次运行使用号源 1
+POST {{baseUrl}}/api/v1/appointments
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "scheduleId": 1
+}
+
+### 将上一步返回的 paymentOrderId 手动填入下方路径
+POST {{baseUrl}}/api/v1/payments/1/simulate-success
+Authorization: Bearer {{accessToken}}
+
+### 查询自己的预约单
+GET {{baseUrl}}/api/v1/appointments/my
+Authorization: Bearer {{accessToken}}
