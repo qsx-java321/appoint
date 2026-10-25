@@ -43,6 +43,7 @@ set +a
 
 使用 `http/auth.http` 和 `http/appointment.http` 可按“注册 → 登录 → 查询 → 预约 → 模拟支付”验证整个流程。`.http` 文件适用于 IntelliJ IDEA HTTP Client。
 预约详情和“我的预约”列表都会返回关联的 `paymentOrderId` 与当前 `paymentStatus`，便于在创建响应丢失后继续支付流程。
+医生列表会返回全局唯一的 `doctorNo`。预约创建时会保存医生、科室和医院信息快照，预约详情与“我的预约”中的 `doctor` 对象不会因后续资料变更而改变。
 
 ## 状态流转
 

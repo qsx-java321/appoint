@@ -8,6 +8,7 @@ import lombok.Setter;
 @Getter @Setter @TableName("doctors")
 public class Doctor {
     private Long id;
+    private String doctorNo;
     private Long departmentId;
     private String name;
     private String title;

@@ -2,7 +2,11 @@ package com.qsx.appoint.appointment;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.qsx.appoint.catalog.entity.Doctor;
+import com.qsx.appoint.catalog.entity.Hospital;
 import com.qsx.appoint.catalog.entity.Schedule;
+import com.qsx.appoint.catalog.mapper.DoctorMapper;
+import com.qsx.appoint.catalog.mapper.HospitalMapper;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.payment.entity.PaymentOrder;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
@@ -32,6 +36,8 @@ class AppointmentQueryIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private ScheduleMapper scheduleMapper;
+    @Autowired private DoctorMapper doctorMapper;
+    @Autowired private HospitalMapper hospitalMapper;
     @Autowired private PaymentOrderMapper paymentOrderMapper;
 
     @Test
@@ -75,6 +81,24 @@ class AppointmentQueryIntegrationTest {
     }
 
     @Test
+    void appointmentKeepsDoctorSnapshotAfterCatalogChanges() throws Exception {
+        AuthenticatedUser user = registerAndLogin();
+        CreatedAppointment appointment = createAppointment(user, createAvailableSchedule().getId());
+
+        Doctor doctor = doctorMapper.selectById(1L);
+        doctor.setDoctorNo("DOC999999");
+        doctor.setName("已改名医生");
+        doctor.setTitle("已调整职称");
+        doctorMapper.updateById(doctor);
+        Hospital hospital = hospitalMapper.selectById(1L);
+        hospital.setName("已改名医院");
+        hospitalMapper.updateById(hospital);
+
+        assertAppointmentDetail(user, appointment, "PENDING_PAYMENT", "UNPAID");
+        assertAppointmentList(user, appointment, "PENDING_PAYMENT", "UNPAID");
+    }
+
+    @Test
     void appointmentQueriesFailWhenPaymentIsMissing() throws Exception {
         AuthenticatedUser user = registerAndLogin();
         CreatedAppointment appointment = createAppointment(user, createAvailableSchedule().getId());
@@ -105,7 +129,15 @@ class AppointmentQueryIntegrationTest {
                 .andExpect(jsonPath("$.data.id").value(appointment.appointmentOrderId()))
                 .andExpect(jsonPath("$.data.status").value(appointmentStatus))
                 .andExpect(jsonPath("$.data.paymentOrderId").value(appointment.paymentOrderId()))
-                .andExpect(jsonPath("$.data.paymentStatus").value(paymentStatus));
+                .andExpect(jsonPath("$.data.paymentStatus").value(paymentStatus))
+                .andExpect(jsonPath("$.data.doctor.id").value(1))
+                .andExpect(jsonPath("$.data.doctor.doctorNo").value("DOC000001"))
+                .andExpect(jsonPath("$.data.doctor.name").value("张医生"))
+                .andExpect(jsonPath("$.data.doctor.title").value("主任医师"))
+                .andExpect(jsonPath("$.data.doctor.department.id").value(1))
+                .andExpect(jsonPath("$.data.doctor.department.name").value("内科"))
+                .andExpect(jsonPath("$.data.doctor.hospital.id").value(1))
+                .andExpect(jsonPath("$.data.doctor.hospital.name").value("示例市第一人民医院"));
     }
 
     private void assertAppointmentList(AuthenticatedUser user, CreatedAppointment appointment,
@@ -115,7 +147,12 @@ class AppointmentQueryIntegrationTest {
                 .andExpect(jsonPath("$.data[0].id").value(appointment.appointmentOrderId()))
                 .andExpect(jsonPath("$.data[0].status").value(appointmentStatus))
                 .andExpect(jsonPath("$.data[0].paymentOrderId").value(appointment.paymentOrderId()))
-                .andExpect(jsonPath("$.data[0].paymentStatus").value(paymentStatus));
+                .andExpect(jsonPath("$.data[0].paymentStatus").value(paymentStatus))
+                .andExpect(jsonPath("$.data[0].doctor.id").value(1))
+                .andExpect(jsonPath("$.data[0].doctor.doctorNo").value("DOC000001"))
+                .andExpect(jsonPath("$.data[0].doctor.name").value("张医生"))
+                .andExpect(jsonPath("$.data[0].doctor.department.name").value("内科"))
+                .andExpect(jsonPath("$.data[0].doctor.hospital.name").value("示例市第一人民医院"));
     }
 
     private void assertInternalErrorForDetailAndList(AuthenticatedUser user, Long appointmentOrderId) throws Exception {

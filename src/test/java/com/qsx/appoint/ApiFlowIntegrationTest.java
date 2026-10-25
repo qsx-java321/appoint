@@ -64,6 +64,24 @@ class ApiFlowIntegrationTest {
     }
 
     @Test
+    void doctorCatalogExposesGlobalDoctorNumbers() throws Exception {
+        String body = "{\"email\":\"catalog-user@example.com\",\"password\":\"password123\"}";
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body));
+        String loginResult = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andReturn().getResponse().getContentAsString();
+        String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
+
+        mockMvc.perform(get("/api/v1/departments/1/doctors").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(1))
+                .andExpect(jsonPath("$.data[0].doctorNo").value("DOC000001"));
+        mockMvc.perform(get("/api/v1/departments/2/doctors").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(2))
+                .andExpect(jsonPath("$.data[0].doctorNo").value("DOC000002"));
+    }
+
+    @Test
     void appointmentAndPaymentAdvanceStatesOnlyOnce() throws Exception {
         String email = "order-user@example.com";
         String body = "{\"email\":\"" + email + "\",\"password\":\"password123\"}";

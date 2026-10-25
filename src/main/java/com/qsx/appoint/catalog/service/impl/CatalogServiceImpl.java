@@ -19,6 +19,6 @@ public class CatalogServiceImpl implements CatalogService {
 
     public List<HospitalResponse> listHospitals() { return hospitalMapper.selectList(null).stream().map(x -> new HospitalResponse(x.getId(), x.getName(), x.getAddress())).toList(); }
     public List<DepartmentResponse> listDepartments(Long hospitalId) { return departmentMapper.selectList(new LambdaQueryWrapper<Department>().eq(Department::getHospitalId, hospitalId)).stream().map(x -> new DepartmentResponse(x.getId(), x.getName())).toList(); }
-    public List<DoctorResponse> listDoctors(Long departmentId) { return doctorMapper.selectList(new LambdaQueryWrapper<Doctor>().eq(Doctor::getDepartmentId, departmentId)).stream().map(x -> new DoctorResponse(x.getId(), x.getName(), x.getTitle(), x.getIntroduction())).toList(); }
+    public List<DoctorResponse> listDoctors(Long departmentId) { return doctorMapper.selectList(new LambdaQueryWrapper<Doctor>().eq(Doctor::getDepartmentId, departmentId)).stream().map(x -> new DoctorResponse(x.getId(), x.getDoctorNo(), x.getName(), x.getTitle(), x.getIntroduction())).toList(); }
     public List<ScheduleResponse> listAvailableSchedules(Long doctorId) { return scheduleMapper.selectList(new LambdaQueryWrapper<Schedule>().eq(Schedule::getDoctorId, doctorId).eq(Schedule::getStatus, "AVAILABLE")).stream().map(x -> new ScheduleResponse(x.getId(), x.getAppointmentDate(), x.getStartTime(), x.getEndTime(), x.getStatus())).toList(); }
 }

@@ -5,7 +5,13 @@ import com.qsx.appoint.appointment.entity.AppointmentOrder;
 import com.qsx.appoint.appointment.mapper.AppointmentQueryRecord;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.appointment.service.AppointmentService;
+import com.qsx.appoint.catalog.entity.Department;
+import com.qsx.appoint.catalog.entity.Doctor;
+import com.qsx.appoint.catalog.entity.Hospital;
 import com.qsx.appoint.catalog.entity.Schedule;
+import com.qsx.appoint.catalog.mapper.DepartmentMapper;
+import com.qsx.appoint.catalog.mapper.DoctorMapper;
+import com.qsx.appoint.catalog.mapper.HospitalMapper;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
@@ -28,6 +34,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AppointmentServiceImpl implements AppointmentService {
     private final ScheduleMapper scheduleMapper;
+    private final DoctorMapper doctorMapper;
+    private final DepartmentMapper departmentMapper;
+    private final HospitalMapper hospitalMapper;
     private final AppointmentOrderMapper appointmentOrderMapper;
     private final PaymentOrderMapper paymentOrderMapper;
 
@@ -38,6 +47,12 @@ public class AppointmentServiceImpl implements AppointmentService {
         if (schedule == null) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         }
+        Doctor doctor = doctorMapper.selectById(schedule.getDoctorId());
+        Department department = doctor == null ? null : departmentMapper.selectById(doctor.getDepartmentId());
+        Hospital hospital = department == null ? null : hospitalMapper.selectById(department.getHospitalId());
+        if (doctor == null || department == null || hospital == null) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        }
         if (scheduleMapper.holdIfAvailable(schedule.getId()) != 1) {
             throw new BusinessException(ErrorCode.SCHEDULE_UNAVAILABLE);
         }
@@ -46,6 +61,14 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointment.setAppointmentNo("AP" + UUID.randomUUID().toString().replace("-", ""));
         appointment.setUserId(userId);
         appointment.setScheduleId(schedule.getId());
+        appointment.setDoctorId(doctor.getId());
+        appointment.setDoctorNo(doctor.getDoctorNo());
+        appointment.setDoctorName(doctor.getName());
+        appointment.setDoctorTitle(doctor.getTitle());
+        appointment.setDepartmentId(department.getId());
+        appointment.setDepartmentName(department.getName());
+        appointment.setHospitalId(hospital.getId());
+        appointment.setHospitalName(hospital.getName());
         appointment.setStatus("PENDING_PAYMENT");
         appointmentOrderMapper.insert(appointment);
 
@@ -79,8 +102,12 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     private AppointmentResponse toResponse(AppointmentQueryRecord record) {
         ensurePaymentIntegrity(record);
+        AppointmentDoctorResponse doctor = new AppointmentDoctorResponse(
+                record.getDoctorId(), record.getDoctorNo(), record.getDoctorName(), record.getDoctorTitle(),
+                new AppointmentDepartmentResponse(record.getDepartmentId(), record.getDepartmentName()),
+                new AppointmentHospitalResponse(record.getHospitalId(), record.getHospitalName()));
         return new AppointmentResponse(record.getId(), record.getAppointmentNo(), record.getScheduleId(), record.getStatus(),
-                record.getCreatedAt(), record.getPaymentOrderId(), record.getPaymentStatus());
+                record.getCreatedAt(), record.getPaymentOrderId(), record.getPaymentStatus(), doctor);
     }
 
     private void ensurePaymentIntegrity(AppointmentQueryRecord record) {
