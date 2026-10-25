@@ -23,10 +23,23 @@ Content-Type: application/json
   "scheduleId": 1
 }
 
-### 将上一步返回的 paymentOrderId 手动填入下方路径
-POST {{baseUrl}}/api/v1/payments/1/simulate-success
+> {%
+client.global.set("appointmentOrderId", response.body.data.appointmentOrderId);
+client.global.set("paymentOrderId", response.body.data.paymentOrderId);
+%}
+
+### 查询刚创建的预约，确认返回 paymentOrderId 与 paymentStatus
+GET {{baseUrl}}/api/v1/appointments/{{appointmentOrderId}}
 Authorization: Bearer {{accessToken}}
 
-### 查询自己的预约单
+### 模拟支付成功
+POST {{baseUrl}}/api/v1/payments/{{paymentOrderId}}/simulate-success
+Authorization: Bearer {{accessToken}}
+
+### 再次查询预约，确认状态为 CONFIRMED 与 PAID
+GET {{baseUrl}}/api/v1/appointments/{{appointmentOrderId}}
+Authorization: Bearer {{accessToken}}
+
+### 查询自己的预约单，确认每条记录包含支付信息
 GET {{baseUrl}}/api/v1/appointments/my
 Authorization: Bearer {{accessToken}}

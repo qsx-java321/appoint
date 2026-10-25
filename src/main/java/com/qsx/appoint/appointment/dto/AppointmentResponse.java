@@ -12,4 +12,6 @@ public class AppointmentResponse {
     private final Long scheduleId;
     private final String status;
     private final LocalDateTime createdAt;
+    private final Long paymentOrderId;
+    private final String paymentStatus;
 }
