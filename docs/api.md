@@ -6,7 +6,7 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 { "code": 0, "message": "success", "data": {} }
 ```
 
-错误响应的 `data` 为 `null`，HTTP 状态码和业务 `code` 同时用于判定结果。示例中的日期时间均按 `Asia/Shanghai` 理解，JSON 时间值不带时区偏移，业务精度为秒。可运行的请求见 [http/auth.http](../http/auth.http) 和 [http/appointment.http](../http/appointment.http)。
+错误响应的 `data` 为 `null`，HTTP 状态码和业务 `code` 同时用于判定结果。所有 `Long` 类型 ID 在响应中统一编码为 JSON 字符串，避免浏览器丢失 64 位整数精度；路径 ID 以及请求体中的 `scheduleId` 可使用字符串或数字。`code` 和 `expiresIn` 等非 ID 数值保持数字。示例中的日期时间均按 `Asia/Shanghai` 理解，JSON 时间值不带时区偏移，业务精度为秒。可运行的请求见 [http/auth.http](../http/auth.http) 和 [http/appointment.http](../http/appointment.http)。
 
 ## 接口总览
 
@@ -36,7 +36,7 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 `POST /api/v1/appointments` 请求体：
 
 ```json
-{ "scheduleId": 1 }
+{ "scheduleId": "1" }
 ```
 
 成功返回 HTTP 201。`appointmentOrderId` 用于查凭证或取消，`paymentOrderId` 用于模拟支付：
@@ -46,8 +46,8 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
   "code": 0,
   "message": "success",
   "data": {
-    "appointmentOrderId": 101,
-    "paymentOrderId": 201,
+    "appointmentOrderId": "101",
+    "paymentOrderId": "201",
     "appointmentStatus": "PENDING_PAYMENT",
     "paymentStatus": "UNPAID",
     "paymentExpiresAt": "2026-10-26T14:15:00",
@@ -67,15 +67,15 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
   "code": 0,
   "message": "success",
   "data": {
-    "id": 101,
+    "id": "101",
     "appointmentNo": "APexample",
-    "scheduleId": 1,
+    "scheduleId": "1",
     "appointmentDate": "2099-01-01",
     "startTime": "09:00:00",
     "endTime": "09:30:00",
     "status": "PENDING_PAYMENT",
     "createdAt": "2026-10-26T14:00:00",
-    "paymentOrderId": 201,
+    "paymentOrderId": "201",
     "paymentStatus": "UNPAID",
     "paymentExpiresAt": "2026-10-26T14:15:00",
     "closedAt": null,
@@ -84,13 +84,13 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
     "canPay": true,
     "canCancel": true,
     "doctor": {
-      "id": 1,
+      "id": "1",
       "doctorNo": "DOC000001",
       "name": "张医生",
       "title": "主任医师",
-      "department": { "id": 1, "name": "内科" },
+      "department": { "id": "1", "name": "内科" },
       "hospital": {
-        "id": 1,
+        "id": "1",
         "name": "示例市第一人民医院",
         "address": "示例市健康路 1 号"
       }
@@ -135,10 +135,10 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
   "code": 0,
   "message": "success",
   "data": {
-    "id": 201,
+    "id": "201",
     "paymentNo": "PAYexample",
     "paymentStatus": "PAID",
-    "appointmentOrderId": 101,
+    "appointmentOrderId": "101",
     "appointmentStatus": "CONFIRMED"
   }
 }

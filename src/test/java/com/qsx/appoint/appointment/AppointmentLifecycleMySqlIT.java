@@ -5,6 +5,7 @@ import com.qsx.appoint.appointment.dto.CreateAppointmentResponse;
 import com.qsx.appoint.appointment.entity.AppointmentOrder;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.appointment.service.AppointmentService;
+import com.qsx.appoint.appointment.service.AppointmentLifecycleService;
 import com.qsx.appoint.catalog.entity.Schedule;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.common.BusinessException;
@@ -23,6 +24,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
@@ -53,6 +55,7 @@ class AppointmentLifecycleMySqlIT {
 
     @Autowired private AppointmentService appointmentService;
     @Autowired private PaymentService paymentService;
+    @Autowired private AppointmentLifecycleService lifecycleService;
     @Autowired private AppointmentOrderMapper appointmentOrderMapper;
     @Autowired private PaymentOrderMapper paymentOrderMapper;
     @Autowired private ScheduleMapper scheduleMapper;
@@ -95,6 +98,47 @@ class AppointmentLifecycleMySqlIT {
         assertThat(outcomes).noneMatch(BusinessException.class::isInstance);
         assertThat(appointmentOrderMapper.selectById(created.getAppointmentOrderId()).getStatus()).isEqualTo("CONFIRMED");
         assertThat(paymentOrderMapper.selectById(created.getPaymentOrderId()).getStatus()).isEqualTo("PAID");
+    }
+
+    @Test
+    void concurrentUsersCompetingForOneScheduleProduceOnlyOneActiveAppointment() throws Exception {
+        Long firstUserId = createUser();
+        Long secondUserId = createUser();
+        Long scheduleId = createSchedule();
+
+        List<Object> outcomes = race(
+                () -> createAppointment(firstUserId, scheduleId),
+                () -> createAppointment(secondUserId, scheduleId));
+
+        assertThat(outcomes.stream().filter(CreateAppointmentResponse.class::isInstance).count()).isEqualTo(1);
+        assertThat(outcomes.stream().filter(BusinessException.class::isInstance).count()).isEqualTo(1);
+        BusinessException rejected = (BusinessException) outcomes.stream()
+                .filter(BusinessException.class::isInstance).findFirst().orElseThrow();
+        assertThat(rejected.getErrorCode()).isEqualTo(com.qsx.appoint.common.ErrorCode.SCHEDULE_UNAVAILABLE);
+        assertThat(scheduleMapper.selectById(scheduleId).getStatus()).isEqualTo("HELD");
+    }
+
+    @Test
+    void paymentRacingExpirationProducesOneExpiredTerminalStateAfterDeadline() throws Exception {
+        Long userId = createUser();
+        Long scheduleId = createSchedule();
+        CreateAppointmentResponse created = createAppointment(userId, scheduleId);
+        AppointmentOrder appointment = appointmentOrderMapper.selectById(created.getAppointmentOrderId());
+        appointment.setPaymentExpiresAt(LocalDateTime.now().minusSeconds(1));
+        appointmentOrderMapper.updateById(appointment);
+
+        List<Object> outcomes = race(
+                () -> paymentService.simulateSuccess(userId, created.getPaymentOrderId()),
+                () -> lifecycleService.expireIfDue(created.getAppointmentOrderId()));
+
+        assertThat(outcomes).anyMatch(value -> Boolean.TRUE.equals(value));
+        assertThat(outcomes).anyMatch(BusinessException.class::isInstance);
+        BusinessException rejected = (BusinessException) outcomes.stream()
+                .filter(BusinessException.class::isInstance).findFirst().orElseThrow();
+        assertThat(rejected.getErrorCode()).isEqualTo(com.qsx.appoint.common.ErrorCode.PAYMENT_EXPIRED);
+        assertThat(appointmentOrderMapper.selectById(created.getAppointmentOrderId()).getStatus()).isEqualTo("EXPIRED");
+        assertThat(paymentOrderMapper.selectById(created.getPaymentOrderId()).getStatus()).isEqualTo("CLOSED");
+        assertThat(scheduleMapper.selectById(scheduleId).getStatus()).isEqualTo("AVAILABLE");
     }
 
     private List<Object> race(Callable<Object> first, Callable<Object> second) throws Exception {

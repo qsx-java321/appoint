@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>医院预约业务流程演示</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #18333f;
+      --muted: #637985;
+      --line: #d8e6e8;
+      --paper: #ffffff;
+      --blue: #176b87;
+      --blue-soft: #eaf5f8;
+      --green: #16856b;
+      --green-soft: #e9f7f2;
+      --amber: #b56a16;
+      --amber-soft: #fff4df;
+      --red: #b64b55;
+      --red-soft: #fff0f1;
+      --shadow: 0 18px 50px rgba(28, 73, 82, .12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 5%, rgba(45, 174, 154, .16), transparent 27rem),
+        radial-gradient(circle at 90% 0%, rgba(43, 137, 178, .15), transparent 24rem),
+        #f5faf9;
+      font: 15px/1.65 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button { font: inherit; }
+    .shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; padding: 24px 0; gap: 20px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; letter-spacing: .02em; }
+    .brand-mark { display: grid; place-items: center; width: 42px; aspect-ratio: 1; border-radius: 14px; color: white; background: linear-gradient(145deg, var(--blue), var(--green)); box-shadow: 0 10px 24px rgba(23, 107, 135, .2); }
+    .demo-tag { padding: 7px 12px; border: 1px solid #bdd9d8; border-radius: 999px; color: var(--green); background: rgba(255,255,255,.72); font-size: 13px; font-weight: 700; }
+    .hero { display: grid; grid-template-columns: 1.2fr .8fr; gap: 30px; align-items: center; padding: 56px 0 44px; }
+    .eyebrow { margin: 0 0 10px; color: var(--green); font-weight: 800; letter-spacing: .12em; font-size: 13px; }
+    h1 { max-width: 720px; margin: 0; font-size: clamp(36px, 5vw, 64px); line-height: 1.08; letter-spacing: -.045em; }
+    .hero p { max-width: 680px; color: var(--muted); font-size: 17px; }
+    .notice { padding: 22px; border: 1px solid rgba(22,133,107,.2); border-radius: 22px; background: rgba(255,255,255,.78); box-shadow: var(--shadow); }
+    .notice strong { display: block; margin-bottom: 8px; font-size: 17px; }
+    .notice ul { margin: 0; padding-left: 20px; color: var(--muted); }
+    .panel { margin: 22px 0; padding: 28px; border: 1px solid rgba(183,210,212,.9); border-radius: 28px; background: rgba(255,255,255,.92); box-shadow: var(--shadow); }
+    .section-head { display: flex; justify-content: space-between; gap: 18px; align-items: end; margin-bottom: 24px; }
+    .section-head h2 { margin: 0; font-size: clamp(24px, 3vw, 34px); }
+    .section-head p { margin: 5px 0 0; color: var(--muted); }
+    .view-switch, .scenario-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip, .action {
+      border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; color: var(--ink); background: white; cursor: pointer; font-weight: 700;
+    }
+    .chip:hover, .chip:focus-visible, .action:hover, .action:focus-visible { border-color: var(--green); outline: 3px solid rgba(22,133,107,.12); }
+    .chip[aria-pressed="true"] { color: white; border-color: var(--blue); background: var(--blue); }
+    .flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+    .step { position: relative; min-height: 132px; padding: 16px; text-align: left; border: 1px solid var(--line); border-radius: 18px; background: #fbfdfd; cursor: pointer; }
+    .step::after { content: "→"; position: absolute; right: -15px; top: 49px; z-index: 2; color: #99b4b7; font-size: 20px; }
+    .step:last-child::after { display: none; }
+    .step:hover, .step:focus-visible { transform: translateY(-2px); border-color: #8dc5c1; outline: none; }
+    .step.is-active { border-color: var(--green); background: var(--green-soft); box-shadow: inset 0 0 0 1px var(--green); }
+    .step small { display: block; color: var(--green); font-weight: 800; }
+    .step strong { display: block; margin: 6px 0; font-size: 17px; }
+    .step span { color: var(--muted); font-size: 13px; }
+    .explain { display: grid; grid-template-columns: .8fr 1.2fr; gap: 16px; margin-top: 18px; }
+    .explain-card { padding: 20px; border-radius: 18px; background: var(--blue-soft); }
+    .explain-card h3 { margin: 0 0 6px; }
+    .explain-card p { margin: 0; color: var(--muted); }
+    .rule-list { margin: 0; padding: 18px 20px 18px 40px; border: 1px dashed #aacdd1; border-radius: 18px; }
+    .rule-list li + li { margin-top: 6px; }
+    .lab { display: grid; grid-template-columns: .85fr 1.15fr; gap: 22px; }
+    .scenario-box { padding: 22px; border-radius: 22px; background: #f6fafb; }
+    .scenario-box h3 { margin-top: 0; }
+    .action { width: 100%; margin-top: 9px; text-align: left; border-radius: 14px; }
+    .action[data-scenario="paid"] { border-left: 4px solid var(--green); }
+    .action[data-scenario="cancelled"] { border-left: 4px solid var(--red); }
+    .action[data-scenario="expired"] { border-left: 4px solid var(--amber); }
+    .action.is-active { background: var(--ink); color: white; }
+    .state-board { display: grid; gap: 12px; }
+    .state-row { display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: center; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; }
+    .state-row span:first-child { color: var(--muted); }
+    .status { justify-self: start; padding: 6px 11px; border-radius: 999px; font-weight: 800; font-size: 13px; }
+    .pending { color: var(--amber); background: var(--amber-soft); }
+    .success { color: var(--green); background: var(--green-soft); }
+    .closed { color: var(--red); background: var(--red-soft); }
+    .available { color: var(--blue); background: var(--blue-soft); }
+    .outcome { padding: 18px; border-left: 4px solid var(--blue); border-radius: 8px 16px 16px 8px; background: var(--blue-soft); }
+    .outcome strong { display: block; margin-bottom: 4px; }
+    .outcome p { margin: 0; color: var(--muted); }
+    .snapshot { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .snapshot article { padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: #fbfdfd; }
+    .snapshot span { display: block; color: var(--muted); font-size: 13px; }
+    .snapshot strong { display: block; margin-top: 8px; overflow-wrap: anywhere; }
+    footer { padding: 34px 0 50px; text-align: center; color: var(--muted); }
+    [hidden] { display: none !important; }
+    @media (max-width: 820px) {
+      .hero, .lab, .explain { grid-template-columns: 1fr; }
+      .flow { grid-template-columns: 1fr; }
+      .step::after { content: "↓"; right: 22px; top: auto; bottom: -22px; }
+      .snapshot { grid-template-columns: repeat(2, 1fr); }
+      .section-head { align-items: start; flex-direction: column; }
+    }
+    @media (max-width: 520px) {
+      .shell { width: min(100% - 20px, 1180px); }
+      .hero { padding-top: 30px; }
+      .panel { padding: 20px; border-radius: 22px; }
+      .snapshot { grid-template-columns: 1fr; }
+      .state-row { grid-template-columns: 1fr; gap: 5px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="shell topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">医</span><span>医院预约 · 业务讲解</span></div>
+    <span class="demo-tag">纯流程演示 · 不连接接口</span>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">PATIENT JOURNEY</p>
+        <h1>从选择号源，到形成可追溯的预约凭证</h1>
+        <p>这个页面用于讲解项目已经实现的业务规则。点击步骤和不同结局，可以观察预约单、支付单与号源如何一起变化。</p>
+      </div>
+      <aside class="notice">
+        <strong>演示边界</strong>
+        <ul>
+          <li>页面只使用内置示例数据，不发送网络请求。</li>
+          <li>支付为状态演示，不包含金额或真实支付渠道。</li>
+          <li>刷新页面即可恢复初始演示状态。</li>
+        </ul>
+      </aside>
+    </section>
+
+    <section class="panel" aria-labelledby="journey-title">
+      <div class="section-head">
+        <div><h2 id="journey-title">一次预约的主流程</h2><p>选择任一步骤，查看用户看到的动作和系统执行的规则。</p></div>
+        <div class="view-switch" aria-label="讲解视角">
+          <button class="chip" type="button" data-view="user" aria-pressed="true">用户视角</button>
+          <button class="chip" type="button" data-view="system" aria-pressed="false">系统视角</button>
+        </div>
+      </div>
+      <div class="flow" id="flow"></div>
+      <div class="explain" aria-live="polite">
+        <article class="explain-card"><h3 id="step-title"></h3><p id="step-description"></p></article>
+        <ol class="rule-list" id="step-rules"></ol>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="state-title">
+      <div class="section-head"><div><h2 id="state-title">待支付之后会发生什么？</h2><p>切换三种结局，观察三类业务对象必须保持的一致状态。</p></div></div>
+      <div class="lab">
+        <div class="scenario-box">
+          <h3>选择一个业务结局</h3>
+          <button class="action" type="button" data-scenario="paid">模拟支付成功<small>预约确认，号源正式锁定</small></button>
+          <button class="action" type="button" data-scenario="cancelled">用户主动取消<small>订单关闭，号源立即释放</small></button>
+          <button class="action" type="button" data-scenario="expired">等待支付超时<small>后台扫描关闭订单并释放号源</small></button>
+        </div>
+        <div class="state-board" aria-live="polite">
+          <div class="state-row"><span>预约单</span><strong class="status pending" id="appointment-state">PENDING_PAYMENT</strong></div>
+          <div class="state-row"><span>支付单</span><strong class="status pending" id="payment-state">UNPAID</strong></div>
+          <div class="state-row"><span>号源</span><strong class="status pending" id="schedule-state">HELD</strong></div>
+          <div class="outcome"><strong id="outcome-title">号源暂时保留</strong><p id="outcome-description">用户可以在支付期限内模拟支付或取消预约；到期后支付会被拒绝。</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="snapshot-title">
+      <div class="section-head"><div><h2 id="snapshot-title">为什么要保存预约快照？</h2><p>目录资料以后变化，已经生成的预约凭证仍应保留当时的信息。</p></div></div>
+      <div class="snapshot">
+        <article><span>医院</span><strong>示例市第一人民医院</strong></article>
+        <article><span>科室与医生</span><strong>内科 · 张医生</strong></article>
+        <article><span>就诊时间</span><strong>2099-01-01 09:00–09:30</strong></article>
+        <article><span>预约号</span><strong>AP-DEMO-0001</strong></article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell">业务流程说明页 · 示例数据仅用于讲解项目逻辑</footer>
+
+  <script>
+    const journey = [
+      {
+        name: "注册与登录",
+        summary: "确认当前操作用户",
+        user: ["使用邮箱注册账户", "登录后获得访问凭证", "后续预约均归属于当前用户"],
+        system: ["校验邮箱唯一性与密码格式", "认证成功后签发 JWT", "从 Token 识别用户，不接收请求中的 userId"]
+      },
+      {
+        name: "选择就诊资源",
+        summary: "医院 → 科室 → 医生",
+        user: ["先选择医院和科室", "查看医生编号、职称与简介", "上级选择变化时重新选择下级资料"],
+        system: ["按资源归属关系逐级查询", "目录读取不改变业务状态", "只展示存在于当前目录中的资料"]
+      },
+      {
+        name: "选择可用号源",
+        summary: "日期与就诊时段",
+        user: ["查看未来尚未开始的时段", "选择状态为可预约的号源", "提交前核对医院、医生和时间"],
+        system: ["只返回 AVAILABLE 且未开始的号源", "查询结果只是即时快照", "创建预约时必须再次加锁校验"]
+      },
+      {
+        name: "创建预约",
+        summary: "生成待支付凭证",
+        user: ["确认预约后获得预约号", "进入待支付状态", "可查看完整预约凭证"],
+        system: ["锁定号源并标记为 HELD", "创建 PENDING_PAYMENT 预约单", "创建 UNPAID 支付单并保存凭证快照"]
+      },
+      {
+        name: "完成或关闭",
+        summary: "支付、取消或超时",
+        user: ["支付成功后预约确认", "待支付期间可以主动取消", "超时后等待系统关闭并释放号源"],
+        system: ["支付、取消和超时互斥", "三张业务记录在同一事务中推进", "重复操作保持幂等或返回明确限制"]
+      }
+    ];
+
+    const scenarios = {
+      initial: {
+        appointment: ["PENDING_PAYMENT", "pending"], payment: ["UNPAID", "pending"], schedule: ["HELD", "pending"],
+        title: "号源暂时保留", description: "用户可以在支付期限内模拟支付或取消预约；到期后支付会被拒绝。"
+      },
+      paid: {
+        appointment: ["CONFIRMED", "success"], payment: ["PAID", "success"], schedule: ["BOOKED", "success"],
+        title: "预约已经确认", description: "支付单成功、预约单确认、号源正式锁定，三者形成一致终态。"
+      },
+      cancelled: {
+        appointment: ["CANCELLED", "closed"], payment: ["CLOSED", "closed"], schedule: ["AVAILABLE", "available"],
+        title: "用户主动结束预约", description: "待支付预约关闭，未支付的支付单关闭，原号源立即重新开放。"
+      },
+      expired: {
+        appointment: ["EXPIRED", "closed"], payment: ["CLOSED", "closed"], schedule: ["AVAILABLE", "available"],
+        title: "支付期限已经结束", description: "后台扫描关闭过期预约与支付单，并释放号源供后续用户再次预约。"
+      }
+    };
+
+    let activeStep = 0;
+    let activeView = "user";
+    const flow = document.querySelector("#flow");
+
+    function renderJourney() {
+      flow.innerHTML = journey.map((step, index) => `
+        <button class="step${index === activeStep ? " is-active" : ""}" type="button" data-step="${index}" aria-pressed="${index === activeStep}">
+          <small>步骤 ${index + 1}</small><strong>${step.name}</strong><span>${step.summary}</span>
+        </button>`).join("");
+      const step = journey[activeStep];
+      document.querySelector("#step-title").textContent = `${step.name} · ${activeView === "user" ? "用户看到什么" : "系统做什么"}`;
+      document.querySelector("#step-description").textContent = activeView === "user"
+        ? "以患者操作顺序理解这一阶段。"
+        : "以领域状态和服务端约束理解这一阶段。";
+      document.querySelector("#step-rules").innerHTML = step[activeView].map(rule => `<li>${rule}</li>`).join("");
+    }
+
+    function setScenario(name) {
+      const scenario = scenarios[name];
+      [["appointment", "appointment-state"], ["payment", "payment-state"], ["schedule", "schedule-state"]].forEach(([key, id]) => {
+        const node = document.querySelector(`#${id}`);
+        node.textContent = scenario[key][0];
+        node.className = `status ${scenario[key][1]}`;
+      });
+      document.querySelector("#outcome-title").textContent = scenario.title;
+      document.querySelector("#outcome-description").textContent = scenario.description;
+      document.querySelectorAll("[data-scenario]").forEach(button => button.classList.toggle("is-active", button.dataset.scenario === name));
+    }
+
+    document.addEventListener("click", event => {
+      const stepButton = event.target.closest("[data-step]");
+      if (stepButton) { activeStep = Number(stepButton.dataset.step); renderJourney(); }
+      const viewButton = event.target.closest("[data-view]");
+      if (viewButton) {
+        activeView = viewButton.dataset.view;
+        document.querySelectorAll("[data-view]").forEach(button => button.setAttribute("aria-pressed", String(button === viewButton)));
+        renderJourney();
+      }
+      const scenarioButton = event.target.closest("[data-scenario]");
+      if (scenarioButton) setScenario(scenarioButton.dataset.scenario);
+    });
+
+    renderJourney();
+    setScenario("initial");
+  </script>
+</body>
+</html>

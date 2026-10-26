@@ -1,6 +1,6 @@
 # 预约业务流程
 
-本文以注册用户的一次预约为主线，说明已经实现的业务行为。接口的精确请求与响应见 [HTTP API](api.md)；术语定义见 [GLOSSARY.md](../GLOSSARY.md)。
+本文以注册用户的一次预约为主线，说明已经实现的业务行为。可通过不连接接口的 [交互式业务流程说明页](business-flow-demo.html) 辅助讲解；接口的精确请求与响应见 [HTTP API](api.md)，术语定义见 [GLOSSARY.md](../GLOSSARY.md)。
 
 ## 1. 登录并选择号源
 

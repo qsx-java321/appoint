@@ -24,7 +24,7 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "scheduleId": 1
+  "scheduleId": "1"
 }
 
 > {%
@@ -54,7 +54,7 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "scheduleId": 2
+  "scheduleId": "2"
 }
 
 > {%
@@ -84,7 +84,7 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "scheduleId": 2
+  "scheduleId": "2"
 }
 
 ### 路径 C：查询医生 2 的号源后，用号源 3 演示超时
@@ -97,7 +97,7 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "scheduleId": 3
+  "scheduleId": "3"
 }
 
 > {%

@@ -175,7 +175,7 @@ class AppointmentLifecycleIntegrationTest {
 
         mockMvc.perform(get("/api/v1/doctors/1/schedules").header("Authorization", bearer(user)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[?(@.id == " + schedule.getId() + ")]").isEmpty());
+                .andExpect(jsonPath("$.data[?(@.id == '" + schedule.getId() + "')]").isEmpty());
         mockMvc.perform(post("/api/v1/appointments").header("Authorization", bearer(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"scheduleId\":" + schedule.getId() + "}"))

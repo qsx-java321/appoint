@@ -73,12 +73,37 @@ class ApiFlowIntegrationTest {
 
         mockMvc.perform(get("/api/v1/departments/1/doctors").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].id").value(1))
+                .andExpect(jsonPath("$.data[0].id").value("1"))
                 .andExpect(jsonPath("$.data[0].doctorNo").value("DOC000001"));
         mockMvc.perform(get("/api/v1/departments/2/doctors").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].id").value(2))
+                .andExpect(jsonPath("$.data[0].id").value("2"))
                 .andExpect(jsonPath("$.data[0].doctorNo").value("DOC000002"));
+    }
+
+    @Test
+    void responseIdsAreStringsAndStringScheduleIdCanCreateAppointment() throws Exception {
+        String body = "{\"email\":\"string-id-user@example.com\",\"password\":\"password123\"}";
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").isString());
+        String loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.id").isString())
+                .andReturn().getResponse().getContentAsString();
+        String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
+
+        mockMvc.perform(get("/api/v1/hospitals").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").isString())
+                .andExpect(jsonPath("$.data[0].id").value("1"));
+
+        mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"scheduleId\":\"2\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.appointmentOrderId").isString())
+                .andExpect(jsonPath("$.data.paymentOrderId").isString());
     }
 
     @Test

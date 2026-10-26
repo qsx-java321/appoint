@@ -126,6 +126,11 @@
                         <artifactId>maven-failsafe-plugin</artifactId>
                         <executions>
                             <execution>
+                                <configuration>
+                                    <includes>
+                                        <include>**/*MySqlIT.java</include>
+                                    </includes>
+                                </configuration>
                                 <goals>
                                     <goal>integration-test</goal>
                                     <goal>verify</goal>
