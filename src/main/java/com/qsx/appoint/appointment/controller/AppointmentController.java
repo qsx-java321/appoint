@@ -30,4 +30,8 @@ public class AppointmentController {
         {
          return Result.success(appointmentService.listMine((Long) authentication.getPrincipal())); 
         }
+    @PostMapping("/{id}/cancel")
+    public Result<AppointmentResponse> cancel(Authentication authentication, @PathVariable Long id) {
+        return Result.success(appointmentService.cancel((Long) authentication.getPrincipal(), id));
+    }
 }

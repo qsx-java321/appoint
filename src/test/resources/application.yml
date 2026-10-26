@@ -13,3 +13,9 @@ appoint:
   jwt:
     secret: test-secret-key-must-be-at-least-thirty-two-characters-long-12345
     expiration-seconds: 7200
+  appointment:
+    payment-timeout: 15m
+  expiration:
+    enabled: false
+    scan-delay: 30s
+    batch-size: 100

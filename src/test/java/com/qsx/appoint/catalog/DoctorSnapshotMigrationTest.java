@@ -32,7 +32,9 @@ class DoctorSnapshotMigrationTest {
                 .isEqualTo("DOC000001");
         Map<String, Object> snapshot = jdbc.queryForMap("""
                 SELECT doctor_id, doctor_no, doctor_name, doctor_title,
-                       department_id, department_name, hospital_id, hospital_name
+                       department_id, department_name, hospital_id, hospital_name,
+                       hospital_address, appointment_date, start_time, end_time,
+                       payment_expires_at, closed_at
                 FROM appointment_orders
                 WHERE appointment_no = 'AP-LEGACY'
                 """);
@@ -44,6 +46,12 @@ class DoctorSnapshotMigrationTest {
                 .containsEntry("department_id", 1L)
                 .containsEntry("department_name", "内科")
                 .containsEntry("hospital_id", 1L)
-                .containsEntry("hospital_name", "示例市第一人民医院");
+                .containsEntry("hospital_name", "示例市第一人民医院")
+                .containsEntry("hospital_address", "示例市健康路 1 号");
+        assertThat(snapshot.get("appointment_date").toString()).isEqualTo("2099-01-01");
+        assertThat(snapshot.get("start_time").toString()).startsWith("09:00");
+        assertThat(snapshot.get("end_time").toString()).startsWith("09:30");
+        assertThat(snapshot.get("payment_expires_at")).isNotNull();
+        assertThat(snapshot.get("closed_at")).isNull();
     }
 }

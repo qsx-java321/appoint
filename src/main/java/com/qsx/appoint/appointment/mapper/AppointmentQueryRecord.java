@@ -3,7 +3,9 @@ package com.qsx.appoint.appointment.mapper;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 /** 预约查询的内部投影，承载预约、就诊对象快照与关联支付单数据。 */
 @Getter
@@ -21,8 +23,14 @@ public class AppointmentQueryRecord {
     private String departmentName;
     private Long hospitalId;
     private String hospitalName;
+    private String hospitalAddress;
+    private LocalDate appointmentDate;
+    private LocalTime startTime;
+    private LocalTime endTime;
     private String status;
     private LocalDateTime createdAt;
+    private LocalDateTime paymentExpiresAt;
+    private LocalDateTime closedAt;
     private Long paymentOrderId;
     private Long paymentUserId;
     private String paymentStatus;

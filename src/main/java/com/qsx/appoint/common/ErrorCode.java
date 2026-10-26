@@ -17,7 +17,9 @@ public enum ErrorCode {
     USER_NOT_FOUND(3002, "用户不存在", HttpStatus.NOT_FOUND),
     RESOURCE_NOT_FOUND(4001, "请求的资源不存在", HttpStatus.NOT_FOUND),
     SCHEDULE_UNAVAILABLE(4002, "该号源已不可预约", HttpStatus.CONFLICT),
-    ORDER_STATE_ERROR(4003, "订单当前状态不允许该操作", HttpStatus.CONFLICT);
+    ORDER_STATE_ERROR(4003, "订单当前状态不允许该操作", HttpStatus.CONFLICT),
+    PAYMENT_EXPIRED(4004, "支付期限已过", HttpStatus.CONFLICT),
+    SCHEDULE_STARTED(4005, "该号源已开始就诊", HttpStatus.CONFLICT);
 
     private final int code;
     private final String message;

@@ -26,6 +26,12 @@ appoint:
   jwt:
     secret: ${JWT_SECRET:change-this-to-a-long-local-development-secret-key-1234567890}
     expiration-seconds: 7200
+  appointment:
+    payment-timeout: 15m
+  expiration:
+    enabled: true
+    scan-delay: 30s
+    batch-size: 100
 
 logging:
   level:

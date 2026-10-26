@@ -92,7 +92,13 @@ class AppointmentQueryIntegrationTest {
         doctorMapper.updateById(doctor);
         Hospital hospital = hospitalMapper.selectById(1L);
         hospital.setName("已改名医院");
+        hospital.setAddress("已变更地址 99 号");
         hospitalMapper.updateById(hospital);
+        Schedule schedule = scheduleMapper.selectById(appointment.scheduleId());
+        schedule.setAppointmentDate(LocalDate.of(2099, 12, 31));
+        schedule.setStartTime(LocalTime.of(20, 0));
+        schedule.setEndTime(LocalTime.of(20, 30));
+        scheduleMapper.updateById(schedule);
 
         assertAppointmentDetail(user, appointment, "PENDING_PAYMENT", "UNPAID");
         assertAppointmentList(user, appointment, "PENDING_PAYMENT", "UNPAID");
@@ -130,6 +136,11 @@ class AppointmentQueryIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value(appointmentStatus))
                 .andExpect(jsonPath("$.data.paymentOrderId").value(appointment.paymentOrderId()))
                 .andExpect(jsonPath("$.data.paymentStatus").value(paymentStatus))
+                .andExpect(jsonPath("$.data.appointmentDate").value("2099-02-01"))
+                .andExpect(jsonPath("$.data.startTime").value("08:00:00"))
+                .andExpect(jsonPath("$.data.endTime").value("08:30:00"))
+                .andExpect(jsonPath("$.data.paymentExpiresAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.serverTime").isNotEmpty())
                 .andExpect(jsonPath("$.data.doctor.id").value(1))
                 .andExpect(jsonPath("$.data.doctor.doctorNo").value("DOC000001"))
                 .andExpect(jsonPath("$.data.doctor.name").value("张医生"))
@@ -137,7 +148,8 @@ class AppointmentQueryIntegrationTest {
                 .andExpect(jsonPath("$.data.doctor.department.id").value(1))
                 .andExpect(jsonPath("$.data.doctor.department.name").value("内科"))
                 .andExpect(jsonPath("$.data.doctor.hospital.id").value(1))
-                .andExpect(jsonPath("$.data.doctor.hospital.name").value("示例市第一人民医院"));
+                .andExpect(jsonPath("$.data.doctor.hospital.name").value("示例市第一人民医院"))
+                .andExpect(jsonPath("$.data.doctor.hospital.address").value("示例市健康路 1 号"));
     }
 
     private void assertAppointmentList(AuthenticatedUser user, CreatedAppointment appointment,
@@ -148,11 +160,15 @@ class AppointmentQueryIntegrationTest {
                 .andExpect(jsonPath("$.data[0].status").value(appointmentStatus))
                 .andExpect(jsonPath("$.data[0].paymentOrderId").value(appointment.paymentOrderId()))
                 .andExpect(jsonPath("$.data[0].paymentStatus").value(paymentStatus))
+                .andExpect(jsonPath("$.data[0].appointmentDate").value("2099-02-01"))
+                .andExpect(jsonPath("$.data[0].startTime").value("08:00:00"))
+                .andExpect(jsonPath("$.data[0].endTime").value("08:30:00"))
                 .andExpect(jsonPath("$.data[0].doctor.id").value(1))
                 .andExpect(jsonPath("$.data[0].doctor.doctorNo").value("DOC000001"))
                 .andExpect(jsonPath("$.data[0].doctor.name").value("张医生"))
                 .andExpect(jsonPath("$.data[0].doctor.department.name").value("内科"))
-                .andExpect(jsonPath("$.data[0].doctor.hospital.name").value("示例市第一人民医院"));
+                .andExpect(jsonPath("$.data[0].doctor.hospital.name").value("示例市第一人民医院"))
+                .andExpect(jsonPath("$.data[0].doctor.hospital.address").value("示例市健康路 1 号"));
     }
 
     private void assertInternalErrorForDetailAndList(AuthenticatedUser user, Long appointmentOrderId) throws Exception {
@@ -193,7 +209,7 @@ class AppointmentQueryIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         JsonNode data = objectMapper.readTree(response).get("data");
-        return new CreatedAppointment(data.get("appointmentOrderId").asLong(), data.get("paymentOrderId").asLong());
+        return new CreatedAppointment(data.get("appointmentOrderId").asLong(), data.get("paymentOrderId").asLong(), scheduleId);
     }
 
     private Schedule createAvailableSchedule() {
@@ -212,5 +228,5 @@ class AppointmentQueryIntegrationTest {
     }
 
     private record AuthenticatedUser(Long id, String token) { }
-    private record CreatedAppointment(Long appointmentOrderId, Long paymentOrderId) { }
+    private record CreatedAppointment(Long appointmentOrderId, Long paymentOrderId, Long scheduleId) { }
 }

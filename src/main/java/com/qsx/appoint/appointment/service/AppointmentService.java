@@ -8,4 +8,5 @@ public interface AppointmentService {
     CreateAppointmentResponse create(Long userId, CreateAppointmentRequest request);
     AppointmentResponse getOwned(Long userId, Long orderId);
     List<AppointmentResponse> listMine(Long userId);
+    AppointmentResponse cancel(Long userId, Long orderId);
 }

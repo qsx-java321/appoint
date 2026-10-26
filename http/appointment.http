@@ -43,3 +43,7 @@ Authorization: Bearer {{accessToken}}
 ### 查询自己的预约单，确认每条记录包含支付信息
 GET {{baseUrl}}/api/v1/appointments/my
 Authorization: Bearer {{accessToken}}
+
+### 可选分支：不要先执行上面的模拟支付；取消待支付预约，重复请求返回相同终态
+POST {{baseUrl}}/api/v1/appointments/{{appointmentOrderId}}/cancel
+Authorization: Bearer {{accessToken}}

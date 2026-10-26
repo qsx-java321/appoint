@@ -7,6 +7,8 @@ import com.qsx.appoint.catalog.mapper.*;
 import com.qsx.appoint.catalog.service.CatalogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /** 演示数据查询实现，刻意保持一层清晰的数据映射。 */
@@ -16,9 +18,19 @@ public class CatalogServiceImpl implements CatalogService {
     private final DepartmentMapper departmentMapper;
     private final DoctorMapper doctorMapper;
     private final ScheduleMapper scheduleMapper;
+    private final Clock appointmentClock;
 
     public List<HospitalResponse> listHospitals() { return hospitalMapper.selectList(null).stream().map(x -> new HospitalResponse(x.getId(), x.getName(), x.getAddress())).toList(); }
     public List<DepartmentResponse> listDepartments(Long hospitalId) { return departmentMapper.selectList(new LambdaQueryWrapper<Department>().eq(Department::getHospitalId, hospitalId)).stream().map(x -> new DepartmentResponse(x.getId(), x.getName())).toList(); }
     public List<DoctorResponse> listDoctors(Long departmentId) { return doctorMapper.selectList(new LambdaQueryWrapper<Doctor>().eq(Doctor::getDepartmentId, departmentId)).stream().map(x -> new DoctorResponse(x.getId(), x.getDoctorNo(), x.getName(), x.getTitle(), x.getIntroduction())).toList(); }
-    public List<ScheduleResponse> listAvailableSchedules(Long doctorId) { return scheduleMapper.selectList(new LambdaQueryWrapper<Schedule>().eq(Schedule::getDoctorId, doctorId).eq(Schedule::getStatus, "AVAILABLE")).stream().map(x -> new ScheduleResponse(x.getId(), x.getAppointmentDate(), x.getStartTime(), x.getEndTime(), x.getStatus())).toList(); }
+    public List<ScheduleResponse> listAvailableSchedules(Long doctorId) {
+        LocalDateTime now = LocalDateTime.now(appointmentClock);
+        return scheduleMapper.selectList(new LambdaQueryWrapper<Schedule>()
+                        .eq(Schedule::getDoctorId, doctorId)
+                        .eq(Schedule::getStatus, "AVAILABLE")
+                        .and(query -> query.gt(Schedule::getAppointmentDate, now.toLocalDate())
+                                .or(sameDay -> sameDay.eq(Schedule::getAppointmentDate, now.toLocalDate())
+                                        .gt(Schedule::getStartTime, now.toLocalTime()))))
+                .stream().map(x -> new ScheduleResponse(x.getId(), x.getAppointmentDate(), x.getStartTime(), x.getEndTime(), x.getStatus())).toList();
+    }
 }
