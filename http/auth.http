@@ -1,3 +1,6 @@
+# 选择 HTTP Client 的 local 环境；首次运行先注册，后续运行可直接登录。
+# Flyway 只创建 USER、ADMIN 角色，不会创建演示账号。
+
 ### 注册用户
 POST {{baseUrl}}/api/v1/auth/register
 Content-Type: application/json

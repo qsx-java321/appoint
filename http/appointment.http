@@ -1,3 +1,7 @@
+# 选择 HTTP Client 的 local 环境。以下 ID 1、2、3 来自全新数据库的 V2 演示号源。
+# 重复运行前先查询可用号源并替换 scheduleId；已有 BOOKED 号源不能再提交。
+# 先运行 auth.http 中的注册和登录，得到 accessToken。
+
 ### 查询医院
 GET {{baseUrl}}/api/v1/hospitals
 Authorization: Bearer {{accessToken}}
@@ -6,15 +10,15 @@ Authorization: Bearer {{accessToken}}
 GET {{baseUrl}}/api/v1/hospitals/1/departments
 Authorization: Bearer {{accessToken}}
 
-### 查询科室 1 的医生
+### 查询科室 1 的医生（包含 doctorNo）
 GET {{baseUrl}}/api/v1/departments/1/doctors
 Authorization: Bearer {{accessToken}}
 
-### 查询医生 1 的可用号源
+### 查询医生 1 尚未开诊且可用的号源
 GET {{baseUrl}}/api/v1/doctors/1/schedules
 Authorization: Bearer {{accessToken}}
 
-### 提交预约，首次运行使用号源 1
+### 路径 A：创建预约并保留号源 1
 POST {{baseUrl}}/api/v1/appointments
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -24,26 +28,94 @@ Content-Type: application/json
 }
 
 > {%
-client.global.set("appointmentOrderId", response.body.data.appointmentOrderId);
-client.global.set("paymentOrderId", response.body.data.paymentOrderId);
+client.global.set("paidAppointmentId", response.body.data.appointmentOrderId);
+client.global.set("paidPaymentId", response.body.data.paymentOrderId);
 %}
 
-### 查询刚创建的预约，确认返回 paymentOrderId 与 paymentStatus
-GET {{baseUrl}}/api/v1/appointments/{{appointmentOrderId}}
+### A：查看凭证、支付截止时间和 canPay/canCancel
+GET {{baseUrl}}/api/v1/appointments/{{paidAppointmentId}}
 Authorization: Bearer {{accessToken}}
 
-### 模拟支付成功
-POST {{baseUrl}}/api/v1/payments/{{paymentOrderId}}/simulate-success
+### A：在截止前模拟支付
+POST {{baseUrl}}/api/v1/payments/{{paidPaymentId}}/simulate-success
 Authorization: Bearer {{accessToken}}
 
-### 再次查询预约，确认状态为 CONFIRMED 与 PAID
-GET {{baseUrl}}/api/v1/appointments/{{appointmentOrderId}}
+### A：重复支付仍返回成功
+POST {{baseUrl}}/api/v1/payments/{{paidPaymentId}}/simulate-success
 Authorization: Bearer {{accessToken}}
 
-### 查询自己的预约单，确认每条记录包含支付信息
+### A：支付后凭证仍完整，状态为 CONFIRMED + PAID
+GET {{baseUrl}}/api/v1/appointments/{{paidAppointmentId}}
+Authorization: Bearer {{accessToken}}
+
+### 路径 B：创建另一笔待支付预约，使用号源 2
+POST {{baseUrl}}/api/v1/appointments
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "scheduleId": 2
+}
+
+> {%
+client.global.set("cancelAppointmentId", response.body.data.appointmentOrderId);
+client.global.set("cancelPaymentId", response.body.data.paymentOrderId);
+%}
+
+### B：截止前取消，状态为 CANCELLED + CLOSED
+POST {{baseUrl}}/api/v1/appointments/{{cancelAppointmentId}}/cancel
+Authorization: Bearer {{accessToken}}
+
+### B：重复取消返回相同终态，不再释放号源
+POST {{baseUrl}}/api/v1/appointments/{{cancelAppointmentId}}/cancel
+Authorization: Bearer {{accessToken}}
+
+### B：取消后的支付请求返回 409 / ORDER_STATE_ERROR
+POST {{baseUrl}}/api/v1/payments/{{cancelPaymentId}}/simulate-success
+Authorization: Bearer {{accessToken}}
+
+### B：确认号源 2 重新出现在列表中；此时也可换另一用户登录后预约
+GET {{baseUrl}}/api/v1/doctors/1/schedules
+Authorization: Bearer {{accessToken}}
+
+### B：再次预约号源 2，生成一张新的预约单
+POST {{baseUrl}}/api/v1/appointments
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "scheduleId": 2
+}
+
+### 路径 C：查询医生 2 的号源后，用号源 3 演示超时
+GET {{baseUrl}}/api/v1/doctors/2/schedules
+Authorization: Bearer {{accessToken}}
+
+### C：创建预约，记录 paymentExpiresAt
+POST {{baseUrl}}/api/v1/appointments
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "scheduleId": 3
+}
+
+> {%
+client.global.set("expiringAppointmentId", response.body.data.appointmentOrderId);
+client.global.set("expiringPaymentId", response.body.data.paymentOrderId);
+%}
+
+# 等到上述 paymentExpiresAt 之后再执行后面的请求。支付会立即拒绝；
+# 默认扫描每 30 秒运行一次，关闭时间在故障或积压时可能更晚。
+
+### C：到期支付返回 409 / PAYMENT_EXPIRED
+POST {{baseUrl}}/api/v1/payments/{{expiringPaymentId}}/simulate-success
+Authorization: Bearer {{accessToken}}
+
+### C：扫描关闭后查看 EXPIRED + CLOSED、closedAt 和原凭证
+GET {{baseUrl}}/api/v1/appointments/{{expiringAppointmentId}}
+Authorization: Bearer {{accessToken}}
+
+### 查询我的预约：全部状态保留凭证，按预约 ID 倒序
 GET {{baseUrl}}/api/v1/appointments/my
-Authorization: Bearer {{accessToken}}
-
-### 可选分支：不要先执行上面的模拟支付；取消待支付预约，重复请求返回相同终态
-POST {{baseUrl}}/api/v1/appointments/{{appointmentOrderId}}/cancel
 Authorization: Bearer {{accessToken}}

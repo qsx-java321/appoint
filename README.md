@@ -1,23 +1,27 @@
-# 医院预约项目
+# 医院预约系统
 
-用于学习 Spring Boot、Spring Security、JWT、MyBatis-Plus 与事务状态流转的后端项目。当前实现注册、登录、JWT 鉴权、医院资源查询、预约凭证、提交与取消预约、支付超时释放号源及模拟支付成功。
+这是一个用于学习 Spring Boot、JWT 鉴权、关系数据库事务与预约状态流转的后端项目，目前没有前端页面或真实支付渠道。用户可以注册、登录，按医院 → 科室 → 医生 → 未来可用号源查询资源，提交预约后查看凭证，在支付期限内模拟支付或取消；到期未支付的预约由后台关闭并释放号源。
+
+业务规则与各状态的实际含义见 [预约业务流程](docs/business-flow.md)，请求、响应字段及错误契约见 [HTTP API](docs/api.md)。领域词汇见 [术语表](GLOSSARY.md)，关键事务选择见 [ADR 0001](docs/adr/0001-appointment-lifecycle-transactions.md)。
 
 ## 技术栈
 
-- JDK 21、Spring Boot 3.5.16、MyBatis-Plus 3.5.17
-- MySQL 8.4、Redis 7.4.9、RabbitMQ 4.3.2-management
-- Flyway、Lombok、JUnit 5、MockMvc
+- JDK 21、Spring Boot 3.5.16、Spring Security、JWT、MyBatis-Plus 3.5.17
+- MySQL 8.4、Flyway、Lombok
+- JUnit 5、MockMvc、H2；真实 MySQL 集成测试使用 Testcontainers
+- Docker Compose 提供 Redis 7.4.9 和 RabbitMQ 4.3.2-management，目前应用未接入其业务能力
 
-## 启动基础设施
+## 本地启动
 
-项目使用 `compose.yaml` 管理 MySQL、Redis、RabbitMQ。`.env` 是本地配置且已被 Git 忽略；如文件丢失，可复制 `.env.example`。
+复制配置并启动基础设施：
 
 ```bash
+cp .env.example .env
 docker compose up -d
 docker compose ps
 ```
 
-等待三个服务显示为 healthy 后，在当前 shell 导入数据库与 JWT 配置并启动应用：
+等待容器健康检查通过，在同一个 shell 导入配置并启动应用：
 
 ```bash
 set -a
@@ -26,50 +30,32 @@ set +a
 ./mvnw spring-boot:run
 ```
 
-应用监听 `http://localhost:8080`。首次启动时 Flyway 会创建表并写入医院、科室、医生、号源、`USER` 与 `ADMIN` 演示数据。
+默认地址为 `http://localhost:8080`。Flyway 首次启动会建表，写入 `USER`、`ADMIN` 两个**角色**，以及示例医院、科室、医生和三个日期在 2099 年的号源；**不会创建演示用户账号**。先调用注册接口，再使用自己的账号登录。`.env` 是本地文件，已被 Git 忽略；不要把真实密钥写入仓库。
 
-## 接口与调试
+## 从用户角度验证
 
-核心接口：
+1. 在 [http/auth.http](http/auth.http) 注册、登录，取得 Bearer Token。
+2. 在 [http/appointment.http](http/appointment.http) 查询医院、科室、医生和未来可用号源，提交预约。
+3. 用返回的 `appointmentOrderId` 查询详情或“我的预约”，核对医院地址、就诊日期与时段、医生资料、支付截止时间。
+4. 在不同的待支付预约上分别模拟支付、主动取消和等待超时；取消或超时释放的号源可再次预约。
 
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `GET /api/v1/users/me`
-- `GET /api/v1/hospitals`
-- `POST /api/v1/appointments`
-- `GET /api/v1/appointments/{id}`
-- `GET /api/v1/appointments/my`
-- `POST /api/v1/appointments/{id}/cancel`
-- `POST /api/v1/payments/{id}/simulate-success`
+`.http` 文件适用于 IntelliJ IDEA HTTP Client，`http/http-client.env.json` 提供 `local` 环境的 `baseUrl`。内置号源 ID `1`、`2`、`3` 仅在全新数据库中初始可用；重复运行时应先查询可用号源，并替换示例中的 `scheduleId`。
 
-使用 `http/auth.http` 和 `http/appointment.http` 可按“注册 → 登录 → 查询 → 预约 → 模拟支付”验证整个流程。`.http` 文件适用于 IntelliJ IDEA HTTP Client。
-预约详情和“我的预约”列表会返回就诊日期、时段、医院地址、支付截止时间、关联支付单及 `canPay`、`canCancel` 等操作标记。医院、科室、医生和就诊时段均保存创建时快照。
-新预约默认保留号源 15 分钟，且支付截止时间不会晚于就诊开始时间。后台默认每 30 秒扫描过期预约，关闭支付单并释放号源；即使扫描尚未运行，到期支付也会立即被拒绝。
-医生列表会返回全局唯一的 `doctorNo`。预约创建时会保存医生、科室和医院信息快照，预约详情与“我的预约”中的 `doctor` 对象不会因后续资料变更而改变。
+除注册和登录外，所有 API 都要求 `Authorization: Bearer <accessToken>`。响应统一为 `{ "code": 0, "message": "success", "data": ... }`；错误使用实际 HTTP 状态码和业务 `code`。
 
-## 状态流转
+## 当前业务边界
 
-```text
-号源：AVAILABLE → HELD → BOOKED
-                  ↘ AVAILABLE（取消或过期）
-预约单：PENDING_PAYMENT → CONFIRMED / CANCELLED / EXPIRED
-支付单：UNPAID → PAID / CLOSED
-```
-
-提交预约时锁定并条件更新号源。支付、取消和过期处理统一按“预约单 → 支付单 → 号源”的顺序加锁并在单个事务中推进状态；重复请求不会再次释放或确认号源。
+- 支付仅由 `POST /api/v1/payments/{id}/simulate-success` 模拟成功，不接入支付渠道，也没有费用计算。
+- 只能取消待支付预约；已确认预约没有取消、退款或改签流程。
+- 预约凭证记录的是注册用户当前提交的预约，没有就诊人管理。
+- 查询只读：订单到期后、扫描关闭前，数据库中可暂留 `PENDING_PAYMENT + UNPAID + HELD`，但支付已经不可用。默认扫描间隔为 30 秒；故障或积压时释放可能更晚。
+- 没有管理后台、登出、Token 黑名单或 Redis/RabbitMQ 业务接入。
 
 ## 测试
 
 ```bash
 ./mvnw test
-```
-
-测试使用 H2 的 MySQL 兼容模式运行 Flyway 迁移，覆盖注册、登录、认证、凭证快照、取消和过期逻辑。Docker 可用时运行真实 MySQL 迁移与并发测试：
-
-```bash
 ./mvnw -Pmysql-it verify
 ```
 
-## 当前边界
-
-项目不包含真实支付、已支付预约的取消退款、改签、登出、Token 黑名单、权限管理后台和 Redis/RabbitMQ 业务接入。Redis 与 RabbitMQ 由 Compose 提供，待出现明确业务需求时再接入应用。
+第一条运行 H2/MySQL 兼容模式的快速回归；第二条还通过 Testcontainers 的 MySQL 8.4 验证迁移、行锁与并发，需要本机 Docker 可用。测试配置会关闭自动过期扫描，由测试显式触发。

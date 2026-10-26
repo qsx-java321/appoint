@@ -1,6 +1,6 @@
 # 预约凭证、取消预约与超时释放号源
 
-Status: ready-for-agent
+Status: resolved
 
 ## 目标
 
