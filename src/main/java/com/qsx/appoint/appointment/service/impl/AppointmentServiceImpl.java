@@ -1,9 +1,8 @@
 package com.qsx.appoint.appointment.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.appointment.dto.*;
 import com.qsx.appoint.appointment.entity.AppointmentCreateRequest;
+import com.qsx.appoint.appointment.entity.AppointmentOrder;
 import com.qsx.appoint.appointment.mapper.AppointmentQueryRecord;
 import com.qsx.appoint.appointment.mapper.AppointmentCreateRequestMapper;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
@@ -40,10 +39,9 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final AppointmentOrderMapper appointmentOrderMapper;
     private final AppointmentLifecycleService lifecycleService;
     private final Clock appointmentClock;
-    private final ObjectMapper objectMapper;
 
     @Override
-    public CreateAppointmentResponse create(Long userId, String rawIdempotencyKey, CreateAppointmentRequest request) {
+    public AppointmentCreationResult create(Long userId, String rawIdempotencyKey, CreateAppointmentRequest request) {
         String idempotencyKey = normalizeKey(rawIdempotencyKey);
         String requestHash = hash(request.getScheduleId(), request.getPatientId());
         try {
@@ -57,7 +55,14 @@ public class AppointmentServiceImpl implements AppointmentService {
             if (existing.getResponseJson() == null || existing.getAppointmentOrderId() == null) {
                 throw new BusinessException(ErrorCode.RETRYABLE_CONCURRENCY_ERROR);
             }
-            return deserialize(existing.getResponseJson());
+            AppointmentOrder appointment = appointmentOrderMapper.selectById(existing.getAppointmentOrderId());
+            if (appointment == null || !userId.equals(appointment.getUserId())
+                    || appointment.getAppointmentNo() == null) {
+                log.error("预约幂等记录关联异常，createRequestId={}, appointmentOrderId={}, userId={}",
+                        existing.getId(), existing.getAppointmentOrderId(), userId);
+                throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+            }
+            return new ReplayedAppointmentResponse(appointment.getId(), appointment.getAppointmentNo());
         }
     }
 
@@ -142,12 +147,4 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
     }
 
-    private CreateAppointmentResponse deserialize(String json) {
-        try {
-            return objectMapper.readValue(json, CreateAppointmentResponse.class);
-        } catch (JsonProcessingException exception) {
-            log.error("预约幂等响应无法解析", exception);
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        }
-    }
 }

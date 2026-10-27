@@ -19,6 +19,10 @@ public class Result<T> {
         return new Result<>(0, "success", data);
     }
 
+    public static <T> Result<T> success(String message, T data) {
+        return new Result<>(0, message, data);
+    }
+
     public static <T> Result<T> failure(ErrorCode errorCode) {
         return new Result<>(errorCode.getCode(), errorCode.getMessage(), null);
     }

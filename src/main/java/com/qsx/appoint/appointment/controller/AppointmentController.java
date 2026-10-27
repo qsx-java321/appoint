@@ -6,6 +6,7 @@ import com.qsx.appoint.common.Result;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -13,15 +14,20 @@ import java.util.List;
 /** 当前用户提交和查询预约单的入口。 */
 @RestController @RequestMapping("/api/v1/appointments") @RequiredArgsConstructor
 public class AppointmentController {
+    private static final String REPLAY_MESSAGE = "该请求已创建预约，请查询详情获取当前状态";
     private final AppointmentService appointmentService;
-    @PostMapping 
-    @ResponseStatus(HttpStatus.CREATED)
-    public Result<CreateAppointmentResponse> create(Authentication authentication,
-                                                    @RequestHeader("Idempotency-Key") String idempotencyKey,
-                                                    @Valid @RequestBody CreateAppointmentRequest request)
-     { 
-        return Result.success(appointmentService.create((Long) authentication.getPrincipal(), idempotencyKey, request));
-     }
+    @PostMapping
+    public ResponseEntity<Result<AppointmentCreationResult>> create(
+            Authentication authentication,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody CreateAppointmentRequest request) {
+        AppointmentCreationResult response = appointmentService.create(
+                (Long) authentication.getPrincipal(), idempotencyKey, request);
+        if (response instanceof ReplayedAppointmentResponse) {
+            return ResponseEntity.ok(Result.success(REPLAY_MESSAGE, response));
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(Result.success(response));
+    }
     @GetMapping("/{id}") 
     public Result<AppointmentResponse> get(Authentication authentication, @PathVariable Long id) 
         {

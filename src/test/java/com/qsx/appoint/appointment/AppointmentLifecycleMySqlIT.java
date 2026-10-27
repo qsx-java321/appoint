@@ -1,7 +1,9 @@
 package com.qsx.appoint.appointment;
 
+import com.qsx.appoint.appointment.dto.AppointmentCreationResult;
 import com.qsx.appoint.appointment.dto.CreateAppointmentRequest;
 import com.qsx.appoint.appointment.dto.CreateAppointmentResponse;
+import com.qsx.appoint.appointment.dto.ReplayedAppointmentResponse;
 import com.qsx.appoint.appointment.entity.AppointmentOrder;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.appointment.service.AppointmentService;
@@ -157,13 +159,17 @@ class AppointmentLifecycleMySqlIT {
         String key = UUID.randomUUID().toString();
 
         List<Object> outcomes = race(
-                () -> createAppointment(userId, patientId, scheduleId, key),
-                () -> createAppointment(userId, patientId, scheduleId, key));
+                () -> createAppointmentResult(userId, patientId, scheduleId, key),
+                () -> createAppointmentResult(userId, patientId, scheduleId, key));
 
-        assertThat(outcomes).allMatch(CreateAppointmentResponse.class::isInstance);
-        CreateAppointmentResponse first = (CreateAppointmentResponse) outcomes.get(0);
-        CreateAppointmentResponse second = (CreateAppointmentResponse) outcomes.get(1);
-        assertThat(second).usingRecursiveComparison().isEqualTo(first);
+        CreateAppointmentResponse created = (CreateAppointmentResponse) outcomes.stream()
+                .filter(CreateAppointmentResponse.class::isInstance).findFirst().orElseThrow();
+        ReplayedAppointmentResponse replayed = (ReplayedAppointmentResponse) outcomes.stream()
+                .filter(ReplayedAppointmentResponse.class::isInstance).findFirst().orElseThrow();
+        AppointmentOrder appointment = appointmentOrderMapper.selectById(created.getAppointmentOrderId());
+        assertThat(replayed.getAppointmentOrderId()).isEqualTo(created.getAppointmentOrderId());
+        assertThat(replayed.getAppointmentNo()).isEqualTo(appointment.getAppointmentNo());
+        assertThat(replayed.isReplayed()).isTrue();
         assertThat(appointmentOrderMapper.selectList(null)).filteredOn(order -> order.getUserId().equals(userId))
                 .hasSize(1);
     }
@@ -177,8 +183,8 @@ class AppointmentLifecycleMySqlIT {
         String key = UUID.randomUUID().toString();
 
         List<Object> outcomes = race(
-                () -> createAppointment(userId, patientId, firstScheduleId, key),
-                () -> createAppointment(userId, patientId, secondScheduleId, key));
+                () -> createAppointmentResult(userId, patientId, firstScheduleId, key),
+                () -> createAppointmentResult(userId, patientId, secondScheduleId, key));
 
         assertThat(outcomes.stream().filter(CreateAppointmentResponse.class::isInstance).count()).isEqualTo(1);
         BusinessException conflict = (BusinessException) outcomes.stream()
@@ -272,6 +278,12 @@ class AppointmentLifecycleMySqlIT {
     }
 
     private CreateAppointmentResponse createAppointment(Long userId, Long patientId, Long scheduleId, String key) {
+        AppointmentCreationResult result = createAppointmentResult(userId, patientId, scheduleId, key);
+        assertThat(result).isInstanceOf(CreateAppointmentResponse.class);
+        return (CreateAppointmentResponse) result;
+    }
+
+    private AppointmentCreationResult createAppointmentResult(Long userId, Long patientId, Long scheduleId, String key) {
         CreateAppointmentRequest request = new CreateAppointmentRequest();
         request.setScheduleId(scheduleId);
         request.setPatientId(patientId);

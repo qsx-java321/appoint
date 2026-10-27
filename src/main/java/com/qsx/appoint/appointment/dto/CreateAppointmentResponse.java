@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 /** 返回预约与支付单的 ID，前端据此进入模拟支付步骤。 */
 @Getter
-public class CreateAppointmentResponse {
+public final class CreateAppointmentResponse implements AppointmentCreationResult {
     private final Long appointmentOrderId;
     private final Long paymentOrderId;
     private final String appointmentStatus;

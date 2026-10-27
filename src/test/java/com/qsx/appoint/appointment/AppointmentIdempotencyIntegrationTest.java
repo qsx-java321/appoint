@@ -35,7 +35,7 @@ class AppointmentIdempotencyIntegrationTest {
     @Autowired private AppointmentLifecycleService lifecycleService;
 
     @Test
-    void sameKeyReplaysFirstResponseAndAppointmentKeepsPatientSnapshot() throws Exception {
+    void sameKeyReturnsReplayReceiptAndAppointmentKeepsPatientSnapshot() throws Exception {
         String token = registerAndLogin();
         String patientId = createPatient(token, "原姓名", "110105199001010010");
         Long scheduleId = createSchedule(LocalDate.of(2099, 8, 1), LocalTime.of(8, 0));
@@ -43,11 +43,15 @@ class AppointmentIdempotencyIntegrationTest {
         String request = "{\"scheduleId\":\"" + scheduleId + "\",\"patientId\":\"" + patientId + "\"}";
 
         String first = createAppointment(token, key, request);
-        String replay = createAppointment(token, key.toLowerCase(), request);
-        assertThat(objectMapper.readTree(replay).path("data"))
-                .isEqualTo(objectMapper.readTree(first).path("data"));
+        JsonNode firstData = objectMapper.readTree(first).path("data");
+        assertThat(firstData.size()).isEqualTo(6);
+        assertThat(firstData.has("replayed")).isFalse();
+        assertThat(firstData.path("appointmentStatus").asText()).isEqualTo("PENDING_PAYMENT");
+        assertThat(firstData.path("paymentStatus").asText()).isEqualTo("UNPAID");
+        String appointmentId = firstData.path("appointmentOrderId").asText();
+        String appointmentNo = appointmentOrderMapper.selectById(Long.valueOf(appointmentId)).getAppointmentNo();
+        assertReplayReceipt(replayAppointment(token, key.toLowerCase(), request), appointmentId, appointmentNo);
 
-        String appointmentId = objectMapper.readTree(first).at("/data/appointmentOrderId").asText();
         mockMvc.perform(patch("/api/v1/patients/" + patientId)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -60,9 +64,7 @@ class AppointmentIdempotencyIntegrationTest {
                 .andExpect(jsonPath("$.data.patient.name").value("原姓名"))
                 .andExpect(jsonPath("$.data.patient.documentNoMasked").value("110105********0010"))
                 .andExpect(jsonPath("$.data.patient.contactEmail").value("patient@example.com"));
-        String afterUpdateReplay = createAppointment(token, key, request);
-        assertThat(objectMapper.readTree(afterUpdateReplay).path("data"))
-                .isEqualTo(objectMapper.readTree(first).path("data"));
+        assertReplayReceipt(replayAppointment(token, key, request), appointmentId, appointmentNo);
     }
 
     @Test
@@ -127,7 +129,7 @@ class AppointmentIdempotencyIntegrationTest {
     }
 
     @Test
-    void replayAfterCancellationAndPatientDisableStillReturnsInitialResponse() throws Exception {
+    void replayAfterCancellationAndPatientDisableStillReturnsOriginalAppointmentReceipt() throws Exception {
         String token = registerAndLogin();
         String patientId = createPatient(token, "就诊人", "110105199001010010");
         Long scheduleId = createSchedule(LocalDate.of(2099, 8, 5), LocalTime.of(8, 0));
@@ -135,6 +137,7 @@ class AppointmentIdempotencyIntegrationTest {
         String body = appointmentBody(scheduleId, patientId);
         String first = createAppointment(token, key, body);
         String appointmentId = objectMapper.readTree(first).at("/data/appointmentOrderId").asText();
+        String appointmentNo = appointmentOrderMapper.selectById(Long.valueOf(appointmentId)).getAppointmentNo();
 
         mockMvc.perform(post("/api/v1/appointments/" + appointmentId + "/cancel")
                         .header("Authorization", "Bearer " + token))
@@ -142,13 +145,11 @@ class AppointmentIdempotencyIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("CANCELLED"));
         setPatientEnabled(token, patientId, false);
 
-        String replay = createAppointment(token, key, body);
-        assertThat(objectMapper.readTree(replay).path("data"))
-                .isEqualTo(objectMapper.readTree(first).path("data"));
+        assertReplayReceipt(replayAppointment(token, key, body), appointmentId, appointmentNo);
     }
 
     @Test
-    void replayAfterPaymentOrExpirationStillReturnsInitialResponse() throws Exception {
+    void replayAfterPaymentOrExpirationStillReturnsOriginalAppointmentReceipt() throws Exception {
         String token = registerAndLogin();
         String patientId = createPatient(token, "就诊人", "110105199001010010");
 
@@ -156,13 +157,14 @@ class AppointmentIdempotencyIntegrationTest {
         String paidKey = UUID.randomUUID().toString();
         String paidBody = appointmentBody(paidScheduleId, patientId);
         String paidFirst = createAppointment(token, paidKey, paidBody);
+        String paidAppointmentId = objectMapper.readTree(paidFirst).at("/data/appointmentOrderId").asText();
+        String paidAppointmentNo = appointmentOrderMapper.selectById(Long.valueOf(paidAppointmentId)).getAppointmentNo();
         String paymentId = objectMapper.readTree(paidFirst).at("/data/paymentOrderId").asText();
         mockMvc.perform(post("/api/v1/payments/" + paymentId + "/simulate-success")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.appointmentStatus").value("CONFIRMED"));
-        assertThat(objectMapper.readTree(createAppointment(token, paidKey, paidBody)).path("data"))
-                .isEqualTo(objectMapper.readTree(paidFirst).path("data"));
+        assertReplayReceipt(replayAppointment(token, paidKey, paidBody), paidAppointmentId, paidAppointmentNo);
 
         Long expiredScheduleId = createSchedule(LocalDate.of(2099, 8, 7), LocalTime.of(9, 0));
         String expiredKey = UUID.randomUUID().toString();
@@ -170,11 +172,11 @@ class AppointmentIdempotencyIntegrationTest {
         String expiredFirst = createAppointment(token, expiredKey, expiredBody);
         Long appointmentId = objectMapper.readTree(expiredFirst).at("/data/appointmentOrderId").asLong();
         AppointmentOrder appointment = appointmentOrderMapper.selectById(appointmentId);
+        String appointmentNo = appointment.getAppointmentNo();
         appointment.setPaymentExpiresAt(appointment.getCreatedAt().minusSeconds(1));
         appointmentOrderMapper.updateById(appointment);
         assertThat(lifecycleService.expireIfDue(appointmentId)).isTrue();
-        assertThat(objectMapper.readTree(createAppointment(token, expiredKey, expiredBody)).path("data"))
-                .isEqualTo(objectMapper.readTree(expiredFirst).path("data"));
+        assertReplayReceipt(replayAppointment(token, expiredKey, expiredBody), appointmentId.toString(), appointmentNo);
     }
 
     @Test
@@ -203,6 +205,25 @@ class AppointmentIdempotencyIntegrationTest {
                         .header("Idempotency-Key", key)
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+    }
+
+    private String replayAppointment(String token, String key, String body) throws Exception {
+        return mockMvc.perform(post("/api/v1/appointments")
+                        .header("Authorization", "Bearer " + token)
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    }
+
+    private void assertReplayReceipt(String response, String appointmentId, String appointmentNo) throws Exception {
+        JsonNode root = objectMapper.readTree(response);
+        assertThat(root.path("code").asInt()).isZero();
+        assertThat(root.path("message").asText()).isEqualTo("该请求已创建预约，请查询详情获取当前状态");
+        JsonNode data = root.path("data");
+        assertThat(data.size()).isEqualTo(3);
+        assertThat(data.path("appointmentOrderId").asText()).isEqualTo(appointmentId);
+        assertThat(data.path("appointmentNo").asText()).isEqualTo(appointmentNo);
+        assertThat(data.path("replayed").asBoolean()).isTrue();
     }
 
     private String createPatient(String token, String name, String documentNo) throws Exception {

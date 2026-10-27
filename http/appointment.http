@@ -61,7 +61,7 @@ client.global.set("paidAppointmentId", response.body.data.appointmentOrderId);
 client.global.set("paidPaymentId", response.body.data.paymentOrderId);
 %}
 
-### A：模拟网络重试，沿用同一键，仍返回 HTTP 201 和首次响应
+### A：模拟网络重试，沿用同一键，返回 HTTP 200 和原预约简短回执
 POST {{baseUrl}}/api/v1/appointments
 Authorization: Bearer {{accessToken}}
 Idempotency-Key: {{paidKey}}
