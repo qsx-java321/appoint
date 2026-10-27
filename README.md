@@ -1,8 +1,8 @@
 # 医院预约系统
 
-这是一个用于学习 Spring Boot、JWT 鉴权、关系数据库事务与预约状态流转的后端项目，目前没有业务前端或真实支付渠道。用户可以注册、登录，按医院 → 科室 → 医生 → 未来可用号源查询资源，提交预约后查看凭证，在支付期限内模拟支付或取消；到期未支付的预约由后台关闭并释放号源。
+这是一个用于学习 Spring Boot、JWT 鉴权、关系数据库事务与预约状态流转的后端项目，目前没有业务前端或真实支付渠道。用户可以注册、登录、维护就诊人，按医院 → 科室 → 医生 → 未来可用号源查询资源，选择就诊人并使用幂等键提交预约；随后可查看完整凭证，在支付期限内模拟支付或取消，到期未支付的预约由后台关闭并释放号源。
 
-业务规则与各状态的实际含义见 [预约业务流程](docs/business-flow.md)，请求、响应字段及错误契约见 [HTTP API](docs/api.md)。领域词汇见 [术语表](GLOSSARY.md)，关键事务选择见 [ADR 0001](docs/adr/0001-appointment-lifecycle-transactions.md)。
+业务规则与各状态的实际含义见 [预约业务流程](docs/business-flow.md)，请求、响应字段及错误契约见 [HTTP API](docs/api.md)。领域词汇见 [术语表](GLOSSARY.md)，关键事务选择见 [ADR 0001](docs/adr/0001-appointment-lifecycle-transactions.md) 和 [ADR 0002](docs/adr/0002-patient-snapshot-and-idempotent-creation.md)。
 
 ## 技术栈
 
@@ -30,13 +30,13 @@ set +a
 ./mvnw spring-boot:run
 ```
 
-默认 API 地址为 `http://localhost:8080`。Flyway 首次启动会建表，写入 `USER`、`ADMIN` 两个**角色**，以及示例医院、科室、医生和三个日期在 2099 年的号源；**不会创建演示用户账号**。先调用注册接口，再使用自己的账号登录。`.env` 是本地文件，已被 Git 忽略；不要把真实密钥写入仓库。
+默认 API 地址为 `http://localhost:8080`。Flyway 使用唯一的 `V1__init_schema.sql` 从空库建立最终结构，写入 `USER`、`ADMIN` 两个**角色**，以及示例医院、科室、医生和三个日期在 2099 年的号源；**不会创建演示用户、就诊人或订单**。该脚本不负责旧库升级。先调用注册接口，再使用自己的账号登录。`.env` 是本地文件，已被 Git 忽略；不要把真实密钥写入仓库。
 
 ## 从用户角度验证
 
 1. 在 [http/auth.http](http/auth.http) 注册、登录，取得 Bearer Token。
-2. 在 [http/appointment.http](http/appointment.http) 查询医院、科室、医生和未来可用号源，提交预约。
-3. 用返回的 `appointmentOrderId` 查询详情或“我的预约”，核对医院地址、就诊日期与时段、医生资料、支付截止时间。
+2. 在 [http/appointment.http](http/appointment.http) 创建就诊人，查询医院、科室、医生和未来可用号源，选择就诊人并携带 UUID 幂等键提交预约。
+3. 用返回的 `appointmentOrderId` 查询详情或“我的预约”，核对就诊人快照、医院地址、就诊日期与时段、医生资料、支付截止时间。
 4. 在不同的待支付预约上分别模拟支付、主动取消和等待超时；取消或超时释放的号源可再次预约。
 
 业务讲解可直接打开 [交互式业务流程说明页](docs/business-flow-demo.html)。该文件是独立文档，只使用示例数据，不属于应用前端，也不会访问业务 API。本轮自动化与真实 HTTP 结果见 [验证报告](docs/verification-report.md)。
@@ -49,7 +49,8 @@ set +a
 
 - 支付仅由 `POST /api/v1/payments/{id}/simulate-success` 模拟成功，不接入支付渠道，也没有费用计算。
 - 只能取消待支付预约；已确认预约没有取消、退款或改签流程。
-- 预约凭证记录的是注册用户当前提交的预约，没有就诊人管理。
+- 预约只能使用当前账号已启用的就诊人；证件号码做格式、日期和校验位校验，不核验号码是否属于提交者。
+- 成功创建使用过的幂等键长期保留；重新预约必须生成新键。
 - 查询只读：订单到期后、扫描关闭前，数据库中可暂留 `PENDING_PAYMENT + UNPAID + HELD`，但支付已经不可用。默认扫描间隔为 30 秒；故障或积压时释放可能更晚。
 - 没有业务前端、管理后台、登出、Token 黑名单或 Redis/RabbitMQ 业务接入。
 

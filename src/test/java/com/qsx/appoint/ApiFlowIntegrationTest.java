@@ -9,6 +9,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -93,6 +95,7 @@ class ApiFlowIntegrationTest {
                 .andExpect(jsonPath("$.data.user.id").isString())
                 .andReturn().getResponse().getContentAsString();
         String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
+        String patientId = createPatient(token);
 
         mockMvc.perform(get("/api/v1/hospitals").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
@@ -100,7 +103,9 @@ class ApiFlowIntegrationTest {
                 .andExpect(jsonPath("$.data[0].id").value("1"));
 
         mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"scheduleId\":\"2\"}"))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"scheduleId\":\"2\",\"patientId\":\"" + patientId + "\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.appointmentOrderId").isString())
                 .andExpect(jsonPath("$.data.paymentOrderId").isString());
@@ -114,9 +119,12 @@ class ApiFlowIntegrationTest {
         String loginResult = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andReturn().getResponse().getContentAsString();
         String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
+        String patientId = createPatient(token);
 
         String appointmentResult = mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"scheduleId\":1}"))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"scheduleId\":1,\"patientId\":\"" + patientId + "\"}"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.data.appointmentStatus").value("PENDING_PAYMENT"))
                 .andReturn().getResponse().getContentAsString();
         JsonNode data = objectMapper.readTree(appointmentResult).get("data");
@@ -129,7 +137,20 @@ class ApiFlowIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.paymentStatus").value("PAID"));
 
         mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"scheduleId\":1}"))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"scheduleId\":1,\"patientId\":\"" + patientId + "\"}"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4002));
+    }
+
+    private String createPatient(String token) throws Exception {
+        String response = mockMvc.perform(post("/api/v1/patients")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"流程就诊人\",\"documentType\":\"RESIDENT_ID_CARD\"," +
+                                "\"documentNo\":\"110105199001010010\",\"contactPhone\":\"13800138000\"," +
+                                "\"contactEmail\":\"patient@example.com\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(response).at("/data/id").asText();
     }
 }

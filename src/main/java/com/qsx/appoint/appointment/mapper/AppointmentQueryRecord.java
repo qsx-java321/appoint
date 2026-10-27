@@ -15,6 +15,12 @@ public class AppointmentQueryRecord {
     private String appointmentNo;
     private Long appointmentUserId;
     private Long scheduleId;
+    private Long patientId;
+    private String patientName;
+    private String patientDocumentType;
+    private String patientDocumentNo;
+    private String patientContactPhone;
+    private String patientContactEmail;
     private Long doctorId;
     private String doctorNo;
     private String doctorName;

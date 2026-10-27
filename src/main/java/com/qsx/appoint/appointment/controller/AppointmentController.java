@@ -16,9 +16,11 @@ public class AppointmentController {
     private final AppointmentService appointmentService;
     @PostMapping 
     @ResponseStatus(HttpStatus.CREATED)
-    public Result<CreateAppointmentResponse> create(Authentication authentication, @Valid @RequestBody CreateAppointmentRequest request)
+    public Result<CreateAppointmentResponse> create(Authentication authentication,
+                                                    @RequestHeader("Idempotency-Key") String idempotencyKey,
+                                                    @Valid @RequestBody CreateAppointmentRequest request)
      { 
-        return Result.success(appointmentService.create((Long) authentication.getPrincipal(), request));
+        return Result.success(appointmentService.create((Long) authentication.getPrincipal(), idempotencyKey, request));
      }
     @GetMapping("/{id}") 
     public Result<AppointmentResponse> get(Authentication authentication, @PathVariable Long id) 

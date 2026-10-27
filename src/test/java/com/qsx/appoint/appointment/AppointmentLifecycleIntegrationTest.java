@@ -177,8 +177,9 @@ class AppointmentLifecycleIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[?(@.id == '" + schedule.getId() + "')]").isEmpty());
         mockMvc.perform(post("/api/v1/appointments").header("Authorization", bearer(user))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scheduleId\":" + schedule.getId() + "}"))
+                        .content("{\"scheduleId\":" + schedule.getId() + ",\"patientId\":" + user.patientId() + "}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(4005));
     }
@@ -206,14 +207,23 @@ class AppointmentLifecycleIntegrationTest {
         String response = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        return new AuthenticatedUser(objectMapper.readTree(response).at("/data/accessToken").asText());
+        String token = objectMapper.readTree(response).at("/data/accessToken").asText();
+        String patientResponse = mockMvc.perform(post("/api/v1/patients")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"测试就诊人\",\"documentType\":\"RESIDENT_ID_CARD\"," +
+                                "\"documentNo\":\"110105199001010010\",\"contactPhone\":\"13800138000\"," +
+                                "\"contactEmail\":\"patient@example.com\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        return new AuthenticatedUser(token, objectMapper.readTree(patientResponse).at("/data/id").asLong());
     }
 
     private CreatedAppointment createAppointment(AuthenticatedUser user, Long scheduleId) throws Exception {
         String response = mockMvc.perform(post("/api/v1/appointments")
                         .header("Authorization", bearer(user))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scheduleId\":" + scheduleId + "}"))
+                        .content("{\"scheduleId\":" + scheduleId + ",\"patientId\":" + user.patientId() + "}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.paymentExpiresAt").isNotEmpty())
                 .andExpect(jsonPath("$.data.serverTime").isNotEmpty())
@@ -237,6 +247,6 @@ class AppointmentLifecycleIntegrationTest {
         return "Bearer " + user.token();
     }
 
-    private record AuthenticatedUser(String token) { }
+    private record AuthenticatedUser(String token, Long patientId) { }
     private record CreatedAppointment(Long appointmentId, Long paymentId) { }
 }

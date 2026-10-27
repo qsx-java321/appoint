@@ -14,6 +14,12 @@ public class AppointmentOrder {
     private String appointmentNo;
     private Long userId;
     private Long scheduleId;
+    private Long patientId;
+    private String patientName;
+    private String patientDocumentType;
+    private String patientDocumentNo;
+    private String patientContactPhone;
+    private String patientContactEmail;
     private Long doctorId;
     private String doctorNo;
     private String doctorName;

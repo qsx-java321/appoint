@@ -12,6 +12,12 @@ import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.payment.entity.PaymentOrder;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
 import com.qsx.appoint.payment.service.PaymentService;
+import com.qsx.appoint.patient.entity.Patient;
+import com.qsx.appoint.patient.mapper.PatientMapper;
+import com.qsx.appoint.patient.dto.CreatePatientRequest;
+import com.qsx.appoint.patient.dto.UpdatePatientRequest;
+import com.qsx.appoint.patient.dto.PatientResponse;
+import com.qsx.appoint.patient.service.PatientService;
 import com.qsx.appoint.user.entity.User;
 import com.qsx.appoint.user.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
@@ -60,6 +66,8 @@ class AppointmentLifecycleMySqlIT {
     @Autowired private PaymentOrderMapper paymentOrderMapper;
     @Autowired private ScheduleMapper scheduleMapper;
     @Autowired private UserMapper userMapper;
+    @Autowired private PatientMapper patientMapper;
+    @Autowired private PatientService patientService;
 
     @Test
     void paymentAndCancellationProduceOneConsistentTerminalState() throws Exception {
@@ -141,6 +149,81 @@ class AppointmentLifecycleMySqlIT {
         assertThat(scheduleMapper.selectById(scheduleId).getStatus()).isEqualTo("AVAILABLE");
     }
 
+    @Test
+    void concurrentSameIdempotencyKeyReplaysOneCommittedResponse() throws Exception {
+        Long userId = createUser();
+        Long patientId = createPatient(userId);
+        Long scheduleId = createSchedule();
+        String key = UUID.randomUUID().toString();
+
+        List<Object> outcomes = race(
+                () -> createAppointment(userId, patientId, scheduleId, key),
+                () -> createAppointment(userId, patientId, scheduleId, key));
+
+        assertThat(outcomes).allMatch(CreateAppointmentResponse.class::isInstance);
+        CreateAppointmentResponse first = (CreateAppointmentResponse) outcomes.get(0);
+        CreateAppointmentResponse second = (CreateAppointmentResponse) outcomes.get(1);
+        assertThat(second).usingRecursiveComparison().isEqualTo(first);
+        assertThat(appointmentOrderMapper.selectList(null)).filteredOn(order -> order.getUserId().equals(userId))
+                .hasSize(1);
+    }
+
+    @Test
+    void concurrentDifferentPayloadsWithSameKeyYieldOneConflict() throws Exception {
+        Long userId = createUser();
+        Long patientId = createPatient(userId);
+        Long firstScheduleId = createSchedule();
+        Long secondScheduleId = createSchedule();
+        String key = UUID.randomUUID().toString();
+
+        List<Object> outcomes = race(
+                () -> createAppointment(userId, patientId, firstScheduleId, key),
+                () -> createAppointment(userId, patientId, secondScheduleId, key));
+
+        assertThat(outcomes.stream().filter(CreateAppointmentResponse.class::isInstance).count()).isEqualTo(1);
+        BusinessException conflict = (BusinessException) outcomes.stream()
+                .filter(BusinessException.class::isInstance).findFirst().orElseThrow();
+        assertThat(conflict.getErrorCode()).isEqualTo(com.qsx.appoint.common.ErrorCode.IDEMPOTENCY_CONFLICT);
+    }
+
+    @Test
+    void concurrentDuplicatePatientDocumentIsRejectedByDatabaseConstraint() throws Exception {
+        Long userId = createUser();
+        CreatePatientRequest request = patientRequest("并发就诊人");
+
+        List<Object> outcomes = race(
+                () -> patientService.create(userId, request),
+                () -> patientService.create(userId, request));
+
+        assertThat(outcomes.stream().filter(PatientResponse.class::isInstance).count()).isEqualTo(1);
+        BusinessException duplicate = (BusinessException) outcomes.stream()
+                .filter(BusinessException.class::isInstance).findFirst().orElseThrow();
+        assertThat(duplicate.getErrorCode()).isEqualTo(com.qsx.appoint.common.ErrorCode.PATIENT_DOCUMENT_EXISTS);
+    }
+
+    @Test
+    void patientUpdateAndAppointmentCreationSerializeToACompleteSnapshot() throws Exception {
+        Long userId = createUser();
+        Long patientId = createPatient(userId);
+        Long scheduleId = createSchedule();
+        UpdatePatientRequest update = new UpdatePatientRequest();
+        update.setName("修改后姓名");
+
+        List<Object> outcomes = race(
+                () -> createAppointment(userId, patientId, scheduleId, UUID.randomUUID().toString()),
+                () -> patientService.updateOwned(userId, patientId, update));
+
+        assertThat(outcomes).anyMatch(CreateAppointmentResponse.class::isInstance);
+        assertThat(outcomes).anyMatch(PatientResponse.class::isInstance);
+        CreateAppointmentResponse created = (CreateAppointmentResponse) outcomes.stream()
+                .filter(CreateAppointmentResponse.class::isInstance).findFirst().orElseThrow();
+        AppointmentOrder snapshot = appointmentOrderMapper.selectById(created.getAppointmentOrderId());
+        assertThat(snapshot.getPatientName()).isIn("MySQL 就诊人", "修改后姓名");
+        assertThat(snapshot.getPatientDocumentNo()).isEqualTo("110105199001010010");
+        assertThat(snapshot.getPatientContactPhone()).isEqualTo("13800138000");
+        assertThat(patientMapper.selectById(patientId).getName()).isEqualTo("修改后姓名");
+    }
+
     private List<Object> race(Callable<Object> first, Callable<Object> second) throws Exception {
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
@@ -185,8 +268,36 @@ class AppointmentLifecycleMySqlIT {
     }
 
     private CreateAppointmentResponse createAppointment(Long userId, Long scheduleId) {
+        return createAppointment(userId, createPatient(userId), scheduleId, UUID.randomUUID().toString());
+    }
+
+    private CreateAppointmentResponse createAppointment(Long userId, Long patientId, Long scheduleId, String key) {
         CreateAppointmentRequest request = new CreateAppointmentRequest();
         request.setScheduleId(scheduleId);
-        return appointmentService.create(userId, request);
+        request.setPatientId(patientId);
+        return appointmentService.create(userId, key, request);
+    }
+
+    private Long createPatient(Long userId) {
+        Patient patient = new Patient();
+        patient.setUserId(userId);
+        patient.setName("MySQL 就诊人");
+        patient.setDocumentType("RESIDENT_ID_CARD");
+        patient.setDocumentNo("110105199001010010");
+        patient.setContactPhone("13800138000");
+        patient.setContactEmail("patient@example.com");
+        patient.setEnabled(true);
+        patientMapper.insert(patient);
+        return patient.getId();
+    }
+
+    private CreatePatientRequest patientRequest(String name) {
+        CreatePatientRequest request = new CreatePatientRequest();
+        request.setName(name);
+        request.setDocumentType("RESIDENT_ID_CARD");
+        request.setDocumentNo("110105199001010010");
+        request.setContactPhone("13800138000");
+        request.setContactEmail("patient@example.com");
+        return request;
     }
 }

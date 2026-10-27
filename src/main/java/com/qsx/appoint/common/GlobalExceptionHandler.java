@@ -3,9 +3,13 @@ package com.qsx.appoint.common;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -22,14 +26,24 @@ public class GlobalExceptionHandler {
                 .body(Result.failure(exception.getErrorCode()));
     }
 
-    @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class})
+    @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class,
+            MissingRequestHeaderException.class, MethodArgumentTypeMismatchException.class,
+            HttpMessageNotReadableException.class})
     public ResponseEntity<Result<Void>> handleValidation(Exception exception) {
         return ResponseEntity.badRequest().body(Result.failure(ErrorCode.VALIDATION_ERROR));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<Result<Void>> handleDuplicate(DataIntegrityViolationException exception) {
-        return ResponseEntity.status(ErrorCode.EMAIL_EXISTS.getHttpStatus()).body(Result.failure(ErrorCode.EMAIL_EXISTS));
+    public ResponseEntity<Result<Void>> handleIntegrity(DataIntegrityViolationException exception) {
+        log.error("数据库完整性约束失败", exception);
+        return ResponseEntity.status(ErrorCode.INTERNAL_ERROR.getHttpStatus()).body(Result.failure(ErrorCode.INTERNAL_ERROR));
+    }
+
+    @ExceptionHandler(PessimisticLockingFailureException.class)
+    public ResponseEntity<Result<Void>> handleLockFailure(PessimisticLockingFailureException exception) {
+        log.warn("数据库并发锁冲突，请求可重试", exception);
+        return ResponseEntity.status(ErrorCode.RETRYABLE_CONCURRENCY_ERROR.getHttpStatus())
+                .body(Result.failure(ErrorCode.RETRYABLE_CONCURRENCY_ERROR));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

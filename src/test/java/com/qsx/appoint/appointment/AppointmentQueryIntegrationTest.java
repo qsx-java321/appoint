@@ -198,14 +198,23 @@ class AppointmentQueryIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         String token = objectMapper.readTree(loginResponse).at("/data/accessToken").asText();
-        return new AuthenticatedUser(userId, token);
+        String patientResponse = mockMvc.perform(post("/api/v1/patients")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"查询就诊人\",\"documentType\":\"RESIDENT_ID_CARD\"," +
+                                "\"documentNo\":\"110105199001010010\",\"contactPhone\":\"13800138000\"," +
+                                "\"contactEmail\":\"patient@example.com\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        return new AuthenticatedUser(userId, token,
+                objectMapper.readTree(patientResponse).at("/data/id").asLong());
     }
 
     private CreatedAppointment createAppointment(AuthenticatedUser user, Long scheduleId) throws Exception {
         String response = mockMvc.perform(post("/api/v1/appointments")
                         .header("Authorization", bearer(user))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scheduleId\":" + scheduleId + "}"))
+                        .content("{\"scheduleId\":" + scheduleId + ",\"patientId\":" + user.patientId() + "}"))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         JsonNode data = objectMapper.readTree(response).get("data");
@@ -227,6 +236,6 @@ class AppointmentQueryIntegrationTest {
         return "Bearer " + user.token();
     }
 
-    private record AuthenticatedUser(Long id, String token) { }
+    private record AuthenticatedUser(Long id, String token, Long patientId) { }
     private record CreatedAppointment(Long appointmentOrderId, Long paymentOrderId, Long scheduleId) { }
 }

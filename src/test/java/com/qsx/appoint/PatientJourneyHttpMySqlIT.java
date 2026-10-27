@@ -21,6 +21,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,6 +69,7 @@ class PatientJourneyHttpMySqlIT {
         assertThat(wrongPassword.json().path("code").asInt()).isEqualTo(2003);
 
         String ownerToken = login(ownerEmail);
+        String ownerPatientId = createPatient(ownerToken);
         HttpResult loginPayload = send("POST", "/api/v1/auth/login", null,
                 credentials(ownerEmail, "password123"));
         assertThat(loginPayload.json().at("/data/expiresIn").isNumber()).isTrue();
@@ -86,22 +88,31 @@ class PatientJourneyHttpMySqlIT {
         assertThat(schedules.json().path("data").findValuesAsText("id"))
                 .contains(paidScheduleId.toString(), cancelledScheduleId.toString());
 
-        HttpResult invalidAppointment = send("POST", "/api/v1/appointments", ownerToken, "{}");
+        HttpResult invalidAppointment = send("POST", "/api/v1/appointments", ownerToken, "{}",
+                Map.of("Idempotency-Key", UUID.randomUUID().toString()));
         assertThat(invalidAppointment.status()).isEqualTo(400);
         assertThat(invalidAppointment.json().path("code").asInt()).isEqualTo(1001);
 
-        HttpResult paidAppointment = createAppointment(ownerToken, paidScheduleId);
+        HttpResult paidAppointment = createAppointment(ownerToken, ownerPatientId, paidScheduleId);
         String paidAppointmentId = paidAppointment.json().at("/data/appointmentOrderId").asText();
         String paymentId = paidAppointment.json().at("/data/paymentOrderId").asText();
         assertThat(paidAppointment.json().at("/data/appointmentOrderId").isTextual()).isTrue();
         assertThat(paidAppointment.json().at("/data/paymentStatus").asText()).isEqualTo("UNPAID");
-        assertThat(send("GET", "/api/v1/appointments/" + paidAppointmentId, ownerToken, null).status()).isEqualTo(200);
+        HttpResult paidDetail = send("GET", "/api/v1/appointments/" + paidAppointmentId, ownerToken, null);
+        assertThat(paidDetail.status()).isEqualTo(200);
+        assertThat(paidDetail.json().at("/data/patient/id").asText()).isEqualTo(ownerPatientId);
+        assertThat(paidDetail.json().at("/data/patient/name").asText()).isEqualTo("HTTP 就诊人");
+        assertThat(paidDetail.json().at("/data/patient/documentNoMasked").asText())
+                .isEqualTo("110105********0010");
+        assertThat(paidDetail.json().at("/data/patient/contactEmail").asText())
+                .isEqualTo("patient@example.com");
         assertThat(send("GET", "/api/v1/appointments/my", ownerToken, null).json().path("data")).hasSize(1);
 
         String otherEmail = "http-other-" + UUID.randomUUID() + "@example.com";
         register(otherEmail);
         String otherToken = login(otherEmail);
-        HttpResult occupied = createAppointment(otherToken, paidScheduleId);
+        String otherPatientId = createPatient(otherToken);
+        HttpResult occupied = createAppointment(otherToken, otherPatientId, paidScheduleId);
         assertThat(occupied.status()).isEqualTo(409);
         assertThat(occupied.json().path("code").asInt()).isEqualTo(4002);
         assertThat(send("GET", "/api/v1/appointments/" + paidAppointmentId, otherToken, null).status())
@@ -117,7 +128,7 @@ class PatientJourneyHttpMySqlIT {
         assertThat(confirmedCancel.status()).isEqualTo(409);
         assertThat(confirmedCancel.json().path("code").asInt()).isEqualTo(4003);
 
-        HttpResult toCancel = createAppointment(ownerToken, cancelledScheduleId);
+        HttpResult toCancel = createAppointment(ownerToken, ownerPatientId, cancelledScheduleId);
         String cancelledAppointmentId = toCancel.json().at("/data/appointmentOrderId").asText();
         HttpResult cancelled = send("POST", "/api/v1/appointments/" + cancelledAppointmentId + "/cancel",
                 ownerToken, null);
@@ -126,7 +137,7 @@ class PatientJourneyHttpMySqlIT {
         assertThat(send("POST", "/api/v1/appointments/" + cancelledAppointmentId + "/cancel",
                 ownerToken, null).status()).isEqualTo(200);
 
-        HttpResult rebooked = createAppointment(otherToken, cancelledScheduleId);
+        HttpResult rebooked = createAppointment(otherToken, otherPatientId, cancelledScheduleId);
         assertThat(rebooked.status()).isEqualTo(201);
         assertThat(rebooked.json().at("/data/appointmentStatus").asText()).isEqualTo("PENDING_PAYMENT");
     }
@@ -136,8 +147,9 @@ class PatientJourneyHttpMySqlIT {
         String email = "http-expiration-" + UUID.randomUUID() + "@example.com";
         register(email);
         String token = login(email);
+        String patientId = createPatient(token);
         Long scheduleId = createSchedule(LocalDate.of(2099, 7, 2), LocalTime.of(10, 0));
-        HttpResult created = createAppointment(token, scheduleId);
+        HttpResult created = createAppointment(token, patientId, scheduleId);
         assertThat(created.status()).isEqualTo(201);
         String appointmentId = created.json().at("/data/appointmentOrderId").asText();
 
@@ -165,9 +177,19 @@ class PatientJourneyHttpMySqlIT {
         return response.json().at("/data/accessToken").asText();
     }
 
-    private HttpResult createAppointment(String token, Long scheduleId) throws Exception {
+    private HttpResult createAppointment(String token, String patientId, Long scheduleId) throws Exception {
         return send("POST", "/api/v1/appointments", token,
-                "{\"scheduleId\":\"" + scheduleId + "\"}");
+                "{\"scheduleId\":\"" + scheduleId + "\",\"patientId\":\"" + patientId + "\"}",
+                Map.of("Idempotency-Key", UUID.randomUUID().toString()));
+    }
+
+    private String createPatient(String token) throws Exception {
+        HttpResult response = send("POST", "/api/v1/patients", token,
+                "{\"name\":\"HTTP 就诊人\",\"documentType\":\"RESIDENT_ID_CARD\"," +
+                        "\"documentNo\":\"110105199001010010\",\"contactPhone\":\"13800138000\"," +
+                        "\"contactEmail\":\"patient@example.com\"}");
+        assertThat(response.status()).isEqualTo(201);
+        return response.json().at("/data/id").asText();
     }
 
     private String credentials(String email, String password) {
@@ -186,9 +208,15 @@ class PatientJourneyHttpMySqlIT {
     }
 
     private HttpResult send(String method, String path, String token, String body) throws Exception {
+        return send(method, path, token, body, Map.of());
+    }
+
+    private HttpResult send(String method, String path, String token, String body,
+                            Map<String, String> extraHeaders) throws Exception {
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                 .header("Accept", "application/json");
         if (token != null) builder.header("Authorization", "Bearer " + token);
+        extraHeaders.forEach(builder::header);
         if (body != null) {
             builder.header("Content-Type", "application/json")
                     .method(method, HttpRequest.BodyPublishers.ofString(body));

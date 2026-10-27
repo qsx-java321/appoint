@@ -19,7 +19,11 @@ public enum ErrorCode {
     SCHEDULE_UNAVAILABLE(4002, "该号源已不可预约", HttpStatus.CONFLICT),
     ORDER_STATE_ERROR(4003, "订单当前状态不允许该操作", HttpStatus.CONFLICT),
     PAYMENT_EXPIRED(4004, "支付期限已过", HttpStatus.CONFLICT),
-    SCHEDULE_STARTED(4005, "该号源已开始就诊", HttpStatus.CONFLICT);
+    SCHEDULE_STARTED(4005, "该号源已开始就诊", HttpStatus.CONFLICT),
+    PATIENT_DOCUMENT_EXISTS(4101, "该证件已登记为就诊人", HttpStatus.CONFLICT),
+    PATIENT_DISABLED(4102, "该就诊人已停用", HttpStatus.CONFLICT),
+    IDEMPOTENCY_CONFLICT(4103, "幂等键已用于其他预约请求", HttpStatus.CONFLICT),
+    RETRYABLE_CONCURRENCY_ERROR(5001, "请求暂时无法处理，请使用原幂等键重试", HttpStatus.SERVICE_UNAVAILABLE);
 
     private final int code;
     private final String message;

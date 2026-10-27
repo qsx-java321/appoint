@@ -6,7 +6,7 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 { "code": 0, "message": "success", "data": {} }
 ```
 
-错误响应的 `data` 为 `null`，HTTP 状态码和业务 `code` 同时用于判定结果。所有 `Long` 类型 ID 在响应中统一编码为 JSON 字符串，避免浏览器丢失 64 位整数精度；路径 ID 以及请求体中的 `scheduleId` 可使用字符串或数字。`code` 和 `expiresIn` 等非 ID 数值保持数字。示例中的日期时间均按 `Asia/Shanghai` 理解，JSON 时间值不带时区偏移，业务精度为秒。可运行的请求见 [http/auth.http](../http/auth.http) 和 [http/appointment.http](../http/appointment.http)。
+错误响应的 `data` 为 `null`，HTTP 状态码和业务 `code` 同时用于判定结果。所有 `Long` 类型 ID 在响应中统一编码为 JSON 字符串，避免浏览器丢失 64 位整数精度；路径 ID 以及请求体中的 `scheduleId`、`patientId` 可使用字符串或数字。`code` 和 `expiresIn` 等非 ID 数值保持数字。示例中的日期时间均按 `Asia/Shanghai` 理解，JSON 时间值不带时区偏移，业务精度为秒。可运行的请求见 [http/auth.http](../http/auth.http) 和 [http/appointment.http](../http/appointment.http)。
 
 ## 接口总览
 
@@ -19,6 +19,11 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 | `GET /api/v1/hospitals/{hospitalId}/departments` | 医院科室 | 200 |
 | `GET /api/v1/departments/{departmentId}/doctors` | 科室医生，包含 `doctorNo` | 200 |
 | `GET /api/v1/doctors/{doctorId}/schedules` | 该医生未来且 `AVAILABLE` 的号源 | 200 |
+| `POST /api/v1/patients` | 创建就诊人 | 201 |
+| `GET /api/v1/patients` | 本人全部就诊人，含停用资料 | 200 |
+| `GET /api/v1/patients/{id}` | 本人的一位就诊人 | 200 |
+| `PATCH /api/v1/patients/{id}` | 局部修改就诊人 | 200 |
+| `PATCH /api/v1/patients/{id}/status` | 启用或停用就诊人 | 200 |
 | `POST /api/v1/appointments` | 创建预约并暂占号源 | 201 |
 | `GET /api/v1/appointments/{id}` | 自己的一张预约凭证 | 200 |
 | `GET /api/v1/appointments/my` | 自己的预约列表 | 200 |
@@ -31,12 +36,38 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 
 先获取医院 ID，再获取科室 ID、医生 ID，最后查询医生号源。号源响应包含 `id`、`appointmentDate`、`startTime`、`endTime`、`status`；只返回查询时仍未开始、且状态为 `AVAILABLE` 的号源。用户提交时服务端再次校验，不能仅凭查询结果认定号源仍可用。
 
-## 创建预约
+## 就诊人管理
 
-`POST /api/v1/appointments` 请求体：
+创建预约前先创建就诊人：
 
 ```json
-{ "scheduleId": "1" }
+{
+  "name": "张三",
+  "documentType": "RESIDENT_ID_CARD",
+  "documentNo": "11010519491231002X",
+  "contactPhone": "13800138000",
+  "contactEmail": "patient@example.com"
+}
+```
+
+初期证件类型只接受 `RESIDENT_ID_CARD`。证件号码必须是合法的 18 位居民身份证号码，末位 `x` 保存为 `X`；系统校验结构、出生日期和校验位，不核验证件归属。姓名、电话和邮箱去除首尾空白，邮箱统一为小写。响应不返回完整证件号，而返回形如 `110105********002X` 的 `documentNoMasked`。
+
+同一账号内 `(documentType, documentNo)` 唯一，资料停用后仍不能重复登记；不同账号可以登记相同证件。列表包含启停状态并按 ID 倒序。`PATCH /api/v1/patients/{id}` 只修改已提交字段，必填字段不能清空；调用方不需要回传脱敏证件号。状态接口请求体为 `{ "enabled": false }` 或 `{ "enabled": true }`，重复设置返回当前结果。
+
+读取、修改、启停或预约使用其他账号的就诊人返回 403；不存在返回 404。停用只阻止新的预约，不影响历史预约的查询、支付、取消和过期处理。
+
+## 创建预约
+
+`POST /api/v1/appointments` 要求 Bearer Token 和 UUID 请求头：
+
+```http
+Idempotency-Key: 11d18b50-9c6c-4fa8-bf01-dfb79f6e2ff2
+```
+
+请求体同时指定号源和就诊人：
+
+```json
+{ "scheduleId": "1", "patientId": "101" }
 ```
 
 成功返回 HTTP 201。`appointmentOrderId` 用于查凭证或取消，`paymentOrderId` 用于模拟支付：
@@ -56,7 +87,9 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 }
 ```
 
-截止时间为“创建时间 + 配置的保留时长”和“就诊开始时间”的较早值，默认保留 15 分钟；该值创建后保存在订单中。创建已开诊号源返回 409/`SCHEDULE_STARTED`，提交已占用号源返回 409/`SCHEDULE_UNAVAILABLE`。
+只能选择本人已启用的就诊人。截止时间为“创建时间 + 配置的保留时长”和“就诊开始时间”的较早值，默认保留 15 分钟；该值创建后保存在订单中。创建已开诊号源返回 409/`SCHEDULE_STARTED`，提交已占用号源返回 409/`SCHEDULE_UNAVAILABLE`。
+
+幂等键在当前账号内生效并规范化为小写。同账号使用同一键和相同 `scheduleId + patientId` 重试，仍返回 HTTP 201 和首次响应，不再占号；同一键配合不同号源或就诊人返回 409/`IDEMPOTENCY_CONFLICT`。不同账号可使用相同键。首次请求若失败并回滚，不会保留幂等记录，修复失败原因后可用原键重试。成功键永久关联首次响应，即使预约已经支付、取消或过期，或就诊人已修改、停用，旧键仍返回首次创建结果。当前状态和当前 `serverTime` 应从详情接口查询。
 
 ## 预约详情和“我的预约”
 
@@ -83,6 +116,14 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
     "paymentExpired": false,
     "canPay": true,
     "canCancel": true,
+    "patient": {
+      "id": "101",
+      "name": "张三",
+      "documentType": "RESIDENT_ID_CARD",
+      "documentNoMasked": "110105********002X",
+      "contactPhone": "13800138000",
+      "contactEmail": "patient@example.com"
+    },
     "doctor": {
       "id": "1",
       "doctorNo": "DOC000001",
@@ -99,7 +140,7 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 }
 ```
 
-`GET /api/v1/appointments/my` 的 `data` 是上述详情结构组成的数组，按预约 ID 倒序；没有预约时为 `[]`。列表一次请求中的各项使用相同 `serverTime`。`createdAt` 是下单时间，不是就诊时间。凭证中的医院、科室、医生、日期和时段是创建时的快照；四种预约状态都可查询。
+`GET /api/v1/appointments/my` 的 `data` 是上述详情结构组成的数组，按预约 ID 倒序；没有预约时为 `[]`。列表一次请求中的各项使用相同 `serverTime`。`createdAt` 是下单时间，不是就诊时间。凭证中的就诊人、联系方式、医院、科室、医生、日期和时段都是创建时的快照；四种预约状态都可查询。就诊人之后修改或停用不会改变历史凭证。
 
 操作标记的计算：
 
@@ -158,6 +199,10 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 | 已取消预约支付、已确认预约取消 | 409 | `4003 ORDER_STATE_ERROR` |
 | 支付期限已过 | 409 | `4004 PAYMENT_EXPIRED` |
 | 号源已开始就诊 | 409 | `4005 SCHEDULE_STARTED` |
+| 同账号重复登记同一证件 | 409 | `4101 PATIENT_DOCUMENT_EXISTS` |
+| 新预约使用已停用就诊人 | 409 | `4102 PATIENT_DISABLED` |
+| 同一幂等键用于不同请求内容 | 409 | `4103 IDEMPOTENCY_CONFLICT` |
+| 锁等待超时或数据库死锁，可使用原键重试 | 503 | `5001 RETRYABLE_CONCURRENCY_ERROR` |
 | 关联支付单缺失、归属不一致等数据异常 | 500 | `1002 INTERNAL_ERROR` |
 
-已有的登录失败 `2003 LOGIN_FAILED`、邮箱已注册 `3001 EMAIL_EXISTS` 和用户不存在 `3002 USER_NOT_FOUND` 由各自入口使用。异常数据会记录服务端错误并安全失败，不自动补单或返回伪造的支付成功。
+已有的登录失败 `2003 LOGIN_FAILED`、邮箱已注册 `3001 EMAIL_EXISTS` 和用户不存在 `3002 USER_NOT_FOUND` 由各自入口使用。缺失请求头、非法 UUID、非法 ID 和字段校验失败均使用 400/`VALIDATION_ERROR`。未识别的数据库约束或异常数据会记录服务端错误并安全失败，不冒充邮箱或证件重复，也不会输出完整证件号码。

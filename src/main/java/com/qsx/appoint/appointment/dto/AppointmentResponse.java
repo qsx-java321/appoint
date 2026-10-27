@@ -25,5 +25,6 @@ public class AppointmentResponse {
     private final boolean paymentExpired;
     private final boolean canPay;
     private final boolean canCancel;
+    private final AppointmentPatientResponse patient;
     private final AppointmentDoctorResponse doctor;
 }

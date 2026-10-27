@@ -120,8 +120,8 @@
     <section class="hero">
       <div>
         <p class="eyebrow">PATIENT JOURNEY</p>
-        <h1>从选择号源，到形成可追溯的预约凭证</h1>
-        <p>这个页面用于讲解项目已经实现的业务规则。点击步骤和不同结局，可以观察预约单、支付单与号源如何一起变化。</p>
+        <h1>从建立就诊人，到形成可追溯的预约凭证</h1>
+        <p>这个页面用于讲解项目已经实现的业务规则。点击步骤和不同结局，可以观察就诊人快照、预约单、支付单与号源如何一起变化。</p>
       </div>
       <aside class="notice">
         <strong>演示边界</strong>
@@ -167,8 +167,9 @@
     </section>
 
     <section class="panel" aria-labelledby="snapshot-title">
-      <div class="section-head"><div><h2 id="snapshot-title">为什么要保存预约快照？</h2><p>目录资料以后变化，已经生成的预约凭证仍应保留当时的信息。</p></div></div>
+      <div class="section-head"><div><h2 id="snapshot-title">为什么要保存预约快照？</h2><p>就诊人或目录资料以后变化，已经生成的预约凭证仍应保留下单时的信息。</p></div></div>
       <div class="snapshot">
+        <article><span>就诊人</span><strong>张三 · 110105********002X</strong></article>
         <article><span>医院</span><strong>示例市第一人民医院</strong></article>
         <article><span>科室与医生</span><strong>内科 · 张医生</strong></article>
         <article><span>就诊时间</span><strong>2099-01-01 09:00–09:30</strong></article>
@@ -188,6 +189,12 @@
         system: ["校验邮箱唯一性与密码格式", "认证成功后签发 JWT", "从 Token 识别用户，不接收请求中的 userId"]
       },
       {
+        name: "建立就诊人",
+        summary: "姓名、证件与联系方式",
+        user: ["填写姓名和居民身份证", "保存电话与联系邮箱", "预约前选择一位已启用的就诊人"],
+        system: ["校验证件结构、日期与校验位", "同账号内同一证件不可重复", "完整证件只存储并用于预约快照，接口返回脱敏值"]
+      },
+      {
         name: "选择就诊资源",
         summary: "医院 → 科室 → 医生",
         user: ["先选择医院和科室", "查看医生编号、职称与简介", "上级选择变化时重新选择下级资料"],
@@ -202,8 +209,8 @@
       {
         name: "创建预约",
         summary: "生成待支付凭证",
-        user: ["确认预约后获得预约号", "进入待支付状态", "可查看完整预约凭证"],
-        system: ["锁定号源并标记为 HELD", "创建 PENDING_PAYMENT 预约单", "创建 UNPAID 支付单并保存凭证快照"]
+        user: ["选择就诊人并生成本次请求的幂等键", "确认预约后获得预约号", "网络重试时沿用原键取回首次结果"],
+        system: ["锁定就诊人和号源并标记为 HELD", "创建 PENDING_PAYMENT 预约单和 UNPAID 支付单", "保存就诊人与目录快照，并持久化首次创建响应"]
       },
       {
         name: "完成或关闭",
