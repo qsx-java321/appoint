@@ -34,6 +34,8 @@ public class AppointmentQueryRecord {
     private LocalTime startTime;
     private LocalTime endTime;
     private String status;
+    private Integer visitNumber;
+    private String scheduleStatus;
     private LocalDateTime createdAt;
     private LocalDateTime paymentExpiresAt;
     private LocalDateTime closedAt;

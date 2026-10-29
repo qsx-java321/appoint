@@ -2,6 +2,8 @@ package com.qsx.appoint;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.qsx.appoint.catalog.entity.Schedule;
+import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -10,6 +12,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -19,11 +23,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 用真实 Spring MVC、安全链、Flyway 和 H2 验证核心接口闭环。
  * 该测试不依赖外部 Docker 服务，因此可快速发现认证或事务配置错误。
  */
-@SpringBootTest
+@SpringBootTest(properties =
+        "spring.datasource.url=jdbc:h2:mem:api-flow;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
 class ApiFlowIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private ScheduleMapper scheduleMapper;
 
     @Test
     void registerLoginAndReadCurrentUser() throws Exception {
@@ -96,6 +102,7 @@ class ApiFlowIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
         String patientId = createPatient(token);
+        Long scheduleId = createSchedule(LocalDate.now().plusDays(5));
 
         mockMvc.perform(get("/api/v1/hospitals").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
@@ -105,7 +112,7 @@ class ApiFlowIntegrationTest {
         mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scheduleId\":\"2\",\"patientId\":\"" + patientId + "\"}"))
+                        .content("{\"scheduleId\":\"" + scheduleId + "\",\"patientId\":\"" + patientId + "\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.appointmentOrderId").isString())
                 .andExpect(jsonPath("$.data.paymentOrderId").isString());
@@ -120,11 +127,12 @@ class ApiFlowIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
         String patientId = createPatient(token);
+        Long scheduleId = createSchedule(LocalDate.now().plusDays(6));
 
         String appointmentResult = mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scheduleId\":1,\"patientId\":\"" + patientId + "\"}"))
+                        .content("{\"scheduleId\":" + scheduleId + ",\"patientId\":\"" + patientId + "\"}"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.data.appointmentStatus").value("PENDING_PAYMENT"))
                 .andReturn().getResponse().getContentAsString();
         JsonNode data = objectMapper.readTree(appointmentResult).get("data");
@@ -139,8 +147,8 @@ class ApiFlowIntegrationTest {
         mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scheduleId\":1,\"patientId\":\"" + patientId + "\"}"))
-                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4002));
+                        .content("{\"scheduleId\":" + scheduleId + ",\"patientId\":\"" + patientId + "\"}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4204));
     }
 
     private String createPatient(String token) throws Exception {
@@ -152,5 +160,22 @@ class ApiFlowIntegrationTest {
                                 "\"contactEmail\":\"patient@example.com\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(response).at("/data/id").asText();
+    }
+
+    private Long createSchedule(LocalDate date) {
+        Schedule schedule = new Schedule();
+        schedule.setDoctorId(1L);
+        schedule.setAppointmentDate(date);
+        schedule.setStartTime(LocalTime.of(8, 0));
+        schedule.setEndTime(LocalTime.of(12, 0));
+        schedule.setStatus("OPEN");
+        schedule.setSessionType("MORNING");
+        schedule.setTotalCapacity(2);
+        schedule.setAvailableCapacity(2);
+        schedule.setHeldCapacity(0);
+        schedule.setConfirmedCapacity(0);
+        schedule.setNextVisitNumber(1);
+        scheduleMapper.insert(schedule);
+        return schedule.getId();
     }
 }

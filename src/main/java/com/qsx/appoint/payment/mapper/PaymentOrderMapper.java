@@ -20,4 +20,7 @@ public interface PaymentOrderMapper extends BaseMapper<PaymentOrder> {
 
     @Update("UPDATE payment_orders SET status = 'CLOSED', updated_at = CURRENT_TIMESTAMP WHERE id = #{id} AND status = 'UNPAID'")
     int closeIfUnpaid(@Param("id") Long id);
+
+    @Update("UPDATE payment_orders SET status = 'REFUNDED', updated_at = CURRENT_TIMESTAMP WHERE id = #{id} AND status = 'PAID'")
+    int refundIfPaid(@Param("id") Long id);
 }

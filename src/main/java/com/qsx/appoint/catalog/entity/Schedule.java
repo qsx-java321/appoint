@@ -7,7 +7,7 @@ import lombok.Setter;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-/** 单个号源的状态只会按 AVAILABLE、HELD、BOOKED 顺序前进。 */
+/** 一场医生上午或下午排班及其统一库存；sessionType 为空的是只读旧号源。 */
 @Getter @Setter @TableName("schedules")
 public class Schedule {
     private Long id;
@@ -16,4 +16,12 @@ public class Schedule {
     private LocalTime startTime;
     private LocalTime endTime;
     private String status;
+    private String sessionType;
+    private Integer totalCapacity;
+    private Integer availableCapacity;
+    private Integer heldCapacity;
+    private Integer confirmedCapacity;
+    private Integer nextVisitNumber;
+    private java.time.LocalDateTime closedAt;
+    private Long closedBy;
 }

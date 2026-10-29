@@ -1,222 +1,217 @@
-# HTTP API：当前预约业务
+# HTTP API：医生排班、统一库存与预约暂占
 
-Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Authorization: Bearer <accessToken>`；用户身份从 Token 获取，请求中不传 `userId`。成功响应统一为：
+Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Authorization: Bearer <accessToken>`。用户身份从 Token 获取，请求中不传 `userId`。时间均按 `Asia/Shanghai` 解释，精确到秒。
 
-```json
-{ "code": 0, "message": "success", "data": {} }
-```
-
-错误响应的 `data` 为 `null`，HTTP 状态码和业务 `code` 同时用于判定结果。所有 `Long` 类型 ID 在响应中统一编码为 JSON 字符串，避免浏览器丢失 64 位整数精度；路径 ID 以及请求体中的 `scheduleId`、`patientId` 可使用字符串或数字。`code` 和 `expiresIn` 等非 ID 数值保持数字。示例中的日期时间均按 `Asia/Shanghai` 理解，JSON 时间值不带时区偏移，业务精度为秒。可运行的请求见 [http/auth.http](../http/auth.http) 和 [http/appointment.http](../http/appointment.http)。
+成功响应统一为 `{ "code": 0, "message": "success", "data": ... }`。错误响应的 `data` 为 `null`。所有 `Long` ID 在响应中编码为 JSON 字符串；路径 ID 及请求中的 ID 可使用字符串或数字。
 
 ## 接口总览
 
-| 方法与路径 | 用途 | 成功 HTTP |
-|---|---|---:|
-| `POST /api/v1/auth/register` | 注册用户 | 201 |
-| `POST /api/v1/auth/login` | 登录并获取 JWT | 200 |
-| `GET /api/v1/users/me` | 当前用户资料 | 200 |
-| `GET /api/v1/hospitals` | 医院列表 | 200 |
-| `GET /api/v1/hospitals/{hospitalId}/departments` | 医院科室 | 200 |
-| `GET /api/v1/departments/{departmentId}/doctors` | 科室医生，包含 `doctorNo` | 200 |
-| `GET /api/v1/doctors/{doctorId}/schedules` | 该医生未来且 `AVAILABLE` 的号源 | 200 |
-| `POST /api/v1/patients` | 创建就诊人 | 201 |
-| `GET /api/v1/patients` | 本人全部就诊人，含停用资料 | 200 |
-| `GET /api/v1/patients/{id}` | 本人的一位就诊人 | 200 |
-| `PATCH /api/v1/patients/{id}` | 局部修改就诊人 | 200 |
-| `PATCH /api/v1/patients/{id}/status` | 启用或停用就诊人 | 200 |
-| `POST /api/v1/appointments` | 创建预约并暂占号源 | 201 |
-| `GET /api/v1/appointments/{id}` | 自己的一张预约凭证 | 200 |
-| `GET /api/v1/appointments/my` | 自己的预约列表 | 200 |
-| `POST /api/v1/appointments/{id}/cancel` | 取消自己的待支付预约 | 200 |
-| `POST /api/v1/payments/{id}/simulate-success` | 模拟支付成功 | 200 |
+| 方法与路径 | 用途 | 权限 | 成功 HTTP |
+| --- | --- | --- | ---: |
+| `POST /api/v1/auth/register` | 注册账号 | 公开 | 201 |
+| `POST /api/v1/auth/login` | 登录并获取 JWT | 公开 | 200 |
+| `GET /api/v1/users/me` | 当前账号 | 登录 | 200 |
+| `GET /api/v1/hospitals` | 医院列表 | 登录 | 200 |
+| `GET /api/v1/hospitals/{hospitalId}/departments` | 医院科室 | 登录 | 200 |
+| `GET /api/v1/departments/{departmentId}/doctors` | 科室医生，含 `doctorNo` | 登录 | 200 |
+| `GET /api/v1/doctors/{doctorId}/schedules` | 医生未来排班及可预约状态 | 登录 | 200 |
+| `POST /api/v1/patients` | 创建就诊人 | 登录 | 201 |
+| `GET /api/v1/patients` | 本账号全部就诊人 | 登录 | 200 |
+| `GET /api/v1/patients/{id}` | 本账号一位就诊人 | 登录 | 200 |
+| `PATCH /api/v1/patients/{id}` | 修改就诊人 | 登录 | 200 |
+| `PATCH /api/v1/patients/{id}/status` | 启用或停用就诊人 | 登录 | 200 |
+| `POST /api/v1/appointments` | 暂占一个排班名额 | 登录 | 201 |
+| `GET /api/v1/appointments/{id}` | 自己的一张预约凭证 | 登录 | 200 |
+| `GET /api/v1/appointments/my` | 自己的预约列表 | 登录 | 200 |
+| `POST /api/v1/appointments/{id}/cancel` | 取消、过期关闭或模拟退款 | 登录 | 200 |
+| `POST /api/v1/payments/{id}/simulate-success` | 模拟支付成功 | 登录 | 200 |
+| `POST /api/v1/admin/schedules` | 创建排班 | `ADMIN` | 200 |
+| `PATCH /api/v1/admin/schedules/{id}` | 开放前修改排班身份 | `ADMIN` | 200 |
+| `POST /api/v1/admin/schedules/{id}/inventory-adjustments` | 调整库存并记审计 | `ADMIN` | 200 |
+| `POST /api/v1/admin/schedules/{id}/close` | 关闭排班 | `ADMIN` | 200 |
 
-## 登录与查询资源
+## 登录、角色与就诊人
 
-注册请求：`{ "email": "student@example.com", "password": "password123" }`，密码长度为 8–64。登录使用相同字段，响应 `data.accessToken` 用于后续 Bearer 请求，`data.expiresIn` 由当前配置决定。首次迁移只写入角色，用户账号需要自行注册。
+注册和登录请求为 `{ "email": "student@example.com", "password": "password123" }`，密码长度 8–64。管理员角色由运维直接写入账号角色关系后授予；系统没有公开提权接口。角色变化后必须重新登录，取得包含 `ADMIN` 的新 Token。
 
-先获取医院 ID，再获取科室 ID、医生 ID，最后查询医生号源。号源响应包含 `id`、`appointmentDate`、`startTime`、`endTime`、`status`；只返回查询时仍未开始、且状态为 `AVAILABLE` 的号源。用户提交时服务端再次校验，不能仅凭查询结果认定号源仍可用。
+初期只接受 `RESIDENT_ID_CARD`。居民身份证会校验结构、出生日期和校验位，末位 `x` 规范化为 `X`。同一账号内证件唯一；不同账号可以登记相同证件。就诊人停用后仍保留资料和账号内唯一性，只阻止新预约。
 
-## 就诊人管理
+创建预约只能选择当前账号下已启用的就诊人。预约单保存创建时的就诊人、医院、科室、医生和排班快照；之后修改或停用就诊人不会改变历史凭证。
 
-创建预约前先创建就诊人：
+## 医生排班查询
 
-```json
-{
-  "name": "张三",
-  "documentType": "RESIDENT_ID_CARD",
-  "documentNo": "11010519491231002X",
-  "contactPhone": "13800138000",
-  "contactEmail": "patient@example.com"
-}
-```
-
-初期证件类型只接受 `RESIDENT_ID_CARD`。证件号码必须是合法的 18 位居民身份证号码，末位 `x` 保存为 `X`；系统校验结构、出生日期和校验位，不核验证件归属。姓名、电话和邮箱去除首尾空白，邮箱统一为小写。响应不返回完整证件号，而返回形如 `110105********002X` 的 `documentNoMasked`。
-
-同一账号内 `(documentType, documentNo)` 唯一，资料停用后仍不能重复登记；不同账号可以登记相同证件。列表包含启停状态并按 ID 倒序。`PATCH /api/v1/patients/{id}` 只修改已提交字段，必填字段不能清空；调用方不需要回传脱敏证件号。状态接口请求体为 `{ "enabled": false }` 或 `{ "enabled": true }`，重复设置返回当前结果。
-
-读取、修改、启停或预约使用其他账号的就诊人返回 403；不存在返回 404。停用只阻止新的预约，不影响历史预约的查询、支付、取消和过期处理。
-
-## 创建预约
-
-`POST /api/v1/appointments` 要求 Bearer Token 和 UUID 请求头：
-
-```http
-Idempotency-Key: 11d18b50-9c6c-4fa8-bf01-dfb79f6e2ff2
-```
-
-请求体同时指定号源和就诊人：
-
-```json
-{ "scheduleId": "1", "patientId": "101" }
-```
-
-成功返回 HTTP 201。`appointmentOrderId` 用于查凭证或取消，`paymentOrderId` 用于模拟支付：
+`GET /api/v1/doctors/{doctorId}/schedules` 返回该医生尚未结束的全部新模型排班，包括尚未开放、已约满、已到截止时间和已关闭场次。V1 旧单号源不进入列表。
 
 ```json
 {
-  "code": 0,
-  "message": "success",
-  "data": {
-    "appointmentOrderId": "101",
-    "paymentOrderId": "201",
-    "appointmentStatus": "PENDING_PAYMENT",
-    "paymentStatus": "UNPAID",
-    "paymentExpiresAt": "2026-10-26T14:15:00",
-    "serverTime": "2026-10-26T14:00:00"
-  }
+  "id": "4",
+  "doctorId": "1",
+  "doctorNo": "DOC000001",
+  "appointmentDate": "2026-11-08",
+  "sessionType": "MORNING",
+  "startTime": "08:00:00",
+  "endTime": "12:00:00",
+  "status": "OPEN",
+  "totalCapacity": 20,
+  "availableCapacity": 3,
+  "availabilityStatus": "AVAILABLE",
+  "bookable": true,
+  "releaseAt": "2026-11-01T08:00:00",
+  "bookingCutoffAt": "2026-11-08T07:30:00"
 }
 ```
 
-只能选择本人已启用的就诊人。截止时间为“创建时间 + 配置的保留时长”和“就诊开始时间”的较早值，默认保留 15 分钟；该值创建后保存在订单中。创建已开诊号源返回 409/`SCHEDULE_STARTED`，提交已占用号源返回 409/`SCHEDULE_UNAVAILABLE`。
+`availabilityStatus` 的值为：
 
-幂等键在当前账号内生效并规范化为小写。同账号使用同一键和相同 `scheduleId + patientId` 重试，不再占号，返回 HTTP 200 和原预约的简短回执：
+| 值 | 含义 | `bookable` |
+| --- | --- | --- |
+| `NOT_OPEN` | 未到就诊日前第 7 个自然日 08:00 | `false` |
+| `AVAILABLE` | 已开放、未截止、排班开放且有可用名额 | `true` |
+| `FULL` | 可用名额为 0 | `false` |
+| `CUTOFF_REACHED` | 已到开诊前 30 分钟截止边界 | `false` |
+| `CLOSED` | 医院已关闭排班 | `false` |
+
+查询结果只是即时快照。创建预约时会在事务内重新检查排班状态、时间窗口、重复预约和库存。
+
+## 管理员排班接口
+
+创建排班请求：
 
 ```json
 {
-  "code": 0,
-  "message": "该请求已创建预约，请查询详情获取当前状态",
-  "data": {
-    "appointmentOrderId": "101",
-    "appointmentNo": "APexample",
-    "replayed": true
-  }
+  "doctorId": "1",
+  "appointmentDate": "2026-11-08",
+  "sessionType": "MORNING",
+  "totalCapacity": 20
 }
 ```
 
-回执不包含支付单 ID 或预约、支付状态；调用方应使用 `appointmentOrderId` 查询详情。同一键配合不同号源或就诊人返回 409/`IDEMPOTENCY_CONFLICT`，不同账号可以使用相同键。首次请求若失败并回滚，不会保留幂等记录，修复失败原因后可用原键重试。成功键永久关联原预约，即使预约已经支付、取消或过期，或就诊人已修改、停用，旧键仍返回同一简短回执。用户明确再次预约时必须生成新键。
+`sessionType` 仅允许 `MORNING` 或 `AFTERNOON`，对应固定时段 `08:00–12:00` 和 `14:00–17:00`。同一医生、日期、时段只能有一场。初始容量必须大于 0。只要尚未到预约截止，即使理论开放时间已过，也可补录并立即开放。
 
-## 预约详情和“我的预约”
+开放前可用 `PATCH` 修改 `doctorId`、`appointmentDate`、`sessionType` 中至少一项。到达理论开放时间后，这三个字段全部锁定。
 
-`GET /api/v1/appointments/{id}` 返回自己的完整凭证。以下以创建后、尚未支付的订单为例，示例字段与当前响应一致：
+库存调整请求：
+
+```json
+{ "delta": 5, "reason": "临时加号" }
+```
+
+`delta` 不能为 0。开诊前可增减；减少量不得超过当前可用名额，不会挤掉暂占或已确认预约。响应返回调整后的总量、可用、暂占、已确认量；系统另存操作者、原因、调整后数量和时间。
+
+关闭仅允许在开诊前执行且不可重开。关闭后待支付预约立即释放：已经到支付截止的记为 `EXPIRED`，其余记为 `CANCELLED_BY_HOSPITAL`，支付单均为 `CLOSED`。已确认预约保留，详情显示停诊提示。
+
+管理员排班响应示例：
 
 ```json
 {
-  "code": 0,
-  "message": "success",
-  "data": {
-    "id": "101",
-    "appointmentNo": "APexample",
-    "scheduleId": "1",
-    "appointmentDate": "2099-01-01",
-    "startTime": "09:00:00",
-    "endTime": "09:30:00",
-    "status": "PENDING_PAYMENT",
-    "createdAt": "2026-10-26T14:00:00",
-    "paymentOrderId": "201",
-    "paymentStatus": "UNPAID",
-    "paymentExpiresAt": "2026-10-26T14:15:00",
-    "closedAt": null,
-    "serverTime": "2026-10-26T14:00:00",
-    "paymentExpired": false,
-    "canPay": true,
-    "canCancel": true,
-    "patient": {
-      "id": "101",
-      "name": "张三",
-      "documentType": "RESIDENT_ID_CARD",
-      "documentNoMasked": "110105********002X",
-      "contactPhone": "13800138000",
-      "contactEmail": "patient@example.com"
-    },
-    "doctor": {
-      "id": "1",
-      "doctorNo": "DOC000001",
-      "name": "张医生",
-      "title": "主任医师",
-      "department": { "id": "1", "name": "内科" },
-      "hospital": {
-        "id": "1",
-        "name": "示例市第一人民医院",
-        "address": "示例市健康路 1 号"
-      }
-    }
-  }
+  "id": "101",
+  "doctorId": "1",
+  "appointmentDate": "2026-11-08",
+  "sessionType": "MORNING",
+  "startTime": "08:00:00",
+  "endTime": "12:00:00",
+  "status": "OPEN",
+  "totalCapacity": 20,
+  "availableCapacity": 18,
+  "heldCapacity": 1,
+  "confirmedCapacity": 1,
+  "nextVisitNumber": 2,
+  "closedAt": null,
+  "closedBy": null
 }
 ```
 
-`GET /api/v1/appointments/my` 的 `data` 是上述详情结构组成的数组，按预约 ID 倒序；没有预约时为 `[]`。列表一次请求中的各项使用相同 `serverTime`。`createdAt` 是下单时间，不是就诊时间。凭证中的就诊人、联系方式、医院、科室、医生、日期和时段都是创建时的快照；四种预约状态都可查询。就诊人之后修改或停用不会改变历史凭证。
+## 创建预约与幂等
 
-操作标记的计算：
+`POST /api/v1/appointments` 要求 UUID 请求头 `Idempotency-Key`，请求体为：
+
+```json
+{ "scheduleId": "101", "patientId": "201" }
+```
+
+成功暂占一个名额并在同一事务中创建预约单、支付单、有效预约占用和快照：
+
+```json
+{
+  "appointmentOrderId": "301",
+  "paymentOrderId": "401",
+  "appointmentStatus": "PENDING_PAYMENT",
+  "paymentStatus": "UNPAID",
+  "paymentExpiresAt": "2026-11-01T08:15:00",
+  "serverTime": "2026-11-01T08:00:00"
+}
+```
+
+支付截止为 `min(创建时间 + 15 分钟, 开诊时间)`。放号边界包含等号：到达就诊日前第 7 日 08:00 可预约；截止边界不包含等号：到达开诊前 30 分钟即拒绝新暂占。
+
+同一排班中，相同 `patientId` 或相同“证件类型＋创建时规范化证件号”只能有一张有效预约。第二层约束跨账号生效，冲突只返回统一错误，不泄露其他账号信息。取消或过期释放占用后，可用新的幂等键重新预约。同一就诊人预约其他排班不受影响。
+
+`Idempotency-Key` 在账号内唯一。同账号同键同内容重试返回 HTTP 200、原 `appointmentOrderId`、`appointmentNo` 和 `replayed=true`；同键不同内容返回 `IDEMPOTENCY_CONFLICT`。失败并回滚的请求不占用键。
+
+## 模拟支付与就诊序号
+
+`POST /api/v1/payments/{paymentOrderId}/simulate-success` 只推进持久化状态，不发生资金操作。截止前成功后：
+
+```json
+{
+  "id": "401",
+  "paymentNo": "PAYexample",
+  "paymentStatus": "PAID",
+  "appointmentOrderId": "301",
+  "appointmentStatus": "CONFIRMED",
+  "visitNumber": 18
+}
+```
+
+支付使库存从暂占转为已确认，并按同场确认顺序发放 `visitNumber`。序号单调递增且取消后不复用，因此可能大于当前总容量。重复支付已确认订单返回同一成功结果。到达支付截止后立即拒绝，后台扫描延迟不构成宽限。
+
+## 预约详情、取消与退款
+
+预约详情在原有快照字段外新增：
 
 | 字段 | 含义 |
-|---|---|
-| `paymentExpired` | 已处于 `EXPIRED`；或仍为 `PENDING_PAYMENT`，但 `serverTime >= paymentExpiresAt` |
-| `canPay` | `PENDING_PAYMENT + UNPAID` 且尚未到截止时间 |
-| `canCancel` | `PENDING_PAYMENT + UNPAID`；到期未扫描时仍可请求取消，结果会是 `EXPIRED` |
-| `closedAt` | 实际首次关闭时间；未关闭时为 `null` |
+| --- | --- |
+| `visitNumber` | 确认时取得的就诊序号；待支付时为 `null` |
+| `paymentExpired` | 已过期，或待支付且当前时间已到截止 |
+| `canPay` | 待支付、未过期且排班未关闭 |
+| `canCancel` | 待支付；或已确认且当前时间严格早于开诊前 24 小时 |
+| `scheduleClosed` | 排班是否已关闭 |
+| `hospitalClosureNotice` | 已确认且排班关闭时为“医生已停诊，请联系医院” |
 
-操作标记只反映查询当时的状态，写接口始终重新读取和校验。查询不会提前关闭到期订单。已确认预约超过原支付截止时间后，`paymentExpired` 仍为 `false`。他人的预约返回 403，预约不存在返回 404。
+`POST /api/v1/appointments/{id}/cancel` 的状态流转：
 
-## 取消预约
+| 当前状态和时间 | 预约单 | 支付单 | 库存 |
+| --- | --- | --- | --- |
+| 待支付且未到截止 | `CANCELLED` | `CLOSED` | 暂占转可用 |
+| 待支付且已到截止 | `EXPIRED` | `CLOSED` | 暂占转可用 |
+| 已确认，且当前时间 `< 开诊时间 - 24h` | `CANCELLED` | `REFUNDED` | 已确认转可用 |
+| 已确认，且当前时间 `>= 开诊时间 - 24h` | 保持 `CONFIRMED` | 保持 `PAID` | 不变，返回 4205 |
+| 已取消、已过期或医院停诊取消 | 返回当前详情 | 保持 | 不重复释放 |
 
-`POST /api/v1/appointments/{id}/cancel` 不需要请求体，成功 HTTP 200 的 `data` 与预约详情相同：
+已确认取消成功时接口消息为“模拟全额退款成功”。原 `visitNumber` 保留在历史预约中，不再发给其他预约。关闭排班后的已确认预约仍可按同一 24 小时规则自行取消。
 
-| 当前状态 | 结果 |
-|---|---|
-| 自己的待支付，未到截止时间 | `CANCELLED + CLOSED`，释放号源 |
-| 自己的待支付，已到截止时间 | `EXPIRED + CLOSED`，释放号源 |
-| 已取消或已过期 | 返回当前详情，不重复释放，`closedAt` 不变 |
-| 已确认 | 409/`ORDER_STATE_ERROR` |
-| 他人的预约或不存在 | 分别为 403、404 |
-
-取消和过期只关闭订单，不删除凭证。释放后的号源可以产生新的预约；旧预约的重复请求不会改变新预约。
-
-## 模拟支付
-
-`POST /api/v1/payments/{id}/simulate-success` 中的 `id` 是**支付单 ID**。仍可支付时返回：
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "id": "201",
-    "paymentNo": "PAYexample",
-    "paymentStatus": "PAID",
-    "appointmentOrderId": "101",
-    "appointmentStatus": "CONFIRMED"
-  }
-}
-```
-
-状态同时推进为 `CONFIRMED + PAID + BOOKED`。已经成功支付的重复请求返回同一成功结果，即使此时已超过原截止时间。已取消预约支付返回 409/`ORDER_STATE_ERROR`；已过期或待支付但达到截止时间，返回 409/`PAYMENT_EXPIRED`。到期支付请求只拒绝付款，不在该请求中关闭订单；释放由取消操作或后台扫描完成。
-
-## 错误契约
+## 主要错误契约
 
 | 情况 | HTTP | `code` / 业务名 |
-|---|---:|---|
-| 请求参数不合法 | 400 | `1001 VALIDATION_ERROR` |
+| --- | ---: | --- |
+| 参数不合法 | 400 | `1001 VALIDATION_ERROR` |
 | 未登录或 Token 无效 | 401 | `2001 UNAUTHORIZED` |
-| 操作他人订单 | 403 | `2002 FORBIDDEN` |
+| 权限不足 | 403 | `2002 FORBIDDEN` |
 | 资源不存在 | 404 | `4001 RESOURCE_NOT_FOUND` |
-| 号源已被占用 | 409 | `4002 SCHEDULE_UNAVAILABLE` |
-| 已取消预约支付、已确认预约取消 | 409 | `4003 ORDER_STATE_ERROR` |
-| 支付期限已过 | 409 | `4004 PAYMENT_EXPIRED` |
-| 号源已开始就诊 | 409 | `4005 SCHEDULE_STARTED` |
-| 同账号重复登记同一证件 | 409 | `4101 PATIENT_DOCUMENT_EXISTS` |
-| 新预约使用已停用就诊人 | 409 | `4102 PATIENT_DISABLED` |
-| 同一幂等键用于不同请求内容 | 409 | `4103 IDEMPOTENCY_CONFLICT` |
-| 锁等待超时或数据库死锁，可使用原键重试 | 503 | `5001 RETRYABLE_CONCURRENCY_ERROR` |
-| 关联支付单缺失、归属不一致等数据异常 | 500 | `1002 INTERNAL_ERROR` |
+| 排班无可用名额或重复时段 | 409 | `4002 SCHEDULE_UNAVAILABLE` |
+| 订单状态不允许操作 | 409 | `4003 ORDER_STATE_ERROR` |
+| 支付截止时间已到 | 409 | `4004 PAYMENT_EXPIRED` |
+| 排班已开诊 | 409 | `4005 SCHEDULE_STARTED` |
+| 就诊人证件在账号内重复 | 409 | `4101 PATIENT_DOCUMENT_EXISTS` |
+| 就诊人已停用 | 409 | `4102 PATIENT_DISABLED` |
+| 幂等键用于不同内容 | 409 | `4103 IDEMPOTENCY_CONFLICT` |
+| 排班尚未开放 | 409 | `4201 SCHEDULE_NOT_OPEN` |
+| 新预约截止时间已到 | 409 | `4202 SCHEDULE_CUTOFF_REACHED` |
+| 排班已关闭 | 409 | `4203 SCHEDULE_CLOSED` |
+| 本场已有同就诊人或同证件有效预约 | 409 | `4204 DUPLICATE_ACTIVE_APPOINTMENT` |
+| 已到开诊前 24 小时取消边界 | 409 | `4205 CANCELLATION_DEADLINE_REACHED` |
+| 排班身份字段已锁定 | 409 | `4206 SCHEDULE_IDENTITY_LOCKED` |
+| 减少量超过当前可用名额 | 409 | `4207 INVENTORY_REDUCTION_EXCEEDS_AVAILABLE` |
+| 并发幂等请求尚未完成 | 503 | `5001 RETRYABLE_CONCURRENCY_ERROR` |
 
-已有的登录失败 `2003 LOGIN_FAILED`、邮箱已注册 `3001 EMAIL_EXISTS` 和用户不存在 `3002 USER_NOT_FOUND` 由各自入口使用。缺失请求头、非法 UUID、非法 ID 和字段校验失败均使用 400/`VALIDATION_ERROR`。未识别的数据库约束或异常数据会记录服务端错误并安全失败，不冒充邮箱或证件重复，也不会输出完整证件号码。
+可运行示例见 [auth.http](../http/auth.http)、[admin-schedule.http](../http/admin-schedule.http) 和 [appointment.http](../http/appointment.http)。

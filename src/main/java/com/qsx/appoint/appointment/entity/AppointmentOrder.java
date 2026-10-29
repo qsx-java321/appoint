@@ -33,6 +33,7 @@ public class AppointmentOrder {
     private LocalTime startTime;
     private LocalTime endTime;
     private String status;
+    private Integer visitNumber;
     private LocalDateTime paymentExpiresAt;
     private LocalDateTime closedAt;
     private LocalDateTime createdAt;

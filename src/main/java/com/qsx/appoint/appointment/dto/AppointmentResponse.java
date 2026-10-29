@@ -16,6 +16,7 @@ public class AppointmentResponse {
     private final LocalTime startTime;
     private final LocalTime endTime;
     private final String status;
+    private final Integer visitNumber;
     private final LocalDateTime createdAt;
     private final Long paymentOrderId;
     private final String paymentStatus;
@@ -25,6 +26,8 @@ public class AppointmentResponse {
     private final boolean paymentExpired;
     private final boolean canPay;
     private final boolean canCancel;
+    private final boolean scheduleClosed;
+    private final String hospitalClosureNotice;
     private final AppointmentPatientResponse patient;
     private final AppointmentDoctorResponse doctor;
 }

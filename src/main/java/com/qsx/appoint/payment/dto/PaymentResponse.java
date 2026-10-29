@@ -11,4 +11,10 @@ public class PaymentResponse {
     private final String paymentStatus;
     private final Long appointmentOrderId;
     private final String appointmentStatus;
+    private final Integer visitNumber;
+
+    public PaymentResponse(Long id, String paymentNo, String paymentStatus,
+                           Long appointmentOrderId, String appointmentStatus) {
+        this(id, paymentNo, paymentStatus, appointmentOrderId, appointmentStatus, null);
+    }
 }

@@ -35,14 +35,17 @@ public interface AppointmentOrderMapper extends BaseMapper<AppointmentOrder> {
                    a.start_time,
                    a.end_time,
                    a.status,
+                   a.visit_number,
                    a.created_at,
                    a.payment_expires_at,
                    a.closed_at,
                    p.id AS payment_order_id,
                    p.user_id AS payment_user_id,
-                   p.status AS payment_status
+                   p.status AS payment_status,
+                   s.status AS schedule_status
             FROM appointment_orders a
             LEFT JOIN payment_orders p ON p.appointment_order_id = a.id
+            LEFT JOIN schedules s ON s.id = a.schedule_id
             WHERE a.id = #{id}
             """)
     AppointmentQueryRecord selectQueryById(@Param("id") Long id);
@@ -71,21 +74,27 @@ public interface AppointmentOrderMapper extends BaseMapper<AppointmentOrder> {
                    a.start_time,
                    a.end_time,
                    a.status,
+                   a.visit_number,
                    a.created_at,
                    a.payment_expires_at,
                    a.closed_at,
                    p.id AS payment_order_id,
                    p.user_id AS payment_user_id,
-                   p.status AS payment_status
+                   p.status AS payment_status,
+                   s.status AS schedule_status
             FROM appointment_orders a
             LEFT JOIN payment_orders p ON p.appointment_order_id = a.id
+            LEFT JOIN schedules s ON s.id = a.schedule_id
             WHERE a.user_id = #{userId}
             ORDER BY a.id DESC
             """)
     List<AppointmentQueryRecord> selectQueriesByUserId(@Param("userId") Long userId);
 
-    @Update("UPDATE appointment_orders SET status = 'CONFIRMED', updated_at = CURRENT_TIMESTAMP WHERE id = #{id} AND status = 'PENDING_PAYMENT'")
-    int confirmIfPending(@Param("id") Long id);
+    @Update("UPDATE appointment_orders SET status = 'CONFIRMED', visit_number = #{visitNumber}, updated_at = CURRENT_TIMESTAMP WHERE id = #{id} AND status = 'PENDING_PAYMENT'")
+    int confirmIfPending(@Param("id") Long id, @Param("visitNumber") Integer visitNumber);
+
+    @Select("SELECT * FROM appointment_orders WHERE id = #{id}")
+    AppointmentOrder selectByIdForLookup(@Param("id") Long id);
 
     @Select("SELECT * FROM appointment_orders WHERE id = #{id} FOR UPDATE")
     AppointmentOrder selectByIdForUpdate(@Param("id") Long id);
@@ -97,6 +106,17 @@ public interface AppointmentOrderMapper extends BaseMapper<AppointmentOrder> {
             """)
     int closeIfPending(@Param("id") Long id, @Param("status") String status,
                        @Param("closedAt") java.time.LocalDateTime closedAt);
+
+    @Update("""
+            UPDATE appointment_orders
+            SET status = 'CANCELLED', closed_at = #{closedAt}, updated_at = CURRENT_TIMESTAMP
+            WHERE id = #{id} AND status = 'CONFIRMED'
+            """)
+    int cancelIfConfirmed(@Param("id") Long id,
+                          @Param("closedAt") java.time.LocalDateTime closedAt);
+
+    @Select("SELECT * FROM appointment_orders WHERE schedule_id = #{scheduleId} AND status = 'PENDING_PAYMENT' ORDER BY id FOR UPDATE")
+    List<AppointmentOrder> selectPendingByScheduleForUpdate(@Param("scheduleId") Long scheduleId);
 
     @Select("""
             <script>

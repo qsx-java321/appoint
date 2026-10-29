@@ -6,7 +6,9 @@ import com.qsx.appoint.appointment.config.AppointmentProperties;
 import com.qsx.appoint.appointment.dto.CreateAppointmentRequest;
 import com.qsx.appoint.appointment.dto.CreateAppointmentResponse;
 import com.qsx.appoint.appointment.entity.AppointmentCreateRequest;
+import com.qsx.appoint.appointment.entity.AppointmentActiveClaim;
 import com.qsx.appoint.appointment.entity.AppointmentOrder;
+import com.qsx.appoint.appointment.mapper.AppointmentActiveClaimMapper;
 import com.qsx.appoint.appointment.mapper.AppointmentCreateRequestMapper;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.catalog.entity.Department;
@@ -26,6 +28,7 @@ import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -37,6 +40,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AppointmentCreationTransactionService {
     private final AppointmentCreateRequestMapper createRequestMapper;
+    private final AppointmentActiveClaimMapper activeClaimMapper;
     private final PatientMapper patientMapper;
     private final ScheduleMapper scheduleMapper;
     private final DoctorMapper doctorMapper;
@@ -59,15 +63,15 @@ public class AppointmentCreationTransactionService {
         createRequest.setCreatedAt(now);
         createRequestMapper.insert(createRequest);
 
+        Schedule schedule = scheduleMapper.selectByIdForUpdate(request.getScheduleId());
+        validateBookable(schedule, now);
+
         Patient patient = patientMapper.selectByIdForUpdate(request.getPatientId());
         if (patient == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         if (!patient.getUserId().equals(userId)) throw new BusinessException(ErrorCode.FORBIDDEN);
         if (!Boolean.TRUE.equals(patient.getEnabled())) throw new BusinessException(ErrorCode.PATIENT_DISABLED);
 
-        Schedule schedule = scheduleMapper.selectByIdForUpdate(request.getScheduleId());
-        if (schedule == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         LocalDateTime appointmentStart = LocalDateTime.of(schedule.getAppointmentDate(), schedule.getStartTime());
-        if (!appointmentStart.isAfter(now)) throw new BusinessException(ErrorCode.SCHEDULE_STARTED);
 
         Doctor doctor = doctorMapper.selectById(schedule.getDoctorId());
         Department department = doctor == null ? null : departmentMapper.selectById(doctor.getDepartmentId());
@@ -75,7 +79,7 @@ public class AppointmentCreationTransactionService {
         if (doctor == null || department == null || hospital == null) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         }
-        if (scheduleMapper.holdIfAvailable(schedule.getId()) != 1) {
+        if (scheduleMapper.holdOne(schedule.getId()) != 1) {
             throw new BusinessException(ErrorCode.SCHEDULE_UNAVAILABLE);
         }
 
@@ -108,6 +112,19 @@ public class AppointmentCreationTransactionService {
         appointment.setPaymentExpiresAt(timeoutAt.isBefore(appointmentStart) ? timeoutAt : appointmentStart);
         appointmentOrderMapper.insert(appointment);
 
+        AppointmentActiveClaim claim = new AppointmentActiveClaim();
+        claim.setScheduleId(schedule.getId());
+        claim.setAppointmentOrderId(appointment.getId());
+        claim.setPatientId(patient.getId());
+        claim.setDocumentType(patient.getDocumentType());
+        claim.setDocumentNo(patient.getDocumentNo());
+        claim.setCreatedAt(now);
+        try {
+            activeClaimMapper.insert(claim);
+        } catch (DuplicateKeyException exception) {
+            throw new BusinessException(ErrorCode.DUPLICATE_ACTIVE_APPOINTMENT);
+        }
+
         PaymentOrder payment = new PaymentOrder();
         payment.setPaymentNo("PAY" + UUID.randomUUID().toString().replace("-", ""));
         payment.setAppointmentOrderId(appointment.getId());
@@ -135,5 +152,20 @@ public class AppointmentCreationTransactionService {
 
     private LocalDateTime now() {
         return LocalDateTime.now(appointmentClock).truncatedTo(ChronoUnit.SECONDS);
+    }
+
+    private void validateBookable(Schedule schedule, LocalDateTime now) {
+        if (schedule == null || schedule.getSessionType() == null) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if ("CLOSED".equals(schedule.getStatus())) throw new BusinessException(ErrorCode.SCHEDULE_CLOSED);
+        if (!"OPEN".equals(schedule.getStatus())) throw new BusinessException(ErrorCode.SCHEDULE_UNAVAILABLE);
+        LocalDateTime start = LocalDateTime.of(schedule.getAppointmentDate(), schedule.getStartTime());
+        LocalDateTime release = LocalDateTime.of(schedule.getAppointmentDate().minusDays(7), java.time.LocalTime.of(8, 0));
+        if (now.isBefore(release)) throw new BusinessException(ErrorCode.SCHEDULE_NOT_OPEN);
+        if (!now.isBefore(start.minusMinutes(30))) throw new BusinessException(ErrorCode.SCHEDULE_CUTOFF_REACHED);
+        if (schedule.getAvailableCapacity() == null || schedule.getAvailableCapacity() <= 0) {
+            throw new BusinessException(ErrorCode.SCHEDULE_UNAVAILABLE);
+        }
     }
 }

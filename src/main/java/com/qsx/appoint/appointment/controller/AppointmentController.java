@@ -40,6 +40,10 @@ public class AppointmentController {
         }
     @PostMapping("/{id}/cancel")
     public Result<AppointmentResponse> cancel(Authentication authentication, @PathVariable Long id) {
-        return Result.success(appointmentService.cancel((Long) authentication.getPrincipal(), id));
+        AppointmentResponse response = appointmentService.cancel((Long) authentication.getPrincipal(), id);
+        if ("REFUNDED".equals(response.getPaymentStatus())) {
+            return Result.success("模拟全额退款成功", response);
+        }
+        return Result.success(response);
     }
 }

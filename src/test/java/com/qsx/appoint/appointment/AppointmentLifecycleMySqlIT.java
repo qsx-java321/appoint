@@ -10,6 +10,7 @@ import com.qsx.appoint.appointment.service.AppointmentService;
 import com.qsx.appoint.appointment.service.AppointmentLifecycleService;
 import com.qsx.appoint.catalog.entity.Schedule;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
+import com.qsx.appoint.catalog.service.ScheduleManagementService;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.payment.entity.PaymentOrder;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
@@ -36,6 +37,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -47,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Testcontainers
 @SpringBootTest(properties = "appoint.expiration.enabled=false")
 class AppointmentLifecycleMySqlIT {
+    private static final AtomicInteger SCHEDULE_SEQUENCE = new AtomicInteger();
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
             .withDatabaseName("appoint")
@@ -67,6 +70,7 @@ class AppointmentLifecycleMySqlIT {
     @Autowired private AppointmentOrderMapper appointmentOrderMapper;
     @Autowired private PaymentOrderMapper paymentOrderMapper;
     @Autowired private ScheduleMapper scheduleMapper;
+    @Autowired private ScheduleManagementService scheduleManagementService;
     @Autowired private UserMapper userMapper;
     @Autowired private PatientMapper patientMapper;
     @Autowired private PatientService patientService;
@@ -82,17 +86,16 @@ class AppointmentLifecycleMySqlIT {
                 () -> appointmentService.cancel(userId, created.getAppointmentOrderId()));
 
         assertThat(outcomes).hasSize(2);
-        assertThat(outcomes.stream().filter(value -> !(value instanceof BusinessException)).count()).isEqualTo(1);
         AppointmentOrder appointment = appointmentOrderMapper.selectById(created.getAppointmentOrderId());
         PaymentOrder payment = paymentOrderMapper.selectById(created.getPaymentOrderId());
         Schedule schedule = scheduleMapper.selectById(scheduleId);
         if ("CONFIRMED".equals(appointment.getStatus())) {
             assertThat(payment.getStatus()).isEqualTo("PAID");
-            assertThat(schedule.getStatus()).isEqualTo("BOOKED");
+            assertInventory(schedule, 1, 0, 0, 1);
         } else {
             assertThat(appointment.getStatus()).isEqualTo("CANCELLED");
-            assertThat(payment.getStatus()).isEqualTo("CLOSED");
-            assertThat(schedule.getStatus()).isEqualTo("AVAILABLE");
+            assertThat(payment.getStatus()).isIn("CLOSED", "REFUNDED");
+            assertInventory(schedule, 1, 1, 0, 0);
         }
     }
 
@@ -111,21 +114,38 @@ class AppointmentLifecycleMySqlIT {
     }
 
     @Test
-    void concurrentUsersCompetingForOneScheduleProduceOnlyOneActiveAppointment() throws Exception {
-        Long firstUserId = createUser();
-        Long secondUserId = createUser();
-        Long scheduleId = createSchedule();
+    void twentyUsersCompetingForLastThreePlacesNeverOversell() throws Exception {
+        Long scheduleId = createSchedule(3);
+        CountDownLatch ready = new CountDownLatch(20);
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService executor = Executors.newFixedThreadPool(20)) {
+            List<Future<Object>> futures = java.util.stream.IntStream.range(0, 20)
+                    .mapToObj(index -> executor.submit(() -> {
+                        ready.countDown();
+                        start.await();
+                        Long userId = createUser();
+                        Long patientId = createPatient(userId, "990000%012d".formatted(index));
+                        try {
+                            return createAppointment(userId, patientId, scheduleId, UUID.randomUUID().toString());
+                        } catch (BusinessException exception) {
+                            return exception;
+                        }
+                    }))
+                    .toList();
+            ready.await();
+            start.countDown();
+            List<Object> outcomes = new java.util.ArrayList<>();
+            for (Future<Object> future : futures) outcomes.add(future.get());
 
-        List<Object> outcomes = race(
-                () -> createAppointment(firstUserId, scheduleId),
-                () -> createAppointment(secondUserId, scheduleId));
-
-        assertThat(outcomes.stream().filter(CreateAppointmentResponse.class::isInstance).count()).isEqualTo(1);
-        assertThat(outcomes.stream().filter(BusinessException.class::isInstance).count()).isEqualTo(1);
-        BusinessException rejected = (BusinessException) outcomes.stream()
-                .filter(BusinessException.class::isInstance).findFirst().orElseThrow();
-        assertThat(rejected.getErrorCode()).isEqualTo(com.qsx.appoint.common.ErrorCode.SCHEDULE_UNAVAILABLE);
-        assertThat(scheduleMapper.selectById(scheduleId).getStatus()).isEqualTo("HELD");
+            assertThat(outcomes.stream().filter(CreateAppointmentResponse.class::isInstance).count()).isEqualTo(3);
+            assertThat(outcomes.stream().filter(BusinessException.class::isInstance).count()).isEqualTo(17);
+        }
+        Schedule schedule = scheduleMapper.selectById(scheduleId);
+        assertInventory(schedule, 3, 0, 3, 0);
+        assertThat(appointmentOrderMapper.selectList(null).stream()
+                .filter(order -> scheduleId.equals(order.getScheduleId()))
+                .filter(order -> "PENDING_PAYMENT".equals(order.getStatus())))
+                .hasSize(3);
     }
 
     @Test
@@ -148,7 +168,38 @@ class AppointmentLifecycleMySqlIT {
         assertThat(rejected.getErrorCode()).isEqualTo(com.qsx.appoint.common.ErrorCode.PAYMENT_EXPIRED);
         assertThat(appointmentOrderMapper.selectById(created.getAppointmentOrderId()).getStatus()).isEqualTo("EXPIRED");
         assertThat(paymentOrderMapper.selectById(created.getPaymentOrderId()).getStatus()).isEqualTo("CLOSED");
-        assertThat(scheduleMapper.selectById(scheduleId).getStatus()).isEqualTo("AVAILABLE");
+        assertInventory(scheduleMapper.selectById(scheduleId), 1, 1, 0, 0);
+    }
+
+    @Test
+    void paymentRacingScheduleClosureKeepsOneConsistentInventoryState() throws Exception {
+        Long userId = createUser();
+        Long operatorId = createUser();
+        Long scheduleId = createSchedule();
+        CreateAppointmentResponse created = createAppointment(userId, scheduleId);
+
+        race(
+                () -> paymentService.simulateSuccess(userId, created.getPaymentOrderId()),
+                () -> scheduleManagementService.close(operatorId, scheduleId));
+
+        AppointmentOrder appointment = appointmentOrderMapper.selectById(created.getAppointmentOrderId());
+        PaymentOrder payment = paymentOrderMapper.selectById(created.getPaymentOrderId());
+        Schedule schedule = scheduleMapper.selectById(scheduleId);
+        assertThat(schedule.getStatus()).isEqualTo("CLOSED");
+        if ("CONFIRMED".equals(appointment.getStatus())) {
+            assertThat(payment.getStatus()).isEqualTo("PAID");
+            assertThat(schedule.getAvailableCapacity()).isZero();
+            assertThat(schedule.getHeldCapacity()).isZero();
+            assertThat(schedule.getConfirmedCapacity()).isEqualTo(1);
+        } else {
+            assertThat(appointment.getStatus()).isEqualTo("CANCELLED_BY_HOSPITAL");
+            assertThat(payment.getStatus()).isEqualTo("CLOSED");
+            assertThat(schedule.getAvailableCapacity()).isEqualTo(1);
+            assertThat(schedule.getHeldCapacity()).isZero();
+            assertThat(schedule.getConfirmedCapacity()).isZero();
+        }
+        assertThat(schedule.getAvailableCapacity() + schedule.getHeldCapacity()
+                + schedule.getConfirmedCapacity()).isEqualTo(schedule.getTotalCapacity());
     }
 
     @Test
@@ -263,12 +314,24 @@ class AppointmentLifecycleMySqlIT {
     }
 
     private Long createSchedule() {
+        return createSchedule(1);
+    }
+
+    private Long createSchedule(int capacity) {
+        int sequence = SCHEDULE_SEQUENCE.getAndIncrement();
         Schedule schedule = new Schedule();
-        schedule.setDoctorId(1L);
-        schedule.setAppointmentDate(LocalDate.of(2099, 6, 1));
-        schedule.setStartTime(LocalTime.of(9, 0));
-        schedule.setEndTime(LocalTime.of(9, 30));
-        schedule.setStatus("AVAILABLE");
+        schedule.setDoctorId(1L + (sequence % 4) / 2);
+        schedule.setAppointmentDate(LocalDate.now().plusDays(2L + sequence / 4));
+        boolean morning = sequence % 2 == 0;
+        schedule.setSessionType(morning ? "MORNING" : "AFTERNOON");
+        schedule.setStartTime(morning ? LocalTime.of(8, 0) : LocalTime.of(14, 0));
+        schedule.setEndTime(morning ? LocalTime.of(12, 0) : LocalTime.of(17, 0));
+        schedule.setStatus("OPEN");
+        schedule.setTotalCapacity(capacity);
+        schedule.setAvailableCapacity(capacity);
+        schedule.setHeldCapacity(0);
+        schedule.setConfirmedCapacity(0);
+        schedule.setNextVisitNumber(1);
         scheduleMapper.insert(schedule);
         return schedule.getId();
     }
@@ -291,16 +354,29 @@ class AppointmentLifecycleMySqlIT {
     }
 
     private Long createPatient(Long userId) {
+        return createPatient(userId, "110105199001010010");
+    }
+
+    private Long createPatient(Long userId, String documentNo) {
         Patient patient = new Patient();
         patient.setUserId(userId);
         patient.setName("MySQL 就诊人");
         patient.setDocumentType("RESIDENT_ID_CARD");
-        patient.setDocumentNo("110105199001010010");
+        patient.setDocumentNo(documentNo);
         patient.setContactPhone("13800138000");
         patient.setContactEmail("patient@example.com");
         patient.setEnabled(true);
         patientMapper.insert(patient);
         return patient.getId();
+    }
+
+    private void assertInventory(Schedule schedule, int total, int available, int held, int confirmed) {
+        assertThat(schedule.getStatus()).isEqualTo("OPEN");
+        assertThat(schedule.getTotalCapacity()).isEqualTo(total);
+        assertThat(schedule.getAvailableCapacity()).isEqualTo(available);
+        assertThat(schedule.getHeldCapacity()).isEqualTo(held);
+        assertThat(schedule.getConfirmedCapacity()).isEqualTo(confirmed);
+        assertThat(available + held + confirmed).isEqualTo(total);
     }
 
     private CreatePatientRequest patientRequest(String name) {

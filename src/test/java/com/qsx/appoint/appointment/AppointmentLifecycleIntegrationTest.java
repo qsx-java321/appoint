@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -34,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 class AppointmentLifecycleIntegrationTest {
+    private static final AtomicInteger SCHEDULE_SEQUENCE = new AtomicInteger();
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private ScheduleMapper scheduleMapper;
@@ -56,13 +58,13 @@ class AppointmentLifecycleIntegrationTest {
                 .andExpect(jsonPath("$.data.closedAt").isNotEmpty())
                 .andExpect(jsonPath("$.data.canPay").value(false))
                 .andExpect(jsonPath("$.data.canCancel").value(false))
-                .andExpect(jsonPath("$.data.appointmentDate").value("2099-03-01"))
-                .andExpect(jsonPath("$.data.startTime").value("09:00:00"))
-                .andExpect(jsonPath("$.data.endTime").value("09:30:00"))
+                .andExpect(jsonPath("$.data.appointmentDate").value(schedule.getAppointmentDate().toString()))
+                .andExpect(jsonPath("$.data.startTime").value(schedule.getStartTime() + ":00"))
+                .andExpect(jsonPath("$.data.endTime").value(schedule.getEndTime() + ":00"))
                 .andExpect(jsonPath("$.data.doctor.hospital.address").value("示例市健康路 1 号"))
                 .andReturn().getResponse().getContentAsString();
         String closedAt = objectMapper.readTree(firstCancel).at("/data/closedAt").asText();
-        assertThat(scheduleMapper.selectById(schedule.getId()).getStatus()).isEqualTo("AVAILABLE");
+        assertThat(scheduleMapper.selectById(schedule.getId()).getAvailableCapacity()).isEqualTo(5);
 
         mockMvc.perform(post("/api/v1/appointments/{id}/cancel", first.appointmentId())
                         .header("Authorization", bearer(owner)))
@@ -75,12 +77,12 @@ class AppointmentLifecycleIntegrationTest {
 
         AuthenticatedUser secondUser = registerAndLogin();
         CreatedAppointment second = createAppointment(secondUser, schedule.getId());
-        assertThat(scheduleMapper.selectById(schedule.getId()).getStatus()).isEqualTo("HELD");
+        assertThat(scheduleMapper.selectById(schedule.getId()).getHeldCapacity()).isEqualTo(1);
 
         mockMvc.perform(post("/api/v1/appointments/{id}/cancel", first.appointmentId())
                         .header("Authorization", bearer(owner)))
                 .andExpect(status().isOk());
-        assertThat(scheduleMapper.selectById(schedule.getId()).getStatus()).isEqualTo("HELD");
+        assertThat(scheduleMapper.selectById(schedule.getId()).getHeldCapacity()).isEqualTo(1);
         assertThat(appointmentOrderMapper.selectById(second.appointmentId()).getStatus()).isEqualTo("PENDING_PAYMENT");
     }
 
@@ -104,7 +106,7 @@ class AppointmentLifecycleIntegrationTest {
                 .andExpect(jsonPath("$.data.paymentExpired").value(true))
                 .andExpect(jsonPath("$.data.canPay").value(false))
                 .andExpect(jsonPath("$.data.canCancel").value(true));
-        assertThat(scheduleMapper.selectById(schedule.getId()).getStatus()).isEqualTo("HELD");
+        assertThat(scheduleMapper.selectById(schedule.getId()).getHeldCapacity()).isEqualTo(1);
 
         AppointmentExpirationJob job = new AppointmentExpirationJob(appointmentOrderMapper, lifecycleService,
                 new ExpirationProperties(true, Duration.ofSeconds(30), 100), appointmentClock);
@@ -112,7 +114,8 @@ class AppointmentLifecycleIntegrationTest {
 
         assertThat(appointmentOrderMapper.selectById(created.appointmentId()).getStatus()).isEqualTo("EXPIRED");
         assertThat(paymentOrderMapper.selectById(created.paymentId()).getStatus()).isEqualTo("CLOSED");
-        assertThat(scheduleMapper.selectById(schedule.getId()).getStatus()).isEqualTo("AVAILABLE");
+        assertThat(scheduleMapper.selectById(schedule.getId()).getHeldCapacity()).isZero();
+        assertThat(scheduleMapper.selectById(schedule.getId()).getAvailableCapacity()).isEqualTo(5);
         assertThat(lifecycleService.expireIfDue(created.appointmentId())).isFalse();
     }
 
@@ -133,7 +136,7 @@ class AppointmentLifecycleIntegrationTest {
     }
 
     @Test
-    void confirmedAppointmentCannotBeCancelled() throws Exception {
+    void confirmedAppointmentCanBeCancelledAndSimulatedRefundedBeforeDeadline() throws Exception {
         AuthenticatedUser user = registerAndLogin();
         CreatedAppointment created = createAppointment(user,
                 createSchedule(LocalDate.of(2099, 3, 4), LocalTime.of(12, 0)).getId());
@@ -143,8 +146,11 @@ class AppointmentLifecycleIntegrationTest {
 
         mockMvc.perform(post("/api/v1/appointments/{id}/cancel", created.appointmentId())
                         .header("Authorization", bearer(user)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value(4003));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("模拟全额退款成功"))
+                .andExpect(jsonPath("$.data.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.data.paymentStatus").value("REFUNDED"))
+                .andExpect(jsonPath("$.data.visitNumber").value(1));
     }
 
     @Test
@@ -181,22 +187,17 @@ class AppointmentLifecycleIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"scheduleId\":" + schedule.getId() + ",\"patientId\":" + user.patientId() + "}"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value(4005));
+                .andExpect(jsonPath("$.code").value(4202));
     }
 
     @Test
-    void paymentDeadlineUsesFifteenMinutesOrAppointmentStartWhicheverComesFirst() throws Exception {
+    void paymentDeadlineUsesFifteenMinutes() throws Exception {
         AuthenticatedUser user = registerAndLogin();
         CreatedAppointment normal = createAppointment(user,
                 createSchedule(LocalDate.of(2099, 3, 6), LocalTime.of(14, 0)).getId());
         AppointmentOrder normalOrder = appointmentOrderMapper.selectById(normal.appointmentId());
         assertThat(normalOrder.getPaymentExpiresAt()).isEqualTo(normalOrder.getCreatedAt().plusMinutes(15));
 
-        LocalDateTime nearStart = LocalDateTime.now(appointmentClock).plusMinutes(5).withNano(0);
-        CreatedAppointment near = createAppointment(user,
-                createSchedule(nearStart.toLocalDate(), nearStart.toLocalTime()).getId());
-        assertThat(appointmentOrderMapper.selectById(near.appointmentId()).getPaymentExpiresAt())
-                .isEqualTo(nearStart);
     }
 
     private AuthenticatedUser registerAndLogin() throws Exception {
@@ -235,10 +236,19 @@ class AppointmentLifecycleIntegrationTest {
     private Schedule createSchedule(LocalDate date, LocalTime start) {
         Schedule schedule = new Schedule();
         schedule.setDoctorId(1L);
-        schedule.setAppointmentDate(date);
-        schedule.setStartTime(start);
-        schedule.setEndTime(start.plusMinutes(30));
-        schedule.setStatus("AVAILABLE");
+        boolean past = date.isBefore(LocalDate.now(appointmentClock));
+        int sequence = SCHEDULE_SEQUENCE.getAndIncrement();
+        boolean afternoon = !past && sequence % 2 == 1;
+        schedule.setAppointmentDate(past ? date : LocalDate.now(appointmentClock).plusDays(2 + sequence / 2));
+        schedule.setStartTime(afternoon ? LocalTime.of(14, 0) : LocalTime.of(8, 0));
+        schedule.setEndTime(afternoon ? LocalTime.of(17, 0) : LocalTime.of(12, 0));
+        schedule.setStatus("OPEN");
+        schedule.setSessionType(afternoon ? "AFTERNOON" : "MORNING");
+        schedule.setTotalCapacity(5);
+        schedule.setAvailableCapacity(5);
+        schedule.setHeldCapacity(0);
+        schedule.setConfirmedCapacity(0);
+        schedule.setNextVisitNumber(1);
         scheduleMapper.insert(schedule);
         return schedule;
     }

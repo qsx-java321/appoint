@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -28,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 class AppointmentIdempotencyIntegrationTest {
+    private static final AtomicInteger SCHEDULE_SEQUENCE = new AtomicInteger();
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private ScheduleMapper scheduleMapper;
@@ -72,7 +74,7 @@ class AppointmentIdempotencyIntegrationTest {
         String token = registerAndLogin();
         String patientId = createPatient(token, "就诊人", "110105199001010010");
         Long firstScheduleId = createSchedule(LocalDate.of(2099, 8, 2), LocalTime.of(8, 0));
-        Long secondScheduleId = createSchedule(LocalDate.of(2099, 8, 2), LocalTime.of(9, 0));
+        Long secondScheduleId = createSchedule(LocalDate.of(2099, 8, 2), LocalTime.of(14, 0));
         String key = UUID.randomUUID().toString();
 
         createAppointment(token, key, appointmentBody(firstScheduleId, patientId));
@@ -112,8 +114,8 @@ class AppointmentIdempotencyIntegrationTest {
         String ownerPatientId = createPatient(ownerToken, "本人", "110105199001010010");
         String otherPatientId = createPatient(otherToken, "他人", "110105199002020026");
         Long forbiddenScheduleId = createSchedule(LocalDate.of(2099, 8, 4), LocalTime.of(8, 0));
-        Long ownerScheduleId = createSchedule(LocalDate.of(2099, 8, 4), LocalTime.of(9, 0));
-        Long otherScheduleId = createSchedule(LocalDate.of(2099, 8, 4), LocalTime.of(10, 0));
+        Long ownerScheduleId = createSchedule(LocalDate.of(2099, 8, 4), LocalTime.of(14, 0));
+        Long otherScheduleId = createSchedule(LocalDate.of(2099, 8, 5), LocalTime.of(8, 0));
         String sharedKey = UUID.randomUUID().toString();
 
         mockMvc.perform(post("/api/v1/appointments")
@@ -132,7 +134,7 @@ class AppointmentIdempotencyIntegrationTest {
     void replayAfterCancellationAndPatientDisableStillReturnsOriginalAppointmentReceipt() throws Exception {
         String token = registerAndLogin();
         String patientId = createPatient(token, "就诊人", "110105199001010010");
-        Long scheduleId = createSchedule(LocalDate.of(2099, 8, 5), LocalTime.of(8, 0));
+        Long scheduleId = createSchedule(LocalDate.of(2099, 8, 8), LocalTime.of(8, 0));
         String key = UUID.randomUUID().toString();
         String body = appointmentBody(scheduleId, patientId);
         String first = createAppointment(token, key, body);
@@ -166,7 +168,7 @@ class AppointmentIdempotencyIntegrationTest {
                 .andExpect(jsonPath("$.data.appointmentStatus").value("CONFIRMED"));
         assertReplayReceipt(replayAppointment(token, paidKey, paidBody), paidAppointmentId, paidAppointmentNo);
 
-        Long expiredScheduleId = createSchedule(LocalDate.of(2099, 8, 7), LocalTime.of(9, 0));
+        Long expiredScheduleId = createSchedule(LocalDate.of(2099, 8, 7), LocalTime.of(14, 0));
         String expiredKey = UUID.randomUUID().toString();
         String expiredBody = appointmentBody(expiredScheduleId, patientId);
         String expiredFirst = createAppointment(token, expiredKey, expiredBody);
@@ -264,12 +266,20 @@ class AppointmentIdempotencyIntegrationTest {
     }
 
     private Long createSchedule(LocalDate date, LocalTime start) {
+        int sequence = SCHEDULE_SEQUENCE.getAndIncrement();
         Schedule schedule = new Schedule();
-        schedule.setDoctorId(1L);
-        schedule.setAppointmentDate(date);
-        schedule.setStartTime(start);
-        schedule.setEndTime(start.plusMinutes(30));
-        schedule.setStatus("AVAILABLE");
+        schedule.setDoctorId(2L);
+        schedule.setAppointmentDate(LocalDate.now().plusDays(1 + sequence / 2));
+        boolean afternoon = sequence % 2 == 1;
+        schedule.setStartTime(afternoon ? LocalTime.of(14, 0) : LocalTime.of(8, 0));
+        schedule.setEndTime(afternoon ? LocalTime.of(17, 0) : LocalTime.of(12, 0));
+        schedule.setStatus("OPEN");
+        schedule.setSessionType(afternoon ? "AFTERNOON" : "MORNING");
+        schedule.setTotalCapacity(5);
+        schedule.setAvailableCapacity(5);
+        schedule.setHeldCapacity(0);
+        schedule.setConfirmedCapacity(0);
+        schedule.setNextVisitNumber(1);
         scheduleMapper.insert(schedule);
         return schedule.getId();
     }

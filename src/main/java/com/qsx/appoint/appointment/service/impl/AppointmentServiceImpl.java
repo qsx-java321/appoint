@@ -106,11 +106,21 @@ public class AppointmentServiceImpl implements AppointmentService {
                 && !serverTime.isBefore(record.getPaymentExpiresAt()));
         boolean pendingAndUnpaid = "PENDING_PAYMENT".equals(record.getStatus())
                 && "UNPAID".equals(record.getPaymentStatus());
+        boolean confirmedAndPaid = "CONFIRMED".equals(record.getStatus())
+                && "PAID".equals(record.getPaymentStatus());
+        boolean scheduleClosed = "CLOSED".equals(record.getScheduleStatus());
+        LocalDateTime cancellationDeadline = LocalDateTime.of(
+                record.getAppointmentDate(), record.getStartTime()).minusHours(24);
         return new AppointmentResponse(record.getId(), record.getAppointmentNo(), record.getScheduleId(),
                 record.getAppointmentDate(), record.getStartTime(), record.getEndTime(), record.getStatus(),
+                record.getVisitNumber(),
                 record.getCreatedAt(), record.getPaymentOrderId(), record.getPaymentStatus(),
                 record.getPaymentExpiresAt(), record.getClosedAt(), serverTime, paymentExpired,
-                pendingAndUnpaid && !paymentExpired, pendingAndUnpaid, patient, doctor);
+                pendingAndUnpaid && !paymentExpired && !scheduleClosed,
+                pendingAndUnpaid || (confirmedAndPaid && serverTime.isBefore(cancellationDeadline)),
+                scheduleClosed,
+                scheduleClosed && confirmedAndPaid ? "医生已停诊，请联系医院" : null,
+                patient, doctor);
     }
 
     private void ensurePaymentIntegrity(AppointmentQueryRecord record) {

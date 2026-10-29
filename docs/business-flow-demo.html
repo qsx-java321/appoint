@@ -149,19 +149,19 @@
     </section>
 
     <section class="panel" aria-labelledby="state-title">
-      <div class="section-head"><div><h2 id="state-title">待支付之后会发生什么？</h2><p>切换三种结局，观察三类业务对象必须保持的一致状态。</p></div></div>
+      <div class="section-head"><div><h2 id="state-title">暂占之后会发生什么？</h2><p>切换三种结局，观察预约、支付与统一库存必须保持的一致状态。</p></div></div>
       <div class="lab">
         <div class="scenario-box">
           <h3>选择一个业务结局</h3>
-          <button class="action" type="button" data-scenario="paid">模拟支付成功<small>预约确认，号源正式锁定</small></button>
-          <button class="action" type="button" data-scenario="cancelled">用户主动取消<small>订单关闭，号源立即释放</small></button>
-          <button class="action" type="button" data-scenario="expired">等待支付超时<small>后台扫描关闭订单并释放号源</small></button>
+          <button class="action" type="button" data-scenario="paid">模拟支付成功<small>暂占转为已确认并取得序号</small></button>
+          <button class="action" type="button" data-scenario="cancelled">用户主动取消<small>暂占名额立即转回可用</small></button>
+          <button class="action" type="button" data-scenario="expired">等待支付超时<small>后台关闭订单并释放暂占</small></button>
         </div>
         <div class="state-board" aria-live="polite">
           <div class="state-row"><span>预约单</span><strong class="status pending" id="appointment-state">PENDING_PAYMENT</strong></div>
           <div class="state-row"><span>支付单</span><strong class="status pending" id="payment-state">UNPAID</strong></div>
-          <div class="state-row"><span>号源</span><strong class="status pending" id="schedule-state">HELD</strong></div>
-          <div class="outcome"><strong id="outcome-title">号源暂时保留</strong><p id="outcome-description">用户可以在支付期限内模拟支付或取消预约；到期后支付会被拒绝。</p></div>
+          <div class="state-row"><span>统一库存</span><strong class="status pending" id="schedule-state">19可用 · 1暂占 · 0确认</strong></div>
+          <div class="outcome"><strong id="outcome-title">名额暂占成功</strong><p id="outcome-description">用户可以在支付期限内模拟支付或取消预约；到期后支付会被拒绝。</p></div>
         </div>
       </div>
     </section>
@@ -172,7 +172,7 @@
         <article><span>就诊人</span><strong>张三 · 110105********002X</strong></article>
         <article><span>医院</span><strong>示例市第一人民医院</strong></article>
         <article><span>科室与医生</span><strong>内科 · 张医生</strong></article>
-        <article><span>就诊时间</span><strong>2099-01-01 09:00–09:30</strong></article>
+        <article><span>排班时间</span><strong>2099-01-01 上午 08:00–12:00</strong></article>
         <article><span>预约号</span><strong>AP-DEMO-0001</strong></article>
       </div>
     </section>
@@ -201,41 +201,41 @@
         system: ["按资源归属关系逐级查询", "目录读取不改变业务状态", "只展示存在于当前目录中的资料"]
       },
       {
-        name: "选择可用号源",
-        summary: "日期与就诊时段",
-        user: ["查看未来尚未开始的时段", "选择状态为可预约的号源", "提交前核对医院、医生和时间"],
-        system: ["只返回 AVAILABLE 且未开始的号源", "查询结果只是即时快照", "创建预约时必须再次加锁校验"]
+        name: "选择医生排班",
+        summary: "日期、上午/下午与可用量",
+        user: ["查看尚未开放、可预约、约满、截止或关闭的场次", "选择可预约的一场排班", "提交前核对医生、时间和可用量"],
+        system: ["展示排班及其当前 availabilityStatus", "查询结果只是即时快照", "创建预约时重新锁排班并校验窗口与库存"]
       },
       {
         name: "创建预约",
         summary: "生成待支付凭证",
         user: ["选择就诊人并生成本次请求的幂等键", "确认预约后获得预约号", "网络重试时沿用原键取得原预约回执"],
-        system: ["锁定就诊人和号源并标记为 HELD", "创建 PENDING_PAYMENT 预约单和 UNPAID 支付单", "重复请求返回原预约标识，当前状态通过详情查询"]
+        system: ["先锁排班再锁就诊人，将一个可用名额转为暂占", "创建预约单、支付单、有效预约占用和快照", "同场相同就诊人或证件不能重复占用"]
       },
       {
         name: "完成或关闭",
         summary: "支付、取消或超时",
-        user: ["支付成功后预约确认", "待支付期间可以主动取消", "超时后等待系统关闭并释放号源"],
-        system: ["支付、取消和超时互斥", "三张业务记录在同一事务中推进", "重复操作保持幂等或返回明确限制"]
+        user: ["支付成功后取得就诊序号", "待支付期间可以主动取消", "已确认预约在24小时退款窗口内可取消"],
+        system: ["支付、取消、超时和停诊按统一锁顺序执行", "订单、占用和库存原子推进", "序号单调递增且取消后不复用"]
       }
     ];
 
     const scenarios = {
       initial: {
-        appointment: ["PENDING_PAYMENT", "pending"], payment: ["UNPAID", "pending"], schedule: ["HELD", "pending"],
-        title: "号源暂时保留", description: "用户可以在支付期限内模拟支付或取消预约；到期后支付会被拒绝。"
+        appointment: ["PENDING_PAYMENT", "pending"], payment: ["UNPAID", "pending"], schedule: ["19可用 · 1暂占 · 0确认", "pending"],
+        title: "名额暂占成功", description: "用户可以在支付期限内模拟支付或取消预约；到期后支付会被拒绝。"
       },
       paid: {
-        appointment: ["CONFIRMED", "success"], payment: ["PAID", "success"], schedule: ["BOOKED", "success"],
-        title: "预约已经确认", description: "支付单成功、预约单确认、号源正式锁定，三者形成一致终态。"
+        appointment: ["CONFIRMED · 序号1", "success"], payment: ["PAID", "success"], schedule: ["19可用 · 0暂占 · 1确认", "success"],
+        title: "预约已经确认", description: "模拟支付把暂占转为已确认，并按确认顺序发放不复用的就诊序号。"
       },
       cancelled: {
-        appointment: ["CANCELLED", "closed"], payment: ["CLOSED", "closed"], schedule: ["AVAILABLE", "available"],
-        title: "用户主动结束预约", description: "待支付预约关闭，未支付的支付单关闭，原号源立即重新开放。"
+        appointment: ["CANCELLED", "closed"], payment: ["CLOSED", "closed"], schedule: ["20可用 · 0暂占 · 0确认", "available"],
+        title: "用户主动结束预约", description: "待支付预约和支付单关闭，暂占名额立即回到统一库存。"
       },
       expired: {
-        appointment: ["EXPIRED", "closed"], payment: ["CLOSED", "closed"], schedule: ["AVAILABLE", "available"],
-        title: "支付期限已经结束", description: "后台扫描关闭过期预约与支付单，并释放号源供后续用户再次预约。"
+        appointment: ["EXPIRED", "closed"], payment: ["CLOSED", "closed"], schedule: ["20可用 · 0暂占 · 0确认", "available"],
+        title: "支付期限已经结束", description: "后台扫描关闭过期预约和支付单，并把暂占名额归还统一库存。"
       }
     };
 

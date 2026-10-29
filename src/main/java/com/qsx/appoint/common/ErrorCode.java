@@ -23,7 +23,14 @@ public enum ErrorCode {
     PATIENT_DOCUMENT_EXISTS(4101, "该证件已登记为就诊人", HttpStatus.CONFLICT),
     PATIENT_DISABLED(4102, "该就诊人已停用", HttpStatus.CONFLICT),
     IDEMPOTENCY_CONFLICT(4103, "幂等键已用于其他预约请求", HttpStatus.CONFLICT),
-    RETRYABLE_CONCURRENCY_ERROR(5001, "请求暂时无法处理，请使用原幂等键重试", HttpStatus.SERVICE_UNAVAILABLE);
+    RETRYABLE_CONCURRENCY_ERROR(5001, "请求暂时无法处理，请使用原幂等键重试", HttpStatus.SERVICE_UNAVAILABLE),
+    SCHEDULE_NOT_OPEN(4201, "排班尚未开放预约", HttpStatus.CONFLICT),
+    SCHEDULE_CUTOFF_REACHED(4202, "已到预约截止时间", HttpStatus.CONFLICT),
+    SCHEDULE_CLOSED(4203, "排班已关闭", HttpStatus.CONFLICT),
+    DUPLICATE_ACTIVE_APPOINTMENT(4204, "该就诊人已持有本场有效预约", HttpStatus.CONFLICT),
+    CANCELLATION_DEADLINE_REACHED(4205, "距开诊不足24小时，当前不可取消或退款", HttpStatus.CONFLICT),
+    SCHEDULE_IDENTITY_LOCKED(4206, "排班已开放，医生、日期和时段不可修改", HttpStatus.CONFLICT),
+    INVENTORY_REDUCTION_EXCEEDS_AVAILABLE(4207, "减少名额不能超过当前可用名额", HttpStatus.CONFLICT);
 
     private final int code;
     private final String message;

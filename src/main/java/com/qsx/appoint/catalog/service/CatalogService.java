@@ -8,5 +8,5 @@ public interface CatalogService {
     List<HospitalResponse> listHospitals();
     List<DepartmentResponse> listDepartments(Long hospitalId);
     List<DoctorResponse> listDoctors(Long departmentId);
-    List<ScheduleResponse> listAvailableSchedules(Long doctorId);
+    List<ScheduleResponse> listSchedules(Long doctorId);
 }

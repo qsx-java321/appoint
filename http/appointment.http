@@ -1,7 +1,6 @@
-# 选择 HTTP Client 的 local 环境。以下 ID 1、2、3 来自全新数据库的 V1 演示号源。
-# 重复运行前先查询可用号源并替换 scheduleId；已有 BOOKED 号源不能再提交。
-# 先运行 auth.http 中的注册和登录，得到 accessToken。
-# 每次新的预约意图都要换一个 UUID；网络重试必须沿用原键。
+# 选择 HTTP Client 的 local 环境。先运行 auth.http，再运行 admin-schedule.http 的三个创建请求，
+# 取得 paidScheduleId、cancelScheduleId、expireScheduleId。每次新的预约意图使用新 UUID；
+# 网络重试必须沿用原 Idempotency-Key。
 
 @paidKey = 11111111-1111-4111-8111-111111111111
 @cancelKey = 22222222-2222-4222-8222-222222222222
@@ -21,38 +20,20 @@ Content-Type: application/json
   "contactEmail": "patient@example.com"
 }
 
-> {%
-client.global.set("patientId", response.body.data.id);
-%}
+> {% client.global.set("patientId", response.body.data.id); %}
 
-### 查询本人全部就诊人
-GET {{baseUrl}}/api/v1/patients
-Authorization: Bearer {{accessToken}}
-
-### 查询医院
-GET {{baseUrl}}/api/v1/hospitals
-Authorization: Bearer {{accessToken}}
-
-### 查询医院 1 的科室
-GET {{baseUrl}}/api/v1/hospitals/1/departments
-Authorization: Bearer {{accessToken}}
-
-### 查询科室 1 的医生（包含 doctorNo）
-GET {{baseUrl}}/api/v1/departments/1/doctors
-Authorization: Bearer {{accessToken}}
-
-### 查询医生 1 尚未开诊且可用的号源
+### 查询医生排班：列表保留未开放、约满、截止和关闭场次
 GET {{baseUrl}}/api/v1/doctors/1/schedules
 Authorization: Bearer {{accessToken}}
 
-### 路径 A：创建预约并保留号源 1
+### 路径 A：暂占一个统一库存名额
 POST {{baseUrl}}/api/v1/appointments
 Authorization: Bearer {{accessToken}}
 Idempotency-Key: {{paidKey}}
 Content-Type: application/json
 
 {
-  "scheduleId": "1",
+  "scheduleId": "{{paidScheduleId}}",
   "patientId": "{{patientId}}"
 }
 
@@ -61,41 +42,37 @@ client.global.set("paidAppointmentId", response.body.data.appointmentOrderId);
 client.global.set("paidPaymentId", response.body.data.paymentOrderId);
 %}
 
-### A：模拟网络重试，沿用同一键，返回 HTTP 200 和原预约简短回执
+### A：模拟网络重试，沿用同键，返回原预约简短回执且不重复扣库存
 POST {{baseUrl}}/api/v1/appointments
 Authorization: Bearer {{accessToken}}
 Idempotency-Key: {{paidKey}}
 Content-Type: application/json
 
 {
-  "scheduleId": "1",
+  "scheduleId": "{{paidScheduleId}}",
   "patientId": "{{patientId}}"
 }
 
-### A：查看凭证、支付截止时间和 canPay/canCancel
-GET {{baseUrl}}/api/v1/appointments/{{paidAppointmentId}}
-Authorization: Bearer {{accessToken}}
-
-### A：在截止前模拟支付
+### A：截止前模拟支付，返回 CONFIRMED + PAID 和 visitNumber
 POST {{baseUrl}}/api/v1/payments/{{paidPaymentId}}/simulate-success
 Authorization: Bearer {{accessToken}}
 
-### A：重复支付仍返回成功
-POST {{baseUrl}}/api/v1/payments/{{paidPaymentId}}/simulate-success
-Authorization: Bearer {{accessToken}}
-
-### A：支付后凭证仍完整，状态为 CONFIRMED + PAID
+### A：查看就诊序号、快照和停诊字段
 GET {{baseUrl}}/api/v1/appointments/{{paidAppointmentId}}
 Authorization: Bearer {{accessToken}}
 
-### 路径 B：创建另一笔待支付预约，使用号源 2
+### A：开诊前超过 24 小时时取消已确认预约，返回 REFUNDED 和模拟全额退款成功
+POST {{baseUrl}}/api/v1/appointments/{{paidAppointmentId}}/cancel
+Authorization: Bearer {{accessToken}}
+
+### 路径 B：创建待支付预约
 POST {{baseUrl}}/api/v1/appointments
 Authorization: Bearer {{accessToken}}
 Idempotency-Key: {{cancelKey}}
 Content-Type: application/json
 
 {
-  "scheduleId": "2",
+  "scheduleId": "{{cancelScheduleId}}",
   "patientId": "{{patientId}}"
 }
 
@@ -104,45 +81,29 @@ client.global.set("cancelAppointmentId", response.body.data.appointmentOrderId);
 client.global.set("cancelPaymentId", response.body.data.paymentOrderId);
 %}
 
-### B：截止前取消，状态为 CANCELLED + CLOSED
+### B：待支付主动取消，状态为 CANCELLED + CLOSED，暂占转回可用
 POST {{baseUrl}}/api/v1/appointments/{{cancelAppointmentId}}/cancel
 Authorization: Bearer {{accessToken}}
 
-### B：重复取消返回相同终态，不再释放号源
-POST {{baseUrl}}/api/v1/appointments/{{cancelAppointmentId}}/cancel
-Authorization: Bearer {{accessToken}}
-
-### B：取消后的支付请求返回 409 / ORDER_STATE_ERROR
-POST {{baseUrl}}/api/v1/payments/{{cancelPaymentId}}/simulate-success
-Authorization: Bearer {{accessToken}}
-
-### B：确认号源 2 重新出现在列表中；此时也可换另一用户登录后预约
-GET {{baseUrl}}/api/v1/doctors/1/schedules
-Authorization: Bearer {{accessToken}}
-
-### B：再次预约号源 2，生成一张新的预约单
+### B：用新键重新预约同一场，证明有效预约占用已释放
 POST {{baseUrl}}/api/v1/appointments
 Authorization: Bearer {{accessToken}}
 Idempotency-Key: {{rebookKey}}
 Content-Type: application/json
 
 {
-  "scheduleId": "2",
+  "scheduleId": "{{cancelScheduleId}}",
   "patientId": "{{patientId}}"
 }
 
-### 路径 C：查询医生 2 的号源后，用号源 3 演示超时
-GET {{baseUrl}}/api/v1/doctors/2/schedules
-Authorization: Bearer {{accessToken}}
-
-### C：创建预约，记录 paymentExpiresAt
+### 路径 C：创建预约并等待 paymentExpiresAt
 POST {{baseUrl}}/api/v1/appointments
 Authorization: Bearer {{accessToken}}
 Idempotency-Key: {{expireKey}}
 Content-Type: application/json
 
 {
-  "scheduleId": "3",
+  "scheduleId": "{{expireScheduleId}}",
   "patientId": "{{patientId}}"
 }
 
@@ -151,17 +112,17 @@ client.global.set("expiringAppointmentId", response.body.data.appointmentOrderId
 client.global.set("expiringPaymentId", response.body.data.paymentOrderId);
 %}
 
-# 等到上述 paymentExpiresAt 之后再执行后面的请求。支付会立即拒绝；
-# 默认扫描每 30 秒运行一次，关闭时间在故障或积压时可能更晚。
+# 到达 paymentExpiresAt 后，支付立即返回 409 / PAYMENT_EXPIRED；
+# 默认扫描每 30 秒关闭订单并把暂占名额转回可用。
 
-### C：到期支付返回 409 / PAYMENT_EXPIRED
+### C：到期支付被拒绝
 POST {{baseUrl}}/api/v1/payments/{{expiringPaymentId}}/simulate-success
 Authorization: Bearer {{accessToken}}
 
-### C：扫描关闭后查看 EXPIRED + CLOSED、closedAt 和原凭证
+### C：扫描后查看 EXPIRED + CLOSED
 GET {{baseUrl}}/api/v1/appointments/{{expiringAppointmentId}}
 Authorization: Bearer {{accessToken}}
 
-### 查询我的预约：全部状态保留凭证，按预约 ID 倒序
+### 查询我的全部预约及历史快照
 GET {{baseUrl}}/api/v1/appointments/my
 Authorization: Bearer {{accessToken}}

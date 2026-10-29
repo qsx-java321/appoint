@@ -94,12 +94,6 @@ class AppointmentQueryIntegrationTest {
         hospital.setName("已改名医院");
         hospital.setAddress("已变更地址 99 号");
         hospitalMapper.updateById(hospital);
-        Schedule schedule = scheduleMapper.selectById(appointment.scheduleId());
-        schedule.setAppointmentDate(LocalDate.of(2099, 12, 31));
-        schedule.setStartTime(LocalTime.of(20, 0));
-        schedule.setEndTime(LocalTime.of(20, 30));
-        scheduleMapper.updateById(schedule);
-
         assertAppointmentDetail(user, appointment, "PENDING_PAYMENT", "UNPAID");
         assertAppointmentList(user, appointment, "PENDING_PAYMENT", "UNPAID");
     }
@@ -136,9 +130,9 @@ class AppointmentQueryIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value(appointmentStatus))
                 .andExpect(jsonPath("$.data.paymentOrderId").value(appointment.paymentOrderId().toString()))
                 .andExpect(jsonPath("$.data.paymentStatus").value(paymentStatus))
-                .andExpect(jsonPath("$.data.appointmentDate").value("2099-02-01"))
+                .andExpect(jsonPath("$.data.appointmentDate").value(LocalDate.now().plusDays(6).toString()))
                 .andExpect(jsonPath("$.data.startTime").value("08:00:00"))
-                .andExpect(jsonPath("$.data.endTime").value("08:30:00"))
+                .andExpect(jsonPath("$.data.endTime").value("12:00:00"))
                 .andExpect(jsonPath("$.data.paymentExpiresAt").isNotEmpty())
                 .andExpect(jsonPath("$.data.serverTime").isNotEmpty())
                 .andExpect(jsonPath("$.data.doctor.id").value("1"))
@@ -160,9 +154,9 @@ class AppointmentQueryIntegrationTest {
                 .andExpect(jsonPath("$.data[0].status").value(appointmentStatus))
                 .andExpect(jsonPath("$.data[0].paymentOrderId").value(appointment.paymentOrderId().toString()))
                 .andExpect(jsonPath("$.data[0].paymentStatus").value(paymentStatus))
-                .andExpect(jsonPath("$.data[0].appointmentDate").value("2099-02-01"))
+                .andExpect(jsonPath("$.data[0].appointmentDate").value(LocalDate.now().plusDays(6).toString()))
                 .andExpect(jsonPath("$.data[0].startTime").value("08:00:00"))
-                .andExpect(jsonPath("$.data[0].endTime").value("08:30:00"))
+                .andExpect(jsonPath("$.data[0].endTime").value("12:00:00"))
                 .andExpect(jsonPath("$.data[0].doctor.id").value("1"))
                 .andExpect(jsonPath("$.data[0].doctor.doctorNo").value("DOC000001"))
                 .andExpect(jsonPath("$.data[0].doctor.name").value("张医生"))
@@ -224,10 +218,16 @@ class AppointmentQueryIntegrationTest {
     private Schedule createAvailableSchedule() {
         Schedule schedule = new Schedule();
         schedule.setDoctorId(1L);
-        schedule.setAppointmentDate(LocalDate.of(2099, 2, 1));
+        schedule.setAppointmentDate(LocalDate.now().plusDays(6));
         schedule.setStartTime(LocalTime.of(8, 0));
-        schedule.setEndTime(LocalTime.of(8, 30));
-        schedule.setStatus("AVAILABLE");
+        schedule.setEndTime(LocalTime.of(12, 0));
+        schedule.setStatus("OPEN");
+        schedule.setSessionType("MORNING");
+        schedule.setTotalCapacity(5);
+        schedule.setAvailableCapacity(5);
+        schedule.setHeldCapacity(0);
+        schedule.setConfirmedCapacity(0);
+        schedule.setNextVisitNumber(1);
         scheduleMapper.insert(schedule);
         return schedule;
     }
