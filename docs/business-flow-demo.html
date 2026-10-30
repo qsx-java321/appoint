@@ -127,7 +127,7 @@
         <strong>演示边界</strong>
         <ul>
           <li>页面只使用内置示例数据，不发送网络请求。</li>
-          <li>支付为状态演示，不包含金额或真实支付渠道。</li>
+          <li>金额示例为 50.00 CNY；渠道使用 dev/test MockPay，不代表真实微信或支付宝。</li>
           <li>刷新页面即可恢复初始演示状态。</li>
         </ul>
       </aside>
@@ -153,7 +153,7 @@
       <div class="lab">
         <div class="scenario-box">
           <h3>选择一个业务结局</h3>
-          <button class="action" type="button" data-scenario="paid">模拟支付成功<small>暂占转为已确认并取得序号</small></button>
+          <button class="action" type="button" data-scenario="paid">MockPay 异步成功<small>回调落库后由事件确认预约</small></button>
           <button class="action" type="button" data-scenario="cancelled">用户主动取消<small>暂占名额立即转回可用</small></button>
           <button class="action" type="button" data-scenario="expired">等待支付超时<small>后台关闭订单并释放暂占</small></button>
         </div>
@@ -161,7 +161,7 @@
           <div class="state-row"><span>预约单</span><strong class="status pending" id="appointment-state">PENDING_PAYMENT</strong></div>
           <div class="state-row"><span>支付单</span><strong class="status pending" id="payment-state">UNPAID</strong></div>
           <div class="state-row"><span>统一库存</span><strong class="status pending" id="schedule-state">19可用 · 1暂占 · 0确认</strong></div>
-          <div class="outcome"><strong id="outcome-title">名额暂占成功</strong><p id="outcome-description">用户可以在支付期限内模拟支付或取消预约；到期后支付会被拒绝。</p></div>
+          <div class="outcome"><strong id="outcome-title">名额暂占成功</strong><p id="outcome-description">用户可以在截止前发起支付尝试或取消；完成后轮询预约状态。</p></div>
         </div>
       </div>
     </section>
@@ -174,6 +174,7 @@
         <article><span>科室与医生</span><strong>内科 · 张医生</strong></article>
         <article><span>排班时间</span><strong>2099-01-01 上午 08:00–12:00</strong></article>
         <article><span>预约号</span><strong>AP-DEMO-0001</strong></article>
+        <article><span>费用快照</span><strong>50.00 CNY</strong></article>
       </div>
     </section>
   </main>
@@ -210,24 +211,24 @@
         name: "创建预约",
         summary: "生成待支付凭证",
         user: ["选择就诊人并生成本次请求的幂等键", "确认预约后获得预约号", "网络重试时沿用原键取得原预约回执"],
-        system: ["先锁排班再锁就诊人，将一个可用名额转为暂占", "创建预约单、支付单、有效预约占用和快照", "同场相同就诊人或证件不能重复占用"]
+        system: ["先锁排班再锁就诊人，将一个可用名额转为暂占", "原子创建预约单、支付单、有效预约占用和费用快照", "同场相同就诊人或证件不能重复占用"]
       },
       {
         name: "完成或关闭",
         summary: "支付、取消或超时",
         user: ["支付成功后取得就诊序号", "待支付期间可以主动取消", "已确认预约在24小时退款窗口内可取消"],
-        system: ["支付、取消、超时和停诊按统一锁顺序执行", "订单、占用和库存原子推进", "序号单调递增且取消后不复用"]
+        system: ["渠道回调与支付 Outbox 同事务落库", "Inbox 幂等消费后确认预约，短暂显示确认中", "取消退款异步执行，失败不恢复号源"]
       }
     ];
 
     const scenarios = {
       initial: {
         appointment: ["PENDING_PAYMENT", "pending"], payment: ["UNPAID", "pending"], schedule: ["19可用 · 1暂占 · 0确认", "pending"],
-        title: "名额暂占成功", description: "用户可以在支付期限内模拟支付或取消预约；到期后支付会被拒绝。"
+        title: "名额暂占成功", description: "用户可以在截止前发起 MockPay 尝试或取消；完成后轮询预约状态。"
       },
       paid: {
         appointment: ["CONFIRMED · 序号1", "success"], payment: ["PAID", "success"], schedule: ["19可用 · 0暂占 · 1确认", "success"],
-        title: "预约已经确认", description: "模拟支付把暂占转为已确认，并按确认顺序发放不复用的就诊序号。"
+        title: "预约已经确认", description: "签名回调记录收款，可靠事件把暂占转为已确认并发放不复用的就诊序号。"
       },
       cancelled: {
         appointment: ["CANCELLED", "closed"], payment: ["CLOSED", "closed"], schedule: ["20可用 · 0暂占 · 0确认", "available"],

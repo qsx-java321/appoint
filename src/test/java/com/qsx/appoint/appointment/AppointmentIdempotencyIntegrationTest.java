@@ -6,13 +6,14 @@ import com.qsx.appoint.catalog.entity.Schedule;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.appointment.entity.AppointmentOrder;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
-import com.qsx.appoint.appointment.service.AppointmentLifecycleService;
+import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -28,13 +29,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class AppointmentIdempotencyIntegrationTest {
     private static final AtomicInteger SCHEDULE_SEQUENCE = new AtomicInteger();
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private ScheduleMapper scheduleMapper;
     @Autowired private AppointmentOrderMapper appointmentOrderMapper;
-    @Autowired private AppointmentLifecycleService lifecycleService;
+    @Autowired private BookingLifecycleCoordinator lifecycleService;
 
     @Test
     void sameKeyReturnsReplayReceiptAndAppointmentKeepsPatientSnapshot() throws Exception {
@@ -46,10 +48,12 @@ class AppointmentIdempotencyIntegrationTest {
 
         String first = createAppointment(token, key, request);
         JsonNode firstData = objectMapper.readTree(first).path("data");
-        assertThat(firstData.size()).isEqualTo(6);
+        assertThat(firstData.size()).isEqualTo(8);
         assertThat(firstData.has("replayed")).isFalse();
         assertThat(firstData.path("appointmentStatus").asText()).isEqualTo("PENDING_PAYMENT");
         assertThat(firstData.path("paymentStatus").asText()).isEqualTo("UNPAID");
+        assertThat(firstData.path("amount").asText()).isEqualTo("50.00");
+        assertThat(firstData.path("currency").asText()).isEqualTo("CNY");
         String appointmentId = firstData.path("appointmentOrderId").asText();
         String appointmentNo = appointmentOrderMapper.selectById(Long.valueOf(appointmentId)).getAppointmentNo();
         assertReplayReceipt(replayAppointment(token, key.toLowerCase(), request), appointmentId, appointmentNo);
@@ -164,7 +168,7 @@ class AppointmentIdempotencyIntegrationTest {
         String paymentId = objectMapper.readTree(paidFirst).at("/data/paymentOrderId").asText();
         mockMvc.perform(post("/api/v1/payments/" + paymentId + "/simulate-success")
                         .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
+                .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.data.appointmentStatus").value("CONFIRMED"));
         assertReplayReceipt(replayAppointment(token, paidKey, paidBody), paidAppointmentId, paidAppointmentNo);
 
@@ -276,6 +280,8 @@ class AppointmentIdempotencyIntegrationTest {
         schedule.setStatus("OPEN");
         schedule.setSessionType(afternoon ? "AFTERNOON" : "MORNING");
         schedule.setTotalCapacity(5);
+        schedule.setRegistrationFee(new java.math.BigDecimal("50.00"));
+        schedule.setFeeCurrency("CNY");
         schedule.setAvailableCapacity(5);
         schedule.setHeldCapacity(0);
         schedule.setConfirmedCapacity(0);

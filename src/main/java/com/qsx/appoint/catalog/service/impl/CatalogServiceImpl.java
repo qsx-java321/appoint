@@ -49,7 +49,8 @@ public class CatalogServiceImpl implements CatalogService {
         else availability = "AVAILABLE";
         return new ScheduleResponse(schedule.getId(), schedule.getDoctorId(), doctorNo,
                 schedule.getAppointmentDate(), schedule.getSessionType(), schedule.getStartTime(), schedule.getEndTime(),
-                schedule.getStatus(), schedule.getTotalCapacity(), schedule.getAvailableCapacity(), availability,
+                schedule.getStatus(), schedule.getTotalCapacity(), schedule.getAvailableCapacity(),
+                schedule.getRegistrationFee(), schedule.getFeeCurrency(), availability,
                 "AVAILABLE".equals(availability), releaseAt, cutoffAt);
     }
 }

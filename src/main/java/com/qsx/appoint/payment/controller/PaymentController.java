@@ -1,16 +1,26 @@
 package com.qsx.appoint.payment.controller;
 
 import com.qsx.appoint.common.Result;
-import com.qsx.appoint.payment.dto.PaymentResponse;
-import com.qsx.appoint.payment.service.PaymentService;
+import com.qsx.appoint.payment.application.PaymentAttemptService;
+import com.qsx.appoint.payment.dto.PaymentAttemptResponse;
+import com.qsx.appoint.payment.dto.StartPaymentAttemptRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-/** 演示支付接口，仅用于推动订单状态，不包含真实支付渠道。 */
 @RestController @RequestMapping("/api/v1/payments") @RequiredArgsConstructor
 public class PaymentController {
-    private final PaymentService paymentService;
-    @PostMapping("/{id}/simulate-success")
-    public Result<PaymentResponse> simulateSuccess(Authentication authentication, @PathVariable Long id) { return Result.success(paymentService.simulateSuccess((Long) authentication.getPrincipal(), id)); }
+    private final PaymentAttemptService paymentAttemptService;
+
+    @PostMapping("/{id}/attempts")
+    public ResponseEntity<Result<PaymentAttemptResponse>> startAttempt(
+            Authentication authentication, @PathVariable Long id,
+            @Valid @RequestBody StartPaymentAttemptRequest request) {
+        PaymentAttemptResponse response = paymentAttemptService.startAttempt(
+                (Long) authentication.getPrincipal(), id, request.getChannel());
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(Result.success(response));
+    }
 }

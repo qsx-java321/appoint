@@ -6,6 +6,7 @@ import lombok.Setter;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.math.BigDecimal;
 
 /** 预约单记录用户对一个号源的预约意图、就诊对象快照及最终确认状态。 */
 @Getter @Setter @TableName("appointment_orders")
@@ -35,6 +36,8 @@ public class AppointmentOrder {
     private String status;
     private Integer visitNumber;
     private LocalDateTime paymentExpiresAt;
+    private BigDecimal feeAmount;
+    private String feeCurrency;
     private LocalDateTime closedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

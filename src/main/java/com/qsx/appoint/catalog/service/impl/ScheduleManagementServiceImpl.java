@@ -1,6 +1,6 @@
 package com.qsx.appoint.catalog.service.impl;
 
-import com.qsx.appoint.appointment.service.AppointmentLifecycleService;
+import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
 import com.qsx.appoint.catalog.dto.*;
 import com.qsx.appoint.catalog.entity.Doctor;
 import com.qsx.appoint.catalog.entity.Schedule;
@@ -21,6 +21,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.math.BigDecimal;
 import java.util.Locale;
 
 @Service
@@ -29,7 +30,7 @@ public class ScheduleManagementServiceImpl implements ScheduleManagementService 
     private final ScheduleMapper scheduleMapper;
     private final DoctorMapper doctorMapper;
     private final ScheduleInventoryAdjustmentMapper adjustmentMapper;
-    private final AppointmentLifecycleService lifecycleService;
+    private final BookingLifecycleCoordinator lifecycleService;
     private final Clock appointmentClock;
 
     @Override
@@ -38,6 +39,7 @@ public class ScheduleManagementServiceImpl implements ScheduleManagementService 
         requireDoctor(request.getDoctorId());
         SessionTimes times = sessionTimes(request.getSessionType());
         validateFutureWindow(request.getAppointmentDate(), times.start());
+        BigDecimal registrationFee = requireRegistrationFee(request.getRegistrationFee(), request.getFeeCurrency());
         Schedule schedule = new Schedule();
         schedule.setDoctorId(request.getDoctorId());
         schedule.setAppointmentDate(request.getAppointmentDate());
@@ -50,6 +52,8 @@ public class ScheduleManagementServiceImpl implements ScheduleManagementService 
         schedule.setHeldCapacity(0);
         schedule.setConfirmedCapacity(0);
         schedule.setNextVisitNumber(1);
+        schedule.setRegistrationFee(registrationFee);
+        schedule.setFeeCurrency("CNY");
         try {
             scheduleMapper.insert(schedule);
         } catch (DuplicateKeyException exception) {
@@ -67,7 +71,8 @@ public class ScheduleManagementServiceImpl implements ScheduleManagementService 
             throw new BusinessException(ErrorCode.SCHEDULE_IDENTITY_LOCKED);
         }
         if (request.getDoctorId() == null && request.getAppointmentDate() == null
-                && request.getSessionType() == null) {
+                && request.getSessionType() == null && request.getRegistrationFee() == null
+                && request.getFeeCurrency() == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
         Long doctorId = request.getDoctorId() == null ? schedule.getDoctorId() : request.getDoctorId();
@@ -85,6 +90,14 @@ public class ScheduleManagementServiceImpl implements ScheduleManagementService 
         schedule.setSessionType(times.type());
         schedule.setStartTime(times.start());
         schedule.setEndTime(times.end());
+        if (request.getRegistrationFee() != null || request.getFeeCurrency() != null) {
+            BigDecimal fee = request.getRegistrationFee() == null
+                    ? schedule.getRegistrationFee() : request.getRegistrationFee();
+            String currency = request.getFeeCurrency() == null
+                    ? schedule.getFeeCurrency() : request.getFeeCurrency();
+            schedule.setRegistrationFee(requireRegistrationFee(fee, currency));
+            schedule.setFeeCurrency("CNY");
+        }
         try {
             scheduleMapper.updateById(schedule);
         } catch (DuplicateKeyException exception) {
@@ -127,7 +140,7 @@ public class ScheduleManagementServiceImpl implements ScheduleManagementService 
         if (!"OPEN".equals(schedule.getStatus())) throw new BusinessException(ErrorCode.SCHEDULE_CLOSED);
         LocalDateTime now = now();
         if (!now.isBefore(startAt(schedule))) throw new BusinessException(ErrorCode.SCHEDULE_STARTED);
-        lifecycleService.closeScheduleLocked(schedule, operatorUserId, now);
+        lifecycleService.closeScheduleLocked(schedule.getId(), operatorUserId, now);
         return response(scheduleMapper.selectById(scheduleId));
     }
 
@@ -175,11 +188,20 @@ public class ScheduleManagementServiceImpl implements ScheduleManagementService 
         return LocalDateTime.now(appointmentClock).truncatedTo(ChronoUnit.SECONDS);
     }
 
+    private BigDecimal requireRegistrationFee(BigDecimal amount, String currency) {
+        if (amount == null || amount.signum() <= 0 || amount.scale() > 2
+                || currency == null || !"CNY".equals(currency.trim())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        return amount.setScale(2);
+    }
+
     private AdminScheduleResponse response(Schedule schedule) {
         return new AdminScheduleResponse(schedule.getId(), schedule.getDoctorId(), schedule.getAppointmentDate(),
                 schedule.getSessionType(), schedule.getStartTime(), schedule.getEndTime(), schedule.getStatus(),
                 schedule.getTotalCapacity(), schedule.getAvailableCapacity(), schedule.getHeldCapacity(),
-                schedule.getConfirmedCapacity(), schedule.getNextVisitNumber(), schedule.getClosedAt(),
+                schedule.getConfirmedCapacity(), schedule.getNextVisitNumber(), schedule.getRegistrationFee(),
+                schedule.getFeeCurrency(), schedule.getClosedAt(),
                 schedule.getClosedBy());
     }
 

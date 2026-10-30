@@ -11,6 +11,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -35,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
                 "appoint.appointment.payment-timeout=3s",
                 "appoint.expiration.scan-delay=100ms"
         })
+@ActiveProfiles("test")
 class PatientJourneyHttpMySqlIT {
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
@@ -119,16 +121,28 @@ class PatientJourneyHttpMySqlIT {
         assertThat(send("GET", "/api/v1/appointments/" + paidAppointmentId, otherToken, null).status())
                 .isEqualTo(403);
 
-        HttpResult paid = send("POST", "/api/v1/payments/" + paymentId + "/simulate-success", ownerToken, null);
-        assertThat(paid.status()).isEqualTo(200);
-        assertThat(paid.json().at("/data/appointmentStatus").asText()).isEqualTo("CONFIRMED");
-        assertThat(send("POST", "/api/v1/payments/" + paymentId + "/simulate-success", ownerToken, null).status())
-                .isEqualTo(200);
+        HttpResult attempt = send("POST", "/api/v1/payments/" + paymentId + "/attempts", ownerToken,
+                "{\"channel\":\"MOCK\"}");
+        assertThat(attempt.status()).isEqualTo(202);
+        assertThat(attempt.json().at("/data/attemptStatus").asText()).isEqualTo("PROCESSING");
+        String checkoutUrl = attempt.json().at("/data/checkoutUrl").asText();
+        assertThat(send("POST", checkoutUrl + "/complete", ownerToken, null).status()).isEqualTo(202);
+
+        HttpResult confirmed = send("GET", "/api/v1/appointments/" + paidAppointmentId, ownerToken, null);
+        long confirmationDeadline = System.nanoTime() + java.time.Duration.ofSeconds(5).toNanos();
+        while (!"CONFIRMED".equals(confirmed.json().at("/data/status").asText())
+                && System.nanoTime() < confirmationDeadline) {
+            Thread.sleep(50);
+            confirmed = send("GET", "/api/v1/appointments/" + paidAppointmentId, ownerToken, null);
+        }
+        assertThat(confirmed.json().at("/data/status").asText()).isEqualTo("CONFIRMED");
+        assertThat(confirmed.json().at("/data/workflowStatus").asText()).isEqualTo("CONFIRMED");
+        assertThat(confirmed.json().at("/data/paymentAttemptCount").asInt()).isEqualTo(1);
         HttpResult confirmedCancel = send("POST", "/api/v1/appointments/" + paidAppointmentId + "/cancel",
                 ownerToken, null);
-        assertThat(confirmedCancel.status()).isEqualTo(200);
+        assertThat(confirmedCancel.status()).isEqualTo(202);
         assertThat(confirmedCancel.json().at("/data/status").asText()).isEqualTo("CANCELLED");
-        assertThat(confirmedCancel.json().at("/data/paymentStatus").asText()).isEqualTo("REFUNDED");
+        assertThat(confirmedCancel.json().at("/data/paymentStatus").asText()).isEqualTo("REFUND_PENDING");
 
         HttpResult toCancel = createAppointment(ownerToken, ownerPatientId, cancelledScheduleId);
         String cancelledAppointmentId = toCancel.json().at("/data/appointmentOrderId").asText();
@@ -208,6 +222,8 @@ class PatientJourneyHttpMySqlIT {
         schedule.setEndTime(morning ? LocalTime.of(12, 0) : LocalTime.of(17, 0));
         schedule.setStatus("OPEN");
         schedule.setTotalCapacity(1);
+        schedule.setRegistrationFee(new java.math.BigDecimal("50.00"));
+        schedule.setFeeCurrency("CNY");
         schedule.setAvailableCapacity(1);
         schedule.setHeldCapacity(0);
         schedule.setConfirmedCapacity(0);

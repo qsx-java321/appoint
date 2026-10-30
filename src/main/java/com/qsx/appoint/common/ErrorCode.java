@@ -30,7 +30,9 @@ public enum ErrorCode {
     DUPLICATE_ACTIVE_APPOINTMENT(4204, "该就诊人已持有本场有效预约", HttpStatus.CONFLICT),
     CANCELLATION_DEADLINE_REACHED(4205, "距开诊不足24小时，当前不可取消或退款", HttpStatus.CONFLICT),
     SCHEDULE_IDENTITY_LOCKED(4206, "排班已开放，医生、日期和时段不可修改", HttpStatus.CONFLICT),
-    INVENTORY_REDUCTION_EXCEEDS_AVAILABLE(4207, "减少名额不能超过当前可用名额", HttpStatus.CONFLICT);
+    INVENTORY_REDUCTION_EXCEEDS_AVAILABLE(4207, "减少名额不能超过当前可用名额", HttpStatus.CONFLICT),
+    PAYMENT_CHANNEL_UNAVAILABLE(4301, "支付渠道暂不可用", HttpStatus.SERVICE_UNAVAILABLE),
+    PAYMENT_SIGNATURE_INVALID(4302, "支付通知签名无效", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

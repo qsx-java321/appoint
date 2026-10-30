@@ -2,27 +2,42 @@ package com.qsx.appoint.appointment;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.qsx.appoint.appointment.config.ExpirationProperties;
 import com.qsx.appoint.appointment.entity.AppointmentOrder;
 import com.qsx.appoint.appointment.job.AppointmentExpirationJob;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
-import com.qsx.appoint.appointment.service.AppointmentLifecycleService;
+import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
+import com.qsx.appoint.coordination.application.ReconciliationService;
 import com.qsx.appoint.catalog.entity.Schedule;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.payment.entity.PaymentOrder;
+import com.qsx.appoint.payment.entity.PaymentOutboxEvent;
+import com.qsx.appoint.payment.entity.PaymentRefund;
+import com.qsx.appoint.payment.application.RefundRequestedEvent;
+import com.qsx.appoint.payment.application.RefundWorker;
+import com.qsx.appoint.payment.application.PaymentNotificationIngress;
+import com.qsx.appoint.payment.adapter.mock.MockPaymentGateway;
+import com.qsx.appoint.payment.domain.PaymentChannel;
+import com.qsx.appoint.payment.entity.PaymentAttempt;
+import com.qsx.appoint.payment.mapper.PaymentAttemptMapper;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
+import com.qsx.appoint.payment.mapper.PaymentOutboxEventMapper;
+import com.qsx.appoint.payment.mapper.PaymentRefundMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -34,6 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class AppointmentLifecycleIntegrationTest {
     private static final AtomicInteger SCHEDULE_SEQUENCE = new AtomicInteger();
     @Autowired private MockMvc mockMvc;
@@ -41,8 +57,15 @@ class AppointmentLifecycleIntegrationTest {
     @Autowired private ScheduleMapper scheduleMapper;
     @Autowired private AppointmentOrderMapper appointmentOrderMapper;
     @Autowired private PaymentOrderMapper paymentOrderMapper;
-    @Autowired private AppointmentLifecycleService lifecycleService;
+    @Autowired private PaymentOutboxEventMapper paymentOutboxEventMapper;
+    @Autowired private PaymentRefundMapper paymentRefundMapper;
+    @Autowired private RefundWorker refundWorker;
+    @Autowired private PaymentAttemptMapper paymentAttemptMapper;
+    @Autowired private MockPaymentGateway mockPaymentGateway;
+    @Autowired private PaymentNotificationIngress notificationIngress;
+    @Autowired private BookingLifecycleCoordinator lifecycleService;
     @Autowired private Clock appointmentClock;
+    @Autowired private ReconciliationService reconciliationService;
 
     @Test
     void cancelIsIdempotentAndOldAppointmentCannotReleaseNewHold() throws Exception {
@@ -120,6 +143,101 @@ class AppointmentLifecycleIntegrationTest {
     }
 
     @Test
+    void expirationProtectsPersistedPaidOrderAndRecoversDelayedConfirmation() throws Exception {
+        AuthenticatedUser user = registerAndLogin();
+        Schedule schedule = createSchedule(LocalDate.of(2099, 3, 8), LocalTime.of(9, 0));
+        CreatedAppointment created = createAppointment(user, schedule.getId());
+        AppointmentOrder appointment = appointmentOrderMapper.selectById(created.appointmentId());
+        appointment.setPaymentExpiresAt(LocalDateTime.now(appointmentClock).minusSeconds(1));
+        appointmentOrderMapper.updateById(appointment);
+        PaymentOrder payment = paymentOrderMapper.selectById(created.paymentId());
+        payment.setStatus("PAID");
+        payment.setPaidAt(LocalDateTime.now(appointmentClock).minusSeconds(2));
+        paymentOrderMapper.updateById(payment);
+
+        AppointmentExpirationJob job = new AppointmentExpirationJob(appointmentOrderMapper, lifecycleService,
+                new ExpirationProperties(true, Duration.ofSeconds(30), 100), appointmentClock);
+        job.scanExpiredAppointments();
+
+        assertThat(appointmentOrderMapper.selectById(created.appointmentId()).getStatus()).isEqualTo("CONFIRMED");
+        assertThat(paymentOrderMapper.selectById(created.paymentId()).getStatus()).isEqualTo("PAID");
+        Schedule inventory = scheduleMapper.selectById(schedule.getId());
+        assertThat(inventory.getHeldCapacity()).isZero();
+        assertThat(inventory.getConfirmedCapacity()).isEqualTo(1);
+        assertThat(inventory.getAvailableCapacity()).isEqualTo(4);
+    }
+
+    @Test
+    void reconciliationRecoversLongPaidPendingAppointment() throws Exception {
+        AuthenticatedUser user = registerAndLogin();
+        Schedule schedule = createSchedule(LocalDate.of(2099, 3, 9), LocalTime.of(10, 0));
+        CreatedAppointment created = createAppointment(user, schedule.getId());
+        PaymentOrder payment = paymentOrderMapper.selectById(created.paymentId());
+        payment.setStatus("PAID");
+        payment.setPaidAt(LocalDateTime.now(appointmentClock).minusMinutes(6));
+        payment.setUpdatedAt(LocalDateTime.now(appointmentClock).minusMinutes(6));
+        paymentOrderMapper.updateById(payment);
+
+        var report = reconciliationService.runOnce();
+
+        assertThat(report.paidPendingFound()).isGreaterThanOrEqualTo(1);
+        assertThat(report.paidPendingRecovered()).isGreaterThanOrEqualTo(1);
+        assertThat(appointmentOrderMapper.selectById(created.appointmentId()).getStatus()).isEqualTo("CONFIRMED");
+        assertThat(scheduleMapper.selectById(schedule.getId()).getConfirmedCapacity()).isEqualTo(1);
+    }
+
+    @Test
+    void reconciliationCreatesMissingRefundForClosedPaidAppointment() throws Exception {
+        AuthenticatedUser user = registerAndLogin();
+        Schedule schedule = createSchedule(LocalDate.of(2099, 3, 10), LocalTime.of(11, 0));
+        CreatedAppointment created = createAppointment(user, schedule.getId());
+        mockMvc.perform(post("/api/v1/payments/{id}/simulate-success", created.paymentId())
+                        .header("Authorization", bearer(user)))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(post("/api/v1/appointments/{id}/cancel", created.appointmentId())
+                        .header("Authorization", bearer(user)))
+                .andExpect(status().isAccepted());
+
+        PaymentRefund original = paymentRefundMapper.selectByPaymentOrderIdForUpdate(created.paymentId());
+        paymentRefundMapper.deleteById(original.getId());
+        paymentOutboxEventMapper.delete(new LambdaQueryWrapper<PaymentOutboxEvent>()
+                .eq(PaymentOutboxEvent::getAggregateId, created.paymentId())
+                .eq(PaymentOutboxEvent::getEventType, "RefundRequested"));
+        PaymentOrder paidWithoutRefund = paymentOrderMapper.selectById(created.paymentId());
+        paidWithoutRefund.setStatus("PAID");
+        paidWithoutRefund.setUpdatedAt(LocalDateTime.now(appointmentClock).minusMinutes(6));
+        paymentOrderMapper.updateById(paidWithoutRefund);
+
+        var report = reconciliationService.runOnce();
+
+        assertThat(report.closedPaidWithoutRefundFound()).isGreaterThanOrEqualTo(1);
+        assertThat(report.refundsCreated()).isGreaterThanOrEqualTo(1);
+        PaymentRefund recreated = paymentRefundMapper.selectByPaymentOrderIdForUpdate(created.paymentId());
+        assertThat(recreated).isNotNull();
+        assertThat(recreated.getReason()).isEqualTo("RECONCILIATION_CLOSED_PAID");
+        assertThat(paymentOrderMapper.selectById(created.paymentId()).getStatus()).isEqualTo("REFUND_PENDING");
+    }
+
+    @Test
+    void reconciliationReportsAssociationMismatchAsManualItem() throws Exception {
+        AuthenticatedUser user = registerAndLogin();
+        CreatedAppointment created = createAppointment(user,
+                createSchedule(LocalDate.of(2099, 3, 11), LocalTime.of(12, 0)).getId());
+        PaymentOrder payment = paymentOrderMapper.selectById(created.paymentId());
+        BigDecimal originalAmount = payment.getAmount();
+        payment.setAmount(originalAmount.add(BigDecimal.ONE));
+        paymentOrderMapper.updateById(payment);
+        try {
+            var report = reconciliationService.runOnce();
+            assertThat(report.associationMismatches()).isGreaterThanOrEqualTo(1);
+            assertThat(report.manualItems()).isGreaterThanOrEqualTo(report.associationMismatches());
+        } finally {
+            payment.setAmount(originalAmount);
+            paymentOrderMapper.updateById(payment);
+        }
+    }
+
+    @Test
     void cancelAfterDeadlineClosesAsExpired() throws Exception {
         AuthenticatedUser user = registerAndLogin();
         Schedule schedule = createSchedule(LocalDate.of(2099, 3, 3), LocalTime.of(11, 0));
@@ -136,21 +254,70 @@ class AppointmentLifecycleIntegrationTest {
     }
 
     @Test
-    void confirmedAppointmentCanBeCancelledAndSimulatedRefundedBeforeDeadline() throws Exception {
+    void confirmedAppointmentCancellationReleasesInventoryAndRequestsRefundAsynchronously() throws Exception {
         AuthenticatedUser user = registerAndLogin();
         CreatedAppointment created = createAppointment(user,
                 createSchedule(LocalDate.of(2099, 3, 4), LocalTime.of(12, 0)).getId());
         mockMvc.perform(post("/api/v1/payments/{id}/simulate-success", created.paymentId())
                         .header("Authorization", bearer(user)))
-                .andExpect(status().isOk());
+                .andExpect(status().isAccepted());
+
+        mockMvc.perform(post("/api/v1/appointments/{id}/cancel", created.appointmentId())
+                        .header("Authorization", bearer(user)))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.data.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.data.paymentStatus").value("REFUND_PENDING"))
+                .andExpect(jsonPath("$.data.visitNumber").value(1));
+
+        PaymentRefund refund = paymentRefundMapper.selectByPaymentOrderIdForUpdate(created.paymentId());
+        assertThat(refund).isNotNull();
+        assertThat(refund.getStatus()).isEqualTo("PENDING");
+        assertThat(refund.getAmount()).isEqualByComparingTo("50.00");
+        assertThat(refund.getCurrency()).isEqualTo("CNY");
+
+        mockMvc.perform(post("/api/v1/appointments/{id}/cancel", created.appointmentId())
+                        .header("Authorization", bearer(user)))
+                .andExpect(status().isAccepted());
+        assertThat(paymentRefundMapper.selectByPaymentOrderIdForUpdate(created.paymentId()).getId())
+                .isEqualTo(refund.getId());
+
+        RefundRequestedEvent event = new RefundRequestedEvent(UUID.randomUUID().toString(), 1,
+                refund.getId(), refund.getRefundNo());
+        assertThat(refundWorker.process(event)).isEqualTo("SUCCEEDED");
+        assertThat(refundWorker.process(event)).isEqualTo("ALREADY_SUCCEEDED");
+        assertThat(paymentRefundMapper.selectById(refund.getId()).getStatus()).isEqualTo("SUCCEEDED");
+        assertThat(paymentOrderMapper.selectById(created.paymentId()).getStatus()).isEqualTo("REFUNDED");
+    }
+
+    @Test
+    void latePaymentAfterPendingAppointmentCancellationIsRecordedAndRefundedWithoutRestoringAppointment() throws Exception {
+        AuthenticatedUser user = registerAndLogin();
+        Schedule schedule = createSchedule(LocalDate.of(2099, 3, 7), LocalTime.of(15, 0));
+        CreatedAppointment created = createAppointment(user, schedule.getId());
+
+        mockMvc.perform(post("/api/v1/payments/{id}/attempts", created.paymentId())
+                        .header("Authorization", bearer(user))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"channel\":\"MOCK\"}"))
+                .andExpect(status().isAccepted());
+        PaymentAttempt attempt = paymentAttemptMapper.selectByPaymentOrderIdForUpdate(created.paymentId()).getFirst();
 
         mockMvc.perform(post("/api/v1/appointments/{id}/cancel", created.appointmentId())
                         .header("Authorization", bearer(user)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("模拟全额退款成功"))
                 .andExpect(jsonPath("$.data.status").value("CANCELLED"))
-                .andExpect(jsonPath("$.data.paymentStatus").value("REFUNDED"))
-                .andExpect(jsonPath("$.data.visitNumber").value(1));
+                .andExpect(jsonPath("$.data.paymentStatus").value("CLOSED"));
+
+        var raw = mockPaymentGateway.complete(attempt.getProviderOrderNo(),
+                "late-" + UUID.randomUUID(), LocalDateTime.now(appointmentClock));
+        var response = notificationIngress.handle(PaymentChannel.MOCK, raw);
+
+        assertThat(response.processingResult()).isEqualTo("SUCCEEDED_REFUND_PENDING");
+        assertThat(appointmentOrderMapper.selectById(created.appointmentId()).getStatus()).isEqualTo("CANCELLED");
+        assertThat(paymentOrderMapper.selectById(created.paymentId()).getStatus()).isEqualTo("REFUND_PENDING");
+        assertThat(paymentRefundMapper.selectByPaymentOrderIdForUpdate(created.paymentId())).isNotNull();
+        assertThat(scheduleMapper.selectById(schedule.getId()).getAvailableCapacity()).isEqualTo(5);
+        assertThat(scheduleMapper.selectById(schedule.getId()).getConfirmedCapacity()).isZero();
     }
 
     @Test
@@ -245,6 +412,8 @@ class AppointmentLifecycleIntegrationTest {
         schedule.setStatus("OPEN");
         schedule.setSessionType(afternoon ? "AFTERNOON" : "MORNING");
         schedule.setTotalCapacity(5);
+        schedule.setRegistrationFee(new java.math.BigDecimal("50.00"));
+        schedule.setFeeCurrency("CNY");
         schedule.setAvailableCapacity(5);
         schedule.setHeldCapacity(0);
         schedule.setConfirmedCapacity(0);

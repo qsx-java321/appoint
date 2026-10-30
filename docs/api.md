@@ -1,4 +1,4 @@
-# HTTP API：医生排班、统一库存与预约暂占
+# HTTP API：预约、独立支付与可靠事件
 
 Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Authorization: Bearer <accessToken>`。用户身份从 Token 获取，请求中不传 `userId`。时间均按 `Asia/Shanghai` 解释，精确到秒。
 
@@ -23,8 +23,11 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 | `POST /api/v1/appointments` | 暂占一个排班名额 | 登录 | 201 |
 | `GET /api/v1/appointments/{id}` | 自己的一张预约凭证 | 登录 | 200 |
 | `GET /api/v1/appointments/my` | 自己的预约列表 | 登录 | 200 |
-| `POST /api/v1/appointments/{id}/cancel` | 取消、过期关闭或模拟退款 | 登录 | 200 |
-| `POST /api/v1/payments/{id}/simulate-success` | 模拟支付成功 | 登录 | 200 |
+| `POST /api/v1/appointments/{id}/cancel` | 取消预约；需要退款时异步受理 | 登录 | 200/202 |
+| `POST /api/v1/payments/{id}/attempts` | 创建支付尝试 | 登录 | 202 |
+| `POST /api/v1/payment-notifications/{channel}` | 支付渠道签名回调 | 渠道验签 | 200 |
+| `POST /api/v1/mock-pay/attempts/{attemptNo}/complete` | MockPay 完成支付 | dev/test | 202 |
+| `POST /api/v1/mock-pay/attempts/{attemptNo}/fail` | MockPay 支付失败 | dev/test | 202 |
 | `POST /api/v1/admin/schedules` | 创建排班 | `ADMIN` | 200 |
 | `PATCH /api/v1/admin/schedules/{id}` | 开放前修改排班身份 | `ADMIN` | 200 |
 | `POST /api/v1/admin/schedules/{id}/inventory-adjustments` | 调整库存并记审计 | `ADMIN` | 200 |
@@ -82,13 +85,15 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
   "doctorId": "1",
   "appointmentDate": "2026-11-08",
   "sessionType": "MORNING",
-  "totalCapacity": 20
+  "totalCapacity": 20,
+  "registrationFee": 50.00,
+  "feeCurrency": "CNY"
 }
 ```
 
-`sessionType` 仅允许 `MORNING` 或 `AFTERNOON`，对应固定时段 `08:00–12:00` 和 `14:00–17:00`。同一医生、日期、时段只能有一场。初始容量必须大于 0。只要尚未到预约截止，即使理论开放时间已过，也可补录并立即开放。
+`sessionType` 仅允许 `MORNING` 或 `AFTERNOON`，对应固定时段 `08:00–12:00` 和 `14:00–17:00`。同一医生、日期、时段只能有一场。初始容量和 `registrationFee` 必须大于 0，第一阶段币种只能是 `CNY`。只要尚未到预约截止，即使理论开放时间已过，也可补录并立即开放。
 
-开放前可用 `PATCH` 修改 `doctorId`、`appointmentDate`、`sessionType` 中至少一项。到达理论开放时间后，这三个字段全部锁定。
+开放前可用 `PATCH` 修改排班身份与费用。到达理论开放时间后，医生、日期、时段、金额和币种全部锁定。
 
 库存调整请求：
 
@@ -137,6 +142,8 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
   "paymentOrderId": "401",
   "appointmentStatus": "PENDING_PAYMENT",
   "paymentStatus": "UNPAID",
+  "amount": 50.00,
+  "currency": "CNY",
   "paymentExpiresAt": "2026-11-01T08:15:00",
   "serverTime": "2026-11-01T08:00:00"
 }
@@ -148,22 +155,26 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 
 `Idempotency-Key` 在账号内唯一。同账号同键同内容重试返回 HTTP 200、原 `appointmentOrderId`、`appointmentNo` 和 `replayed=true`；同键不同内容返回 `IDEMPOTENCY_CONFLICT`。失败并回滚的请求不占用键。
 
-## 模拟支付与就诊序号
+## 支付尝试、MockPay 与异步确认
 
-`POST /api/v1/payments/{paymentOrderId}/simulate-success` 只推进持久化状态，不发生资金操作。截止前成功后：
+`POST /api/v1/payments/{paymentOrderId}/attempts` 请求体为 `{ "channel": "MOCK" }`。服务在短事务中创建尝试，事务外调用渠道，再以短事务保存渠道结果；成功返回 HTTP 202：
 
 ```json
 {
-  "id": "401",
-  "paymentNo": "PAYexample",
-  "paymentStatus": "PAID",
-  "appointmentOrderId": "301",
-  "appointmentStatus": "CONFIRMED",
-  "visitNumber": 18
+  "paymentOrderId": "401",
+  "paymentAttemptId": "501",
+  "channel": "MOCK",
+  "paymentStatus": "PAYING",
+  "attemptStatus": "PROCESSING",
+  "providerOrderNo": "mock-order-example",
+  "checkoutUrl": "mockpay://checkout/mock-order-example",
+  "expiresAt": "2026-11-01T08:15:00"
 }
 ```
 
-支付使库存从暂占转为已确认，并按同场确认顺序发放 `visitNumber`。序号单调递增且取消后不复用，因此可能大于当前总容量。重复支付已确认订单返回同一成功结果。到达支付截止后立即拒绝，后台扫描延迟不构成宽限。
+dev/test 可调用 `POST /api/v1/mock-pay/attempts/{attemptNo}/complete` 或 `/fail` 模拟渠道异步通知；`attemptNo` 可从 `checkoutUrl` 的末段取得。通知入口不使用 JWT，由 Adapter 验签并校验通知 ID、渠道订单、金额和币种。完成接口返回 202 后应轮询预约详情：可能短暂显示 `CONFIRMING_APPOINTMENT`，消费者确认后变为 `CONFIRMED` 并取得 `visitNumber`。支付失败可在截止前重新发起尝试，同一支付单最多一个处理中尝试。
+
+旧 `POST /api/v1/payments/{id}/simulate-success` 仅是 dev/test 废弃兼容包装，生产 profile 不注册。新集成不得依赖它。
 
 ## 预约详情、取消与退款
 
@@ -175,6 +186,10 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 | `paymentExpired` | 已过期，或待支付且当前时间已到截止 |
 | `canPay` | 待支付、未过期且排班未关闭 |
 | `canCancel` | 待支付；或已确认且当前时间严格早于开诊前 24 小时 |
+| `workflowStatus` | 用户流程状态：等待支付、处理中、确认中、已确认、退款中、已退款或已过期 |
+| `amount` / `currency` | 创建预约时复制的不可变费用快照；Legacy 可为 `null` |
+| `paymentAttemptCount` / `latestPaymentAttempt` | 尝试次数与最近一次尝试摘要 |
+| `refund` | 全额退款摘要；未退款时为 `null` |
 | `scheduleClosed` | 排班是否已关闭 |
 | `hospitalClosureNotice` | 已确认且排班关闭时为“医生已停诊，请联系医院” |
 
@@ -184,11 +199,11 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 | --- | --- | --- | --- |
 | 待支付且未到截止 | `CANCELLED` | `CLOSED` | 暂占转可用 |
 | 待支付且已到截止 | `EXPIRED` | `CLOSED` | 暂占转可用 |
-| 已确认，且当前时间 `< 开诊时间 - 24h` | `CANCELLED` | `REFUNDED` | 已确认转可用 |
+| 已确认，且当前时间 `< 开诊时间 - 24h` | `CANCELLED` | `REFUND_PENDING`，异步后 `REFUNDED` | 已确认立即转可用 |
 | 已确认，且当前时间 `>= 开诊时间 - 24h` | 保持 `CONFIRMED` | 保持 `PAID` | 不变，返回 4205 |
 | 已取消、已过期或医院停诊取消 | 返回当前详情 | 保持 | 不重复释放 |
 
-已确认取消成功时接口消息为“模拟全额退款成功”。原 `visitNumber` 保留在历史预约中，不再发给其他预约。关闭排班后的已确认预约仍可按同一 24 小时规则自行取消。
+已确认取消需要退款时返回 HTTP 202 和“退款申请已受理”；号源立即释放，退款异步执行，失败不恢复预约或库存。待支付取消没有资金，仍返回 HTTP 200。关闭后收到迟到支付不会恢复预约，而会幂等建立唯一的原路全额退款。原 `visitNumber` 保留且不复用。
 
 ## 主要错误契约
 

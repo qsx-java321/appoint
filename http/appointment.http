@@ -53,15 +53,28 @@ Content-Type: application/json
   "patientId": "{{patientId}}"
 }
 
-### A：截止前模拟支付，返回 CONFIRMED + PAID 和 visitNumber
-POST {{baseUrl}}/api/v1/payments/{{paidPaymentId}}/simulate-success
+### A：截止前创建 MockPay 支付尝试，HTTP 202
+POST {{baseUrl}}/api/v1/payments/{{paidPaymentId}}/attempts
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "channel": "MOCK" }
+
+> {% client.global.set("paidCheckoutUrl", response.body.data.checkoutUrl); %}
+
+### A：MockPay 模拟渠道完成并异步投递签名回调，HTTP 202
+POST {{baseUrl}}{{paidCheckoutUrl}}/complete
+Authorization: Bearer {{accessToken}}
+
+### A：轮询详情；可能先看到 CONFIRMING_APPOINTMENT，最终为 CONFIRMED
+GET {{baseUrl}}/api/v1/appointments/{{paidAppointmentId}}
 Authorization: Bearer {{accessToken}}
 
 ### A：查看就诊序号、快照和停诊字段
 GET {{baseUrl}}/api/v1/appointments/{{paidAppointmentId}}
 Authorization: Bearer {{accessToken}}
 
-### A：开诊前超过 24 小时时取消已确认预约，返回 REFUNDED 和模拟全额退款成功
+### A：开诊前超过 24 小时时取消已确认预约，HTTP 202；立即释放号源并异步退款
 POST {{baseUrl}}/api/v1/appointments/{{paidAppointmentId}}/cancel
 Authorization: Bearer {{accessToken}}
 
@@ -112,12 +125,15 @@ client.global.set("expiringAppointmentId", response.body.data.appointmentOrderId
 client.global.set("expiringPaymentId", response.body.data.paymentOrderId);
 %}
 
-# 到达 paymentExpiresAt 后，支付立即返回 409 / PAYMENT_EXPIRED；
+# 到达 paymentExpiresAt 后，创建支付尝试立即返回 409 / PAYMENT_EXPIRED；
 # 默认扫描每 30 秒关闭订单并把暂占名额转回可用。
 
-### C：到期支付被拒绝
-POST {{baseUrl}}/api/v1/payments/{{expiringPaymentId}}/simulate-success
+### C：到期创建支付尝试被拒绝
+POST {{baseUrl}}/api/v1/payments/{{expiringPaymentId}}/attempts
 Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "channel": "MOCK" }
 
 ### C：扫描后查看 EXPIRED + CLOSED
 GET {{baseUrl}}/api/v1/appointments/{{expiringAppointmentId}}

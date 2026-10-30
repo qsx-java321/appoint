@@ -1,15 +1,15 @@
 # 医院预约系统
 
-这是一个用于学习 Spring Boot、JWT 鉴权、关系数据库事务与预约状态流转的后端项目，目前没有业务前端或真实支付渠道。管理员配置医生上午或下午排班及统一号源库存；用户注册、登录并维护就诊人后，可以暂占一个名额，在支付期限内模拟支付取得就诊序号，也可以按规则取消、模拟退款或等待超时释放。
+这是一个使用模块化单体实现的医院预约后端。管理员配置排班、CNY 挂号费和统一号源库存；用户暂占名额后通过独立支付模块发起支付。支付回调经 Transactional Outbox、RabbitMQ 和 Inbox 异步确认预约，取消与迟到支付通过原路全额退款补偿。目前没有业务前端或真实支付渠道，dev/test 使用 MockPay Adapter。
 
 业务规则与各状态的实际含义见 [预约业务流程](docs/business-flow.md)，请求、响应字段及错误契约见 [HTTP API](docs/api.md)。领域词汇见 [术语表](GLOSSARY.md)，统一库存与安全迁移决策见 [ADR 0003](docs/adr/0003-unified-schedule-inventory-and-safe-migration.md)。
 
 ## 技术栈
 
 - JDK 21、Spring Boot 3.5.16、Spring Security、JWT、MyBatis-Plus 3.5.17
-- MySQL 8.4、Flyway、Lombok
-- JUnit 5、MockMvc、H2；真实 MySQL 集成测试使用 Testcontainers
-- Docker Compose 提供 Redis 7.4.9 和 RabbitMQ 4.3.2-management，目前应用未接入其业务能力
+- MySQL 8.4、RabbitMQ 4.3、Flyway、Lombok
+- JUnit 5、MockMvc、H2；真实 MySQL/RabbitMQ 可靠性测试使用 Testcontainers
+- Transactional Outbox、Inbox 幂等、Publisher Confirm、retry、DLX/DLQ 和对账
 
 ## 本地启动
 
@@ -30,16 +30,16 @@ set +a
 ./mvnw spring-boot:run
 ```
 
-默认 API 地址为 `http://localhost:8080`。Flyway V1 建立基础结构；V2 在旧有效订单存在时阻断升级；V3 增量增加统一库存、有效预约占用、调整审计和就诊序号。迁移保留旧数据，不清库。种子只写入 `USER`、`ADMIN` 角色、目录资料、三个只读旧号源及两场新模型演示排班，不创建演示用户、就诊人或订单。
+默认 API 地址为 `http://localhost:8080`。Flyway V1–V3 建立旧结构并升级统一库存；V4 在支付结构扩展前阻断仍活跃的 Legacy 支付；V5 增加费用快照；V6–V7 增加支付尝试、通知、退款、Outbox/Inbox 及其约束和扫描索引。迁移只前向增量演进，保留旧终态数据且不推测未知金额。
 
 ## 从用户角度验证
 
 1. 在 [http/auth.http](http/auth.http) 注册、登录，取得 Bearer Token。
 2. 由运维授予 `ADMIN` 后重新登录，使用 [http/admin-schedule.http](http/admin-schedule.http) 创建测试排班并调整库存。
 3. 在 [http/appointment.http](http/appointment.http) 创建就诊人，查询排班并携带 UUID 幂等键暂占名额。
-4. 模拟支付、退款、待支付取消和超时，核对就诊序号、历史快照及库存释放。
+4. 发起 MockPay 支付尝试并完成异步回调，轮询预约详情；再验证失败重试、取消退款和超时释放。
 
-业务讲解可直接打开 [交互式业务流程说明页](docs/business-flow-demo.html)。该文件是独立文档，只使用示例数据，不属于应用前端，也不会访问业务 API。本轮自动化与真实 HTTP 结果见 [验证报告](docs/verification-report.md)。
+业务讲解可直接打开 [交互式业务流程说明页](docs/business-flow-demo.html)。该文件是独立文档，只使用示例数据，不属于应用前端，也不会访问业务 API。本轮自动化与真实 HTTP 结果见 [支付模块验证报告](docs/payment-module-verification-report.md)；旧版统一库存报告保留在 `docs/verification-report.md`。
 
 `.http` 文件适用于 IntelliJ IDEA HTTP Client，`http/http-client.env.json` 提供 `local` 环境的 `baseUrl`。V3 内置排班日期在 2099 年，当前会显示为尚未开放；可运行预约示例应先创建当前日期后 1–7 天内的排班。
 
@@ -47,19 +47,20 @@ set +a
 
 ## 当前业务边界
 
-- 支付和退款仅推进持久化状态，不接入支付渠道，也没有费用计算或失败分支。
+- 第一阶段只支持 CNY、MockPay 和原路全额退款；不接真实微信/支付宝。Mock 与旧 `simulate-success` 兼容入口仅在 dev/test 注册，生产不暴露。
 - 已确认预约只有在开诊前严格超过 24 小时时可自行取消；没有改签流程。
 - 预约只能使用当前账号已启用的就诊人；证件号码做格式、日期和校验位校验，不核验号码是否属于提交者。
 - 成功创建使用过的幂等键长期保留；重新预约必须生成新键。
-- 查询只读：订单到期后、扫描关闭前，数据库中可暂留 `PENDING_PAYMENT + UNPAID` 和一份暂占库存，但支付已经不可用。默认扫描间隔为 30 秒。
+- MySQL 是支付与事件真相，RabbitMQ 至少一次投递；允许短暂出现 `PAID + PENDING_PAYMENT`（预约确认中）和 `REFUND_PENDING`。
 - 排班关闭后已确认预约只显示停诊提示，不自动通知、改约或退款。
-- 没有业务前端、公开角色管理、登出、Token 黑名单或 Redis/RabbitMQ 业务接入。
+- 没有业务前端、公开角色管理、登出、Token 黑名单、部分退款或自动改约。
 
 ## 测试
 
 ```bash
 ./mvnw test
 ./mvnw -Pmysql-it verify
+./mvnw -Preliability-it verify
 ```
 
-第一条运行 H2/MySQL 兼容模式的快速回归；第二条通过 Testcontainers 的 MySQL 8.4 验证迁移、行锁、并发、真实 HTTP 端口和短支付期限扫描，需要本机 Docker 可用。测试数据只写入临时数据库容器。
+第一条运行 H2 快速回归；第二条验证 MySQL 8.4 的迁移、唯一约束、行锁、竞争和真实 HTTP；第三条同时启动 MySQL 与 RabbitMQ，验证 confirm、重投、Inbox 幂等、退款 worker 和崩溃窗口。后两条需要 Docker，数据只写入临时容器。

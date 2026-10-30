@@ -7,14 +7,20 @@ import com.qsx.appoint.appointment.dto.ReplayedAppointmentResponse;
 import com.qsx.appoint.appointment.entity.AppointmentOrder;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.appointment.service.AppointmentService;
-import com.qsx.appoint.appointment.service.AppointmentLifecycleService;
+import com.qsx.appoint.coordination.application.BookingCoordinator;
+import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
 import com.qsx.appoint.catalog.entity.Schedule;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.catalog.service.ScheduleManagementService;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.payment.entity.PaymentOrder;
+import com.qsx.appoint.payment.application.PaymentAttemptService;
+import com.qsx.appoint.payment.application.PaymentNotificationIngress;
+import com.qsx.appoint.payment.adapter.mock.MockPaymentGateway;
+import com.qsx.appoint.payment.domain.PaymentChannel;
+import com.qsx.appoint.payment.dto.PaymentAttemptResponse;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
-import com.qsx.appoint.payment.service.PaymentService;
+import com.qsx.appoint.payment.mapper.PaymentRefundMapper;
 import com.qsx.appoint.patient.entity.Patient;
 import com.qsx.appoint.patient.mapper.PatientMapper;
 import com.qsx.appoint.patient.dto.CreatePatientRequest;
@@ -28,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -48,6 +55,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Testcontainers
 @SpringBootTest(properties = "appoint.expiration.enabled=false")
+@ActiveProfiles("test")
 class AppointmentLifecycleMySqlIT {
     private static final AtomicInteger SCHEDULE_SEQUENCE = new AtomicInteger();
     @Container
@@ -65,10 +73,14 @@ class AppointmentLifecycleMySqlIT {
     }
 
     @Autowired private AppointmentService appointmentService;
-    @Autowired private PaymentService paymentService;
-    @Autowired private AppointmentLifecycleService lifecycleService;
+    @Autowired private BookingCoordinator bookingCoordinator;
+    @Autowired private BookingLifecycleCoordinator lifecycleService;
     @Autowired private AppointmentOrderMapper appointmentOrderMapper;
     @Autowired private PaymentOrderMapper paymentOrderMapper;
+    @Autowired private PaymentRefundMapper paymentRefundMapper;
+    @Autowired private PaymentAttemptService paymentAttemptService;
+    @Autowired private PaymentNotificationIngress paymentNotificationIngress;
+    @Autowired private MockPaymentGateway mockPaymentGateway;
     @Autowired private ScheduleMapper scheduleMapper;
     @Autowired private ScheduleManagementService scheduleManagementService;
     @Autowired private UserMapper userMapper;
@@ -82,8 +94,8 @@ class AppointmentLifecycleMySqlIT {
         CreateAppointmentResponse created = createAppointment(userId, scheduleId);
 
         List<Object> outcomes = race(
-                () -> paymentService.simulateSuccess(userId, created.getPaymentOrderId()),
-                () -> appointmentService.cancel(userId, created.getAppointmentOrderId()));
+                () -> lifecycleService.simulatePaymentSuccess(userId, created.getPaymentOrderId()),
+                () -> cancel(userId, created.getAppointmentOrderId()));
 
         assertThat(outcomes).hasSize(2);
         AppointmentOrder appointment = appointmentOrderMapper.selectById(created.getAppointmentOrderId());
@@ -105,8 +117,8 @@ class AppointmentLifecycleMySqlIT {
         CreateAppointmentResponse created = createAppointment(userId, createSchedule());
 
         List<Object> outcomes = race(
-                () -> paymentService.simulateSuccess(userId, created.getPaymentOrderId()),
-                () -> paymentService.simulateSuccess(userId, created.getPaymentOrderId()));
+                () -> lifecycleService.simulatePaymentSuccess(userId, created.getPaymentOrderId()),
+                () -> lifecycleService.simulatePaymentSuccess(userId, created.getPaymentOrderId()));
 
         assertThat(outcomes).noneMatch(BusinessException.class::isInstance);
         assertThat(appointmentOrderMapper.selectById(created.getAppointmentOrderId()).getStatus()).isEqualTo("CONFIRMED");
@@ -154,11 +166,11 @@ class AppointmentLifecycleMySqlIT {
         Long scheduleId = createSchedule();
         CreateAppointmentResponse created = createAppointment(userId, scheduleId);
         AppointmentOrder appointment = appointmentOrderMapper.selectById(created.getAppointmentOrderId());
-        appointment.setPaymentExpiresAt(LocalDateTime.now().minusSeconds(1));
+        appointment.setPaymentExpiresAt(LocalDateTime.of(2000, 1, 1, 0, 0));
         appointmentOrderMapper.updateById(appointment);
 
         List<Object> outcomes = race(
-                () -> paymentService.simulateSuccess(userId, created.getPaymentOrderId()),
+                () -> lifecycleService.simulatePaymentSuccess(userId, created.getPaymentOrderId()),
                 () -> lifecycleService.expireIfDue(created.getAppointmentOrderId()));
 
         assertThat(outcomes).anyMatch(value -> Boolean.TRUE.equals(value));
@@ -179,7 +191,7 @@ class AppointmentLifecycleMySqlIT {
         CreateAppointmentResponse created = createAppointment(userId, scheduleId);
 
         race(
-                () -> paymentService.simulateSuccess(userId, created.getPaymentOrderId()),
+                () -> lifecycleService.simulatePaymentSuccess(userId, created.getPaymentOrderId()),
                 () -> scheduleManagementService.close(operatorId, scheduleId));
 
         AppointmentOrder appointment = appointmentOrderMapper.selectById(created.getAppointmentOrderId());
@@ -200,6 +212,94 @@ class AppointmentLifecycleMySqlIT {
         }
         assertThat(schedule.getAvailableCapacity() + schedule.getHeldCapacity()
                 + schedule.getConfirmedCapacity()).isEqualTo(schedule.getTotalCapacity());
+    }
+
+    @Test
+    void callbackRacingCancellationConvergesToOneRefundAndReleasedInventory() throws Exception {
+        Long userId = createUser();
+        Long scheduleId = createSchedule();
+        CreateAppointmentResponse created = createAppointment(userId, scheduleId);
+        var callback = successfulCallback(userId, created.getPaymentOrderId());
+
+        race(
+                () -> paymentNotificationIngress.handle(PaymentChannel.MOCK, callback),
+                () -> cancel(userId, created.getAppointmentOrderId()));
+
+        assertClosedWithSingleRefund(created, scheduleId, "CANCELLED");
+    }
+
+    @Test
+    void callbackRacingExpirationConvergesToOneRefundAndReleasedInventory() throws Exception {
+        Long userId = createUser();
+        Long scheduleId = createSchedule();
+        CreateAppointmentResponse created = createAppointment(userId, scheduleId);
+        var callback = successfulCallback(userId, created.getPaymentOrderId());
+        AppointmentOrder appointment = appointmentOrderMapper.selectById(created.getAppointmentOrderId());
+        appointment.setPaymentExpiresAt(LocalDateTime.of(2000, 1, 1, 0, 0));
+        appointmentOrderMapper.updateById(appointment);
+
+        race(
+                () -> paymentNotificationIngress.handle(PaymentChannel.MOCK, callback),
+                () -> lifecycleService.expireIfDue(created.getAppointmentOrderId()));
+
+        assertClosedWithSingleRefund(created, scheduleId, "EXPIRED");
+    }
+
+    @Test
+    void callbackRacingScheduleClosureConvergesToOneRefundAndReleasedInventory() throws Exception {
+        Long userId = createUser();
+        Long operatorId = createUser();
+        Long scheduleId = createSchedule();
+        CreateAppointmentResponse created = createAppointment(userId, scheduleId);
+        var callback = successfulCallback(userId, created.getPaymentOrderId());
+
+        race(
+                () -> paymentNotificationIngress.handle(PaymentChannel.MOCK, callback),
+                () -> scheduleManagementService.close(operatorId, scheduleId));
+
+        assertClosedWithSingleRefund(created, scheduleId, "CANCELLED_BY_HOSPITAL");
+        assertThat(scheduleMapper.selectById(scheduleId).getStatus()).isEqualTo("CLOSED");
+    }
+
+    @Test
+    void concurrentDuplicateCancellationCreatesOnlyOneRefund() throws Exception {
+        Long userId = createUser();
+        Long scheduleId = createSchedule();
+        CreateAppointmentResponse created = createAppointment(userId, scheduleId);
+        lifecycleService.simulatePaymentSuccess(userId, created.getPaymentOrderId());
+
+        List<Object> outcomes = race(
+                () -> cancel(userId, created.getAppointmentOrderId()),
+                () -> cancel(userId, created.getAppointmentOrderId()));
+
+        assertThat(outcomes).noneMatch(BusinessException.class::isInstance);
+        assertClosedWithSingleRefund(created, scheduleId, "CANCELLED");
+    }
+
+    private Object cancel(Long userId, Long appointmentOrderId) {
+        lifecycleService.cancelOwned(userId, appointmentOrderId);
+        return appointmentService.getOwned(userId, appointmentOrderId);
+    }
+
+    private com.qsx.appoint.payment.port.RawPaymentNotification successfulCallback(Long userId, Long paymentId) {
+        PaymentAttemptResponse attempt = paymentAttemptService.startAttempt(userId, paymentId, PaymentChannel.MOCK);
+        return mockPaymentGateway.complete(attempt.providerOrderNo(), "race-" + UUID.randomUUID(),
+                LocalDateTime.now());
+    }
+
+    private void assertClosedWithSingleRefund(CreateAppointmentResponse created, Long scheduleId,
+                                              String appointmentStatus) {
+        assertThat(appointmentOrderMapper.selectById(created.getAppointmentOrderId()).getStatus())
+                .isEqualTo(appointmentStatus);
+        assertThat(paymentOrderMapper.selectById(created.getPaymentOrderId()).getStatus())
+                .isEqualTo("REFUND_PENDING");
+        assertThat(paymentRefundMapper.selectList(null).stream()
+                .filter(refund -> created.getPaymentOrderId().equals(refund.getPaymentOrderId())))
+                .hasSize(1);
+        Schedule schedule = scheduleMapper.selectById(scheduleId);
+        assertThat(schedule.getHeldCapacity()).isZero();
+        assertThat(schedule.getConfirmedCapacity()).isZero();
+        assertThat(schedule.getAvailableCapacity()).isEqualTo(schedule.getTotalCapacity());
     }
 
     @Test
@@ -328,6 +428,8 @@ class AppointmentLifecycleMySqlIT {
         schedule.setEndTime(morning ? LocalTime.of(12, 0) : LocalTime.of(17, 0));
         schedule.setStatus("OPEN");
         schedule.setTotalCapacity(capacity);
+        schedule.setRegistrationFee(new java.math.BigDecimal("50.00"));
+        schedule.setFeeCurrency("CNY");
         schedule.setAvailableCapacity(capacity);
         schedule.setHeldCapacity(0);
         schedule.setConfirmedCapacity(0);
@@ -350,7 +452,7 @@ class AppointmentLifecycleMySqlIT {
         CreateAppointmentRequest request = new CreateAppointmentRequest();
         request.setScheduleId(scheduleId);
         request.setPatientId(patientId);
-        return appointmentService.create(userId, key, request);
+        return bookingCoordinator.create(userId, key, request);
     }
 
     private Long createPatient(Long userId) {

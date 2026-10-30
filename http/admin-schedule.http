@@ -21,7 +21,9 @@ Content-Type: application/json
   "doctorId": "1",
   "appointmentDate": "{{paidDate}}",
   "sessionType": "MORNING",
-  "totalCapacity": 20
+  "totalCapacity": 20,
+  "registrationFee": 50.00,
+  "feeCurrency": "CNY"
 }
 
 > {% client.global.set("paidScheduleId", response.body.data.id); %}
@@ -35,7 +37,9 @@ Content-Type: application/json
   "doctorId": "1",
   "appointmentDate": "{{cancelDate}}",
   "sessionType": "AFTERNOON",
-  "totalCapacity": 5
+  "totalCapacity": 5,
+  "registrationFee": 30.00,
+  "feeCurrency": "CNY"
 }
 
 > {% client.global.set("cancelScheduleId", response.body.data.id); %}
@@ -49,7 +53,9 @@ Content-Type: application/json
   "doctorId": "2",
   "appointmentDate": "{{expireDate}}",
   "sessionType": "MORNING",
-  "totalCapacity": 5
+  "totalCapacity": 5,
+  "registrationFee": 20.00,
+  "feeCurrency": "CNY"
 }
 
 > {% client.global.set("expireScheduleId", response.body.data.id); %}
@@ -63,7 +69,9 @@ Content-Type: application/json
   "doctorId": "2",
   "appointmentDate": "{{manageDate}}",
   "sessionType": "AFTERNOON",
-  "totalCapacity": 3
+  "totalCapacity": 3,
+  "registrationFee": 40.00,
+  "feeCurrency": "CNY"
 }
 
 > {% client.global.set("manageScheduleId", response.body.data.id); %}

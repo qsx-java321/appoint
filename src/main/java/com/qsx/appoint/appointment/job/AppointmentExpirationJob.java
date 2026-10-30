@@ -3,7 +3,7 @@ package com.qsx.appoint.appointment.job;
 import com.qsx.appoint.appointment.config.ExpirationProperties;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.appointment.mapper.ExpirationCandidate;
-import com.qsx.appoint.appointment.service.AppointmentLifecycleService;
+import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -20,7 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AppointmentExpirationJob {
     private final AppointmentOrderMapper appointmentOrderMapper;
-    private final AppointmentLifecycleService lifecycleService;
+    private final BookingLifecycleCoordinator lifecycleService;
     private final ExpirationProperties properties;
     private final Clock appointmentClock;
 

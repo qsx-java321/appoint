@@ -4,7 +4,7 @@ import com.qsx.appoint.appointment.config.ExpirationProperties;
 import com.qsx.appoint.appointment.job.AppointmentExpirationJob;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.appointment.mapper.ExpirationCandidate;
-import com.qsx.appoint.appointment.service.AppointmentLifecycleService;
+import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -21,7 +21,7 @@ class AppointmentExpirationJobTest {
     @Test
     void oneFailureDoesNotPreventLaterCandidates() {
         AppointmentOrderMapper mapper = mock(AppointmentOrderMapper.class);
-        AppointmentLifecycleService lifecycle = mock(AppointmentLifecycleService.class);
+        BookingLifecycleCoordinator lifecycle = mock(BookingLifecycleCoordinator.class);
         Clock clock = Clock.fixed(Instant.parse("2026-10-26T06:00:00Z"), ZoneId.of("Asia/Shanghai"));
         ExpirationCandidate first = candidate(1L, LocalDateTime.of(2026, 10, 26, 13, 0));
         ExpirationCandidate second = candidate(2L, LocalDateTime.of(2026, 10, 26, 13, 1));

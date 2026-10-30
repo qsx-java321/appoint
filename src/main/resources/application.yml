@@ -15,6 +15,9 @@ spring:
     locations: classpath:db/migration
   jackson:
     time-zone: Asia/Shanghai
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
 
 mybatis-plus:
   configuration:
@@ -23,6 +26,8 @@ mybatis-plus:
     banner: false
 
 appoint:
+  messaging:
+    enabled: true
   jwt:
     secret: ${JWT_SECRET:change-this-to-a-long-local-development-secret-key-1234567890}
     expiration-seconds: 7200
@@ -32,6 +37,19 @@ appoint:
     enabled: true
     scan-delay: 30s
     batch-size: 100
+  reconciliation:
+    enabled: true
+    scan-delay: 5m
+    stale-after: 5m
+    batch-size: 100
+  outbox:
+    enabled: true
+    scan-delay: 5s
+    batch-size: 50
+    max-attempts: 8
+    initial-backoff: 1s
+    max-backoff: 5m
+    confirm-timeout: 5s
 
 logging:
   level:

@@ -2,6 +2,7 @@ package com.qsx.appoint.appointment;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.qsx.appoint.appointment.dto.AppointmentCreationResult;
+import com.qsx.appoint.appointment.dto.AppointmentResponse;
 import com.qsx.appoint.appointment.dto.CreateAppointmentRequest;
 import com.qsx.appoint.appointment.dto.CreateAppointmentResponse;
 import com.qsx.appoint.appointment.entity.AppointmentActiveClaim;
@@ -9,20 +10,23 @@ import com.qsx.appoint.appointment.entity.AppointmentOrder;
 import com.qsx.appoint.appointment.mapper.AppointmentActiveClaimMapper;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.appointment.service.AppointmentService;
+import com.qsx.appoint.coordination.application.BookingCoordinator;
+import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
 import com.qsx.appoint.catalog.dto.AdjustScheduleInventoryRequest;
 import com.qsx.appoint.catalog.dto.CreateScheduleRequest;
+import com.qsx.appoint.catalog.dto.UpdateScheduleRequest;
 import com.qsx.appoint.catalog.entity.Schedule;
 import com.qsx.appoint.catalog.entity.ScheduleInventoryAdjustment;
 import com.qsx.appoint.catalog.mapper.ScheduleInventoryAdjustmentMapper;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.catalog.service.ScheduleManagementService;
+import com.qsx.appoint.catalog.service.CatalogService;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.patient.entity.Patient;
 import com.qsx.appoint.patient.mapper.PatientMapper;
 import com.qsx.appoint.payment.entity.PaymentOrder;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
-import com.qsx.appoint.payment.service.PaymentService;
 import com.qsx.appoint.user.entity.User;
 import com.qsx.appoint.user.mapper.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +41,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.*;
+import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,8 +63,10 @@ class ScheduleInventoryIntegrationTest {
 
     @Autowired private MutableClock clock;
     @Autowired private ScheduleManagementService scheduleManagementService;
+    @Autowired private CatalogService catalogService;
     @Autowired private AppointmentService appointmentService;
-    @Autowired private PaymentService paymentService;
+    @Autowired private BookingCoordinator bookingCoordinator;
+    @Autowired private BookingLifecycleCoordinator lifecycleCoordinator;
     @Autowired private ScheduleMapper scheduleMapper;
     @Autowired private AppointmentOrderMapper appointmentOrderMapper;
     @Autowired private PaymentOrderMapper paymentOrderMapper;
@@ -108,7 +115,7 @@ class ScheduleInventoryIntegrationTest {
         Schedule held = scheduleMapper.selectById(schedule.getId());
         assertInventory(held, 2, 1, 1, 0);
 
-        appointmentService.cancel(firstUser, first.getAppointmentOrderId());
+        lifecycleCoordinator.cancelOwned(firstUser, first.getAppointmentOrderId());
         createAppointment(secondUser, secondPatient, schedule.getId());
         assertInventory(scheduleMapper.selectById(schedule.getId()), 2, 1, 1, 0);
     }
@@ -122,17 +129,17 @@ class ScheduleInventoryIntegrationTest {
                 createPatient(user, "序号甲", "110105199001010010"), schedule.getId());
         CreateAppointmentResponse second = createAppointment(user,
                 createPatient(user, "序号乙", "110105199002020026"), schedule.getId());
-        paymentService.simulateSuccess(user, first.getPaymentOrderId());
-        paymentService.simulateSuccess(user, second.getPaymentOrderId());
-        appointmentService.cancel(user, first.getAppointmentOrderId());
+        lifecycleCoordinator.simulatePaymentSuccess(user, first.getPaymentOrderId());
+        lifecycleCoordinator.simulatePaymentSuccess(user, second.getPaymentOrderId());
+        lifecycleCoordinator.cancelOwned(user, first.getAppointmentOrderId());
         CreateAppointmentResponse third = createAppointment(user,
                 createPatient(user, "序号丙", "110105199003030031"), schedule.getId());
-        paymentService.simulateSuccess(user, third.getPaymentOrderId());
+        lifecycleCoordinator.simulatePaymentSuccess(user, third.getPaymentOrderId());
 
         assertThat(appointmentOrderMapper.selectById(first.getAppointmentOrderId()).getVisitNumber()).isEqualTo(1);
         assertThat(appointmentOrderMapper.selectById(second.getAppointmentOrderId()).getVisitNumber()).isEqualTo(2);
         assertThat(appointmentOrderMapper.selectById(third.getAppointmentOrderId()).getVisitNumber()).isEqualTo(3);
-        assertThat(paymentOrderMapper.selectById(first.getPaymentOrderId()).getStatus()).isEqualTo("REFUNDED");
+        assertThat(paymentOrderMapper.selectById(first.getPaymentOrderId()).getStatus()).isEqualTo("REFUND_PENDING");
         Schedule finalInventory = scheduleMapper.selectById(schedule.getId());
         assertInventory(finalInventory, 2, 0, 0, 2);
         assertThat(finalInventory.getNextVisitNumber()).isEqualTo(4);
@@ -145,9 +152,9 @@ class ScheduleInventoryIntegrationTest {
         Long user = createUser("refund-boundary-user");
         CreateAppointmentResponse created = createAppointment(user,
                 createPatient(user, "退款边界", "110105199001010010"), schedule.getId());
-        paymentService.simulateSuccess(user, created.getPaymentOrderId());
+        lifecycleCoordinator.simulatePaymentSuccess(user, created.getPaymentOrderId());
 
-        assertThatThrownBy(() -> appointmentService.cancel(user, created.getAppointmentOrderId()))
+        assertThatThrownBy(() -> lifecycleCoordinator.cancelOwned(user, created.getAppointmentOrderId()))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode())
                                 .isEqualTo(ErrorCode.CANCELLATION_DEADLINE_REACHED));
@@ -155,6 +162,52 @@ class ScheduleInventoryIntegrationTest {
                 .isEqualTo("CONFIRMED");
         assertThat(paymentOrderMapper.selectById(created.getPaymentOrderId()).getStatus()).isEqualTo("PAID");
         assertInventory(scheduleMapper.selectById(schedule.getId()), 1, 0, 0, 1);
+    }
+
+    @Test
+    void paymentIsRejectedAtTheExactPaymentDeadlineWithoutChangingTheHold() {
+        clock.setInstant(RELEASE_INSTANT.plus(Duration.ofDays(1)));
+        Long operator = createUser("operator-payment-deadline");
+        Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 9), "MORNING", 1);
+        Long user = createUser("payment-deadline-user");
+        CreateAppointmentResponse created = createAppointment(user,
+                createPatient(user, "支付边界", "110105199001010010"), schedule.getId());
+        clock.setInstant(created.getPaymentExpiresAt().atZone(SHANGHAI).toInstant());
+
+        assertThatThrownBy(() -> lifecycleCoordinator.simulatePaymentSuccess(user, created.getPaymentOrderId()))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PAYMENT_EXPIRED));
+
+        AppointmentResponse detail = appointmentService.getOwned(user, created.getAppointmentOrderId());
+        assertThat(detail.getStatus()).isEqualTo("PENDING_PAYMENT");
+        assertThat(detail.getPaymentStatus()).isEqualTo("UNPAID");
+        assertThat(detail.isPaymentExpired()).isTrue();
+        assertThat(detail.isCanPay()).isFalse();
+        assertInventory(scheduleMapper.selectById(schedule.getId()), 1, 0, 1, 0);
+    }
+
+    @Test
+    void confirmedCancellationCanBeRepeatedWithoutChangingItsReceipt() {
+        clock.setInstant(RELEASE_INSTANT.plus(Duration.ofDays(1)));
+        Long operator = createUser("operator-refund-idempotency");
+        Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 9), "AFTERNOON", 1);
+        Long user = createUser("refund-idempotency-user");
+        CreateAppointmentResponse created = createAppointment(user,
+                createPatient(user, "重复退款", "110105199001010010"), schedule.getId());
+        lifecycleCoordinator.simulatePaymentSuccess(user, created.getPaymentOrderId());
+
+        lifecycleCoordinator.cancelOwned(user, created.getAppointmentOrderId());
+        AppointmentResponse first = appointmentService.getOwned(user, created.getAppointmentOrderId());
+        lifecycleCoordinator.cancelOwned(user, created.getAppointmentOrderId());
+        AppointmentResponse repeated = appointmentService.getOwned(user, created.getAppointmentOrderId());
+
+        assertThat(first.getStatus()).isEqualTo("CANCELLED");
+        assertThat(first.getPaymentStatus()).isEqualTo("REFUND_PENDING");
+        assertThat(repeated.getStatus()).isEqualTo(first.getStatus());
+        assertThat(repeated.getPaymentStatus()).isEqualTo(first.getPaymentStatus());
+        assertThat(repeated.getClosedAt()).isEqualTo(first.getClosedAt());
+        assertThat(repeated.getVisitNumber()).isEqualTo(first.getVisitNumber());
+        assertInventory(scheduleMapper.selectById(schedule.getId()), 1, 1, 0, 0);
     }
 
     @Test
@@ -206,12 +259,120 @@ class ScheduleInventoryIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void scheduleCreationRequiresPositiveCnyRegistrationFee() {
+        Long operator = createUser("operator-fee");
+        CreateScheduleRequest request = new CreateScheduleRequest();
+        request.setDoctorId(1L);
+        request.setAppointmentDate(LocalDate.of(2026, 11, 10));
+        request.setSessionType("MORNING");
+        request.setTotalCapacity(1);
+        request.setRegistrationFee(BigDecimal.ZERO);
+        request.setFeeCurrency("CNY");
+
+        assertThatThrownBy(() -> scheduleManagementService.create(operator, request))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+
+        request.setRegistrationFee(new BigDecimal("50.00"));
+        request.setFeeCurrency("USD");
+        assertThatThrownBy(() -> scheduleManagementService.create(operator, request))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+
+        request.setFeeCurrency("CNY");
+        var created = scheduleManagementService.create(operator, request);
+        assertThat(created.getRegistrationFee()).isEqualByComparingTo("50.00");
+        assertThat(created.getFeeCurrency()).isEqualTo("CNY");
+    }
+
+    @Test
+    void registrationFeeCanChangeBeforeReleaseAndIsLockedAtRelease() {
+        Long operator = createUser("operator-fee-update");
+        Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 10), "AFTERNOON", 1);
+        UpdateScheduleRequest update = new UpdateScheduleRequest();
+        update.setRegistrationFee(new BigDecimal("60.00"));
+        update.setFeeCurrency("CNY");
+
+        var updated = scheduleManagementService.update(schedule.getId(), update);
+        assertThat(updated.getRegistrationFee()).isEqualByComparingTo("60.00");
+        assertThat(catalogService.listSchedules(2L))
+                .filteredOn(response -> response.getId().equals(schedule.getId()))
+                .singleElement()
+                .satisfies(response -> {
+                    assertThat(response.getRegistrationFee()).isEqualByComparingTo("60.00");
+                    assertThat(response.getFeeCurrency()).isEqualTo("CNY");
+                });
+
+        clock.setInstant(ZonedDateTime.of(2026, 11, 3, 8, 0, 0, 0, SHANGHAI).toInstant());
+        update.setRegistrationFee(new BigDecimal("70.00"));
+        assertThatThrownBy(() -> scheduleManagementService.update(schedule.getId(), update))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.SCHEDULE_IDENTITY_LOCKED));
+        assertThat(scheduleMapper.selectById(schedule.getId()).getRegistrationFee()).isEqualByComparingTo("60.00");
+    }
+
+    @Test
+    void appointmentCreationCopiesAnImmutableFeeSnapshotToBothOrders() {
+        Long operator = createUser("operator-snapshot");
+        Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 11), "MORNING", 1);
+        clock.setInstant(ZonedDateTime.of(2026, 11, 4, 8, 0, 0, 0, SHANGHAI).toInstant());
+        Long user = createUser("snapshot-user");
+        CreateAppointmentResponse created = createAppointment(user,
+                createPatient(user, "金额快照", "110105199001010010"), schedule.getId());
+
+        assertThat(created.getAmount()).isEqualByComparingTo("50.00");
+        assertThat(created.getCurrency()).isEqualTo("CNY");
+        AppointmentOrder appointment = appointmentOrderMapper.selectById(created.getAppointmentOrderId());
+        PaymentOrder payment = paymentOrderMapper.selectById(created.getPaymentOrderId());
+        assertThat(appointment.getFeeAmount()).isEqualByComparingTo("50.00");
+        assertThat(appointment.getFeeCurrency()).isEqualTo("CNY");
+        assertThat(payment.getAmount()).isEqualByComparingTo("50.00");
+        assertThat(payment.getCurrency()).isEqualTo("CNY");
+        assertThat(payment.getUserId()).isEqualTo(appointment.getUserId());
+        assertThat(payment.getExpiresAt()).isEqualTo(created.getPaymentExpiresAt());
+        assertThat(payment.getLegacy()).isFalse();
+
+        schedule.setRegistrationFee(new BigDecimal("80.00"));
+        scheduleMapper.updateById(schedule);
+        assertThat(appointmentOrderMapper.selectById(created.getAppointmentOrderId()).getFeeAmount())
+                .isEqualByComparingTo("50.00");
+        assertThat(paymentOrderMapper.selectById(created.getPaymentOrderId()).getAmount())
+                .isEqualByComparingTo("50.00");
+    }
+
+    @Test
+    void legacyScheduleWithoutFeeCannotCreateANewAppointment() {
+        Schedule legacy = new Schedule();
+        legacy.setDoctorId(2L);
+        legacy.setAppointmentDate(LocalDate.of(2026, 11, 12));
+        legacy.setSessionType("AFTERNOON");
+        legacy.setStartTime(LocalTime.of(14, 0));
+        legacy.setEndTime(LocalTime.of(17, 0));
+        legacy.setStatus("OPEN");
+        legacy.setTotalCapacity(1);
+        legacy.setAvailableCapacity(1);
+        legacy.setHeldCapacity(0);
+        legacy.setConfirmedCapacity(0);
+        legacy.setNextVisitNumber(1);
+        scheduleMapper.insert(legacy);
+        Long user = createUser("legacy-fee-user");
+
+        assertThatThrownBy(() -> createAppointment(user,
+                createPatient(user, "旧排班", "110105199001010010"), legacy.getId()))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.SCHEDULE_UNAVAILABLE));
+        assertInventory(scheduleMapper.selectById(legacy.getId()), 1, 1, 0, 0);
+    }
+
     private Schedule createSchedule(Long operator, Long doctorId, LocalDate date, String session, int capacity) {
         CreateScheduleRequest request = new CreateScheduleRequest();
         request.setDoctorId(doctorId);
         request.setAppointmentDate(date);
         request.setSessionType(session);
         request.setTotalCapacity(capacity);
+        request.setRegistrationFee(new BigDecimal("50.00"));
+        request.setFeeCurrency("CNY");
         Long id = scheduleManagementService.create(operator, request).getId();
         return scheduleMapper.selectById(id);
     }
@@ -220,7 +381,7 @@ class ScheduleInventoryIntegrationTest {
         CreateAppointmentRequest request = new CreateAppointmentRequest();
         request.setScheduleId(scheduleId);
         request.setPatientId(patientId);
-        AppointmentCreationResult result = appointmentService.create(userId, UUID.randomUUID().toString(), request);
+        AppointmentCreationResult result = bookingCoordinator.create(userId, UUID.randomUUID().toString(), request);
         return (CreateAppointmentResponse) result;
     }
 
