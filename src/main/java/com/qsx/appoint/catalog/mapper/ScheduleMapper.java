@@ -9,6 +9,9 @@ import org.apache.ibatis.annotations.Select;
 
 @Mapper
 public interface ScheduleMapper extends BaseMapper<Schedule> {
+    @Select("SELECT COUNT(*) FROM schedules WHERE doctor_id = #{doctorId}")
+    long countByDoctorId(@Param("doctorId") Long doctorId);
+
     @Select("SELECT * FROM schedules WHERE id = #{scheduleId} FOR UPDATE")
     Schedule selectByIdForUpdate(@Param("scheduleId") Long scheduleId);
 

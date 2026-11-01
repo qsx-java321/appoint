@@ -28,7 +28,16 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 | `POST /api/v1/payment-notifications/{channel}` | 支付渠道签名回调 | 渠道验签 | 200 |
 | `POST /api/v1/mock-pay/attempts/{attemptNo}/complete` | MockPay 完成支付 | dev/test | 202 |
 | `POST /api/v1/mock-pay/attempts/{attemptNo}/fail` | MockPay 支付失败 | dev/test | 202 |
-| `POST /api/v1/admin/schedules` | 创建排班 | `ADMIN` | 200 |
+| `POST /api/v1/admin/hospitals` | 创建医院 | `ADMIN` | 201 |
+| `PATCH /api/v1/admin/hospitals/{hospitalId}` | 修改医院资料 | `ADMIN` | 200 |
+| `DELETE /api/v1/admin/hospitals/{hospitalId}` | 删除空医院 | `ADMIN` | 200 |
+| `POST /api/v1/admin/hospitals/{hospitalId}/departments` | 创建科室 | `ADMIN` | 201 |
+| `PATCH /api/v1/admin/departments/{departmentId}` | 修改科室名称 | `ADMIN` | 200 |
+| `DELETE /api/v1/admin/departments/{departmentId}` | 删除空科室 | `ADMIN` | 200 |
+| `POST /api/v1/admin/departments/{departmentId}/doctors` | 创建医生档案 | `ADMIN` | 201 |
+| `PATCH /api/v1/admin/doctors/{doctorId}` | 修改医生档案 | `ADMIN` | 200 |
+| `DELETE /api/v1/admin/doctors/{doctorId}` | 删除无排班医生 | `ADMIN` | 200 |
+| `POST /api/v1/admin/schedules` | 创建排班 | `ADMIN` | 201 |
 | `PATCH /api/v1/admin/schedules/{id}` | 开放前修改排班身份 | `ADMIN` | 200 |
 | `POST /api/v1/admin/schedules/{id}/inventory-adjustments` | 调整库存并记审计 | `ADMIN` | 200 |
 | `POST /api/v1/admin/schedules/{id}/close` | 关闭排班 | `ADMIN` | 200 |
@@ -75,6 +84,54 @@ Base URL：`http://localhost:8080`。除注册与登录外，接口均要求 `Au
 | `CLOSED` | 医院已关闭排班 | `false` |
 
 查询结果只是即时快照。创建预约时会在事务内重新检查排班状态、时间窗口、重复预约和库存。
+
+## 管理员医疗资源接口
+
+管理员可以按医院、科室、医生、排班的顺序建立可预约目录。新建资源立即进入已有公共查询，不存在草稿或上下架状态。所有管理写接口要求 `ADMIN`；普通用户调用返回 `403 / 2002 FORBIDDEN`。
+
+医院、科室和医生请求中的字符串在写入前会去除首尾空格；提供纯空白字符串返回 `400 / 1001 VALIDATION_ERROR`。修改请求至少要提供一个允许修改的字段。
+
+创建医院：
+
+```http
+POST /api/v1/admin/hospitals
+```
+
+```json
+{ "name": "示例市第二人民医院", "address": "示例市健康路 20 号" }
+```
+
+医院可用 `PATCH /api/v1/admin/hospitals/{hospitalId}` 修改名称或地址。医院仍有科室时不能删除；空医院可用对应 `DELETE` 接口删除。
+
+在医院下创建科室：
+
+```http
+POST /api/v1/admin/hospitals/{hospitalId}/departments
+```
+
+```json
+{ "name": "心血管内科" }
+```
+
+同一医院内，去除首尾空格后的科室名称不能重复；不同医院允许同名科室。`PATCH /api/v1/admin/departments/{departmentId}` 只修改名称，科室仍有医生时不能删除。
+
+在科室下创建医生档案：
+
+```http
+POST /api/v1/admin/departments/{departmentId}/doctors
+```
+
+```json
+{
+  "name": "王医生",
+  "title": "副主任医师",
+  "introduction": "擅长心血管常见疾病诊治。"
+}
+```
+
+系统自动生成全局唯一且稳定的 `doctorNo`。医生修改接口只接受姓名、职称和简介，不接受 `doctorNo` 或 `departmentId`。医生存在任何过去、未来、关闭或 Legacy 排班时都不能删除；停诊应关闭排班而不是删除排班。
+
+医院、科室和医生资料修改只影响目录及之后创建的预约，已有预约凭证继续显示创建时保存的快照。创建科室、医生或排班时父级不存在统一返回 `404 / 4001 RESOURCE_NOT_FOUND`。
 
 ## 管理员排班接口
 
@@ -227,6 +284,8 @@ dev/test 可调用 `POST /api/v1/mock-pay/attempts/{attemptNo}/complete` 或 `/f
 | 已到开诊前 24 小时取消边界 | 409 | `4205 CANCELLATION_DEADLINE_REACHED` |
 | 排班身份字段已锁定 | 409 | `4206 SCHEDULE_IDENTITY_LOCKED` |
 | 减少量超过当前可用名额 | 409 | `4207 INVENTORY_REDUCTION_EXCEEDS_AVAILABLE` |
+| 同一医院科室名称重复 | 409 | `4401 DEPARTMENT_NAME_EXISTS` |
+| 医疗资源仍被下级资源引用 | 409 | `4402 CATALOG_RESOURCE_IN_USE` |
 | 并发幂等请求尚未完成 | 503 | `5001 RETRYABLE_CONCURRENCY_ERROR` |
 
-可运行示例见 [auth.http](../http/auth.http)、[admin-schedule.http](../http/admin-schedule.http) 和 [appointment.http](../http/appointment.http)。
+可运行示例见 [auth.http](../http/auth.http)、[admin-catalog.http](../http/admin-catalog.http)、[admin-schedule.http](../http/admin-schedule.http) 和 [appointment.http](../http/appointment.http)。

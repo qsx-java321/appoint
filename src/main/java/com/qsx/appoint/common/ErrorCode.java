@@ -31,6 +31,8 @@ public enum ErrorCode {
     CANCELLATION_DEADLINE_REACHED(4205, "距开诊不足24小时，当前不可取消或退款", HttpStatus.CONFLICT),
     SCHEDULE_IDENTITY_LOCKED(4206, "排班已开放，医生、日期和时段不可修改", HttpStatus.CONFLICT),
     INVENTORY_REDUCTION_EXCEEDS_AVAILABLE(4207, "减少名额不能超过当前可用名额", HttpStatus.CONFLICT),
+    DEPARTMENT_NAME_EXISTS(4401, "同一医院已存在该科室", HttpStatus.CONFLICT),
+    CATALOG_RESOURCE_IN_USE(4402, "该资源仍被下级资源引用，不能删除", HttpStatus.CONFLICT),
     PAYMENT_CHANNEL_UNAVAILABLE(4301, "支付渠道暂不可用", HttpStatus.SERVICE_UNAVAILABLE),
     PAYMENT_SIGNATURE_INVALID(4302, "支付通知签名无效", HttpStatus.BAD_REQUEST);
 

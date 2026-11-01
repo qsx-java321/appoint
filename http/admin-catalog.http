@@ -1,0 +1,77 @@
+# 先在 auth.http 注册并登录 student@example.com，再由受控运维操作授予 ADMIN 角色，
+# 重新登录取得包含 ADMIN 的 accessToken。角色授予 SQL 见 admin-schedule.http。
+
+### 创建医院
+POST {{baseUrl}}/api/v1/admin/hospitals
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "示例市第二人民医院",
+  "address": "示例市健康路 20 号"
+}
+
+> {% client.global.set("adminHospitalId", response.body.data.id); %}
+
+### 创建科室
+POST {{baseUrl}}/api/v1/admin/hospitals/{{adminHospitalId}}/departments
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "心血管内科"
+}
+
+> {% client.global.set("adminDepartmentId", response.body.data.id); %}
+
+### 同医院重复科室，预期 409 / 4401
+POST {{baseUrl}}/api/v1/admin/hospitals/{{adminHospitalId}}/departments
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": " 心血管内科 "
+}
+
+### 创建医生，doctorNo 由系统生成
+POST {{baseUrl}}/api/v1/admin/departments/{{adminDepartmentId}}/doctors
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "王医生",
+  "title": "副主任医师",
+  "introduction": "擅长心血管常见疾病诊治。"
+}
+
+> {% client.global.set("adminDoctorId", response.body.data.id); %}
+
+### 修改医生档案，doctorNo 和 departmentId 保持不变
+PATCH {{baseUrl}}/api/v1/admin/doctors/{{adminDoctorId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "主任医师",
+  "introduction": "擅长高血压和冠心病诊治。"
+}
+
+### 普通查询链立即可见
+GET {{baseUrl}}/api/v1/hospitals
+Authorization: Bearer {{accessToken}}
+
+### 有科室的医院不能删除，预期 409 / 4402
+DELETE {{baseUrl}}/api/v1/admin/hospitals/{{adminHospitalId}}
+Authorization: Bearer {{accessToken}}
+
+### 无排班时可按医生、科室、医院顺序清理
+DELETE {{baseUrl}}/api/v1/admin/doctors/{{adminDoctorId}}
+Authorization: Bearer {{accessToken}}
+
+###
+DELETE {{baseUrl}}/api/v1/admin/departments/{{adminDepartmentId}}
+Authorization: Bearer {{accessToken}}
+
+###
+DELETE {{baseUrl}}/api/v1/admin/hospitals/{{adminHospitalId}}
+Authorization: Bearer {{accessToken}}

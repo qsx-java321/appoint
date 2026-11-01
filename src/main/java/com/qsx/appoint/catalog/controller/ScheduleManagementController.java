@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -17,6 +18,7 @@ public class ScheduleManagementController {
     private final ScheduleManagementService service;
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public Result<AdminScheduleResponse> create(Authentication authentication,
                                                 @Valid @RequestBody CreateScheduleRequest request) {
         return Result.success(service.create((Long) authentication.getPrincipal(), request));

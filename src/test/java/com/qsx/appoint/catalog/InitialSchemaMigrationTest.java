@@ -19,7 +19,7 @@ class InitialSchemaMigrationTest {
         DriverManagerDataSource dataSource = new DriverManagerDataSource(url, "sa", "");
         Flyway flyway = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
 
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(7);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(8);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
 
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
@@ -118,7 +118,7 @@ class InitialSchemaMigrationTest {
         insertV3Order(jdbc, "CANCELLED", "CLOSED");
 
         Flyway full = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
-        assertThat(full.migrate().migrationsExecuted).isEqualTo(4);
+        assertThat(full.migrate().migrationsExecuted).isEqualTo(5);
 
         assertThat(jdbc.queryForObject("SELECT status FROM appointment_orders WHERE appointment_no = 'APV4'", String.class))
                 .isEqualTo("CANCELLED");
