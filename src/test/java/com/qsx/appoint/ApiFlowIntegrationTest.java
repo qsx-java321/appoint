@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.UUID;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.LocalDateTime;
@@ -42,6 +43,7 @@ class ApiFlowIntegrationTest {
     @Autowired private MockPaymentGateway mockPaymentGateway;
     @Autowired private PaymentOrderMapper paymentOrderMapper;
     @Autowired private PaymentOutboxEventMapper outboxEventMapper;
+    @Autowired private Clock appointmentClock;
 
     @Test
     void registerLoginAndReadCurrentUser() throws Exception {
@@ -114,7 +116,7 @@ class ApiFlowIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
         String patientId = createPatient(token);
-        Long scheduleId = createSchedule(LocalDate.now().plusDays(5));
+        Long scheduleId = createSchedule(LocalDate.now(appointmentClock).plusDays(5));
 
         mockMvc.perform(get("/api/v1/hospitals").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
@@ -139,7 +141,7 @@ class ApiFlowIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
         String patientId = createPatient(token);
-        Long scheduleId = createSchedule(LocalDate.now().plusDays(6));
+        Long scheduleId = createSchedule(LocalDate.now(appointmentClock).plusDays(6));
 
         String appointmentResult = mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
@@ -172,7 +174,7 @@ class ApiFlowIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
         String patientId = createPatient(token);
-        Long scheduleId = createSchedule(LocalDate.now().plusDays(7));
+        Long scheduleId = createSchedule(LocalDate.now(appointmentClock).plusDays(4));
         String appointmentResult = mockMvc.perform(post("/api/v1/appointments")
                         .header("Authorization", "Bearer " + token)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
@@ -196,7 +198,8 @@ class ApiFlowIntegrationTest {
 
         RawPaymentNotification amountMismatch = mockPaymentGateway.signedNotification(
                 "notify-wrong-" + paymentId, providerOrderNo, "mock-txn-wrong",
-                GatewayPaymentStatus.SUCCEEDED, new BigDecimal("49.99"), "CNY", LocalDateTime.now());
+                GatewayPaymentStatus.SUCCEEDED, new BigDecimal("49.99"), "CNY",
+                LocalDateTime.now(appointmentClock));
         mockMvc.perform(post("/api/v1/payment-notifications/MOCK")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(amountMismatch)))
@@ -205,7 +208,7 @@ class ApiFlowIntegrationTest {
         assertThat(paymentOrderMapper.selectById(Long.valueOf(paymentId)).getStatus()).isEqualTo("PAYING");
 
         RawPaymentNotification success = mockPaymentGateway.complete(
-                providerOrderNo, "notify-success-" + paymentId, LocalDateTime.now());
+                providerOrderNo, "notify-success-" + paymentId, LocalDateTime.now(appointmentClock));
         String successBody = objectMapper.writeValueAsString(success);
         mockMvc.perform(post("/api/v1/payment-notifications/MOCK")
                         .contentType(MediaType.APPLICATION_JSON).content(successBody))

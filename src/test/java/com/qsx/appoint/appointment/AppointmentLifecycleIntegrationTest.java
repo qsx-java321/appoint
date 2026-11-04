@@ -406,7 +406,7 @@ class AppointmentLifecycleIntegrationTest {
         boolean past = date.isBefore(LocalDate.now(appointmentClock));
         int sequence = SCHEDULE_SEQUENCE.getAndIncrement();
         boolean afternoon = !past && sequence % 2 == 1;
-        schedule.setAppointmentDate(past ? date : LocalDate.now(appointmentClock).plusDays(2 + sequence / 2));
+        schedule.setAppointmentDate(past ? date : LocalDate.now(appointmentClock).plusDays(1 + sequence / 2));
         schedule.setStartTime(afternoon ? LocalTime.of(14, 0) : LocalTime.of(8, 0));
         schedule.setEndTime(afternoon ? LocalTime.of(17, 0) : LocalTime.of(12, 0));
         schedule.setStatus("OPEN");

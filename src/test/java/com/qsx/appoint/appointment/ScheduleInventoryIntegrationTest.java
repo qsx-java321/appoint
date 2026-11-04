@@ -88,6 +88,11 @@ class ScheduleInventoryIntegrationTest {
         Long user = createUser("boundary-user");
         Long firstPatient = createPatient(user, "边界甲", "110105199001010010");
 
+        clock.setInstant(RELEASE_INSTANT.minusSeconds(1));
+        assertThatThrownBy(() -> createAppointment(user, firstPatient, schedule.getId()))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.SCHEDULE_NOT_OPEN));
+        clock.setInstant(RELEASE_INSTANT);
         createAppointment(user, firstPatient, schedule.getId());
         clock.setInstant(ZonedDateTime.of(2026, 11, 8, 7, 30, 0, 0, SHANGHAI).toInstant());
         Long secondPatient = createPatient(user, "边界乙", "110105199002020026");

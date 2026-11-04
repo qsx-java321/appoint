@@ -31,8 +31,8 @@ import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -60,6 +60,7 @@ class CatalogManagementIntegrationTest {
     @Autowired private AppointmentService appointmentService;
     @Autowired private UserMapper userMapper;
     @Autowired private PatientMapper patientMapper;
+    @Autowired private Clock appointmentClock;
 
     @Test
     void adminCanCreateHospitalThatImmediatelyAppearsInCatalog() throws Exception {
@@ -139,7 +140,7 @@ class CatalogManagementIntegrationTest {
         String hospitalId = createHospital("全链路医院", "全链路 1 号");
         String departmentId = createDepartment(hospitalId, "全链路科室");
         JsonNode doctor = createDoctor(departmentId, "全链路医生", "主任医师", "全链路测试");
-        LocalDate appointmentDate = LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(7);
+        LocalDate appointmentDate = LocalDate.now(appointmentClock).plusDays(6);
 
         String scheduleBody = mockMvc.perform(post("/api/v1/admin/schedules")
                         .with(authentication(new TestingAuthenticationToken(1L, null, "ROLE_ADMIN")))
@@ -250,7 +251,7 @@ class CatalogManagementIntegrationTest {
 
         CreateScheduleRequest schedule = new CreateScheduleRequest();
         schedule.setDoctorId(doctor.path("id").asLong());
-        schedule.setAppointmentDate(LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(10));
+        schedule.setAppointmentDate(LocalDate.now(appointmentClock).plusDays(10));
         schedule.setSessionType("MORNING");
         schedule.setTotalCapacity(1);
         schedule.setRegistrationFee(new BigDecimal("50.00"));
@@ -337,7 +338,7 @@ class CatalogManagementIntegrationTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(4001));
 
-        String date = LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(10).toString();
+        String date = LocalDate.now(appointmentClock).plusDays(10).toString();
         mockMvc.perform(post("/api/v1/admin/schedules")
                         .with(authentication(new TestingAuthenticationToken(1L, null, "ROLE_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -405,7 +406,7 @@ class CatalogManagementIntegrationTest {
         String departmentId = createDepartment(hospitalId, "快照旧科室");
         JsonNode doctor = createDoctor(departmentId, "快照旧医生", "旧职称", "旧简介");
         Long doctorId = doctor.path("id").asLong();
-        LocalDate appointmentDate = LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(7);
+        LocalDate appointmentDate = LocalDate.now(appointmentClock).plusDays(6);
         Long morningScheduleId = createSchedule(doctorId, appointmentDate, "MORNING");
         Long afternoonScheduleId = createSchedule(doctorId, appointmentDate, "AFTERNOON");
         Long userId = createUser();
