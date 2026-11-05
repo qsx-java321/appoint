@@ -43,8 +43,7 @@ class DefaultPaymentSucceededProcessor implements PaymentSucceededProcessor {
         }
         if ("CONFIRMED".equals(appointment.status())) return "ALREADY_CONFIRMED";
         if (!"PENDING_PAYMENT".equals(appointment.status())
-                || !"OPEN".equals(schedule.status())
-                || event.paidAt().isAfter(appointment.paymentExpiresAt())) {
+                || !event.paidAt().isBefore(appointment.paymentExpiresAt())) {
             refunds.requestFullRefund(event.paymentOrderId(), "APPOINTMENT_NOT_CONFIRMABLE");
             return "REFUND_REQUIRED";
         }

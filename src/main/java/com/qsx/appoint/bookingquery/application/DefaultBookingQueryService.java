@@ -66,7 +66,6 @@ public class DefaultBookingQueryService implements AppointmentService {
                 && ("UNPAID".equals(record.getPaymentStatus()) || "PAYING".equals(record.getPaymentStatus()));
         boolean confirmedAndPaid = "CONFIRMED".equals(record.getStatus())
                 && "PAID".equals(record.getPaymentStatus());
-        boolean scheduleClosed = "CLOSED".equals(record.getScheduleStatus());
         WorkflowStatus workflow = workflowStatus(record);
         LocalDateTime cancellationDeadline = LocalDateTime.of(
                 record.getAppointmentDate(), record.getStartTime()).minusHours(24);
@@ -85,9 +84,8 @@ public class DefaultBookingQueryService implements AppointmentService {
                 record.getPaymentStatus(), workflow == null ? null : workflow.name(),
                 record.getAmount(), record.getCurrency(), record.getPaymentAttemptCount(), attempt, refund,
                 record.getPaymentExpiresAt(), record.getClosedAt(), serverTime, paymentExpired,
-                pendingAndUnpaid && !paymentExpired && !scheduleClosed,
+                pendingAndUnpaid && !paymentExpired,
                 pendingAndCancellable || (confirmedAndPaid && serverTime.isBefore(cancellationDeadline)),
-                scheduleClosed, scheduleClosed && confirmedAndPaid ? "医生已停诊，请联系医院" : null,
                 patient, doctor);
     }
 

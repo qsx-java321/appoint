@@ -49,7 +49,6 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
 
         LocalDateTime now = now();
         if (!now.isBefore(appointment.paymentExpiresAt())) throw new BusinessException(ErrorCode.PAYMENT_EXPIRED);
-        if (!"OPEN".equals(schedule.status())) throw new BusinessException(ErrorCode.SCHEDULE_CLOSED);
         Integer visitNumber = schedule.nextVisitNumber();
         appointments.confirmInventory(schedule.id(), visitNumber);
         payments.markPaid(payment.id());
@@ -149,28 +148,6 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         return true;
     }
 
-    @Override
-    @Transactional
-    public void closeScheduleLocked(Long scheduleId, Long operatorUserId, LocalDateTime now) {
-        appointments.closeSchedule(scheduleId, operatorUserId, now);
-        ScheduleLifecycleView schedule = new ScheduleLifecycleView(scheduleId, "CLOSED", null);
-        for (AppointmentLifecycleView appointment : appointments.lockPendingAppointments(scheduleId)) {
-            PaymentLifecycleView payment = payments.lockByAppointment(appointment.id());
-            validateIntegrity(appointment, payment, payment == null ? null : payment.id());
-            if ("PAID".equals(payment.status())) {
-                String closedStatus = now.isBefore(appointment.paymentExpiresAt())
-                        ? "CANCELLED_BY_HOSPITAL" : "EXPIRED";
-                closePaidPending(schedule, appointment, payment, closedStatus,
-                        "SCHEDULE_CLOSED_BEFORE_CONFIRMATION", now);
-                continue;
-            }
-            requirePendingUnpaid(appointment, payment, payment.id());
-            closePending(schedule, appointment, payment,
-                    now.isBefore(appointment.paymentExpiresAt()) ? "CANCELLED_BY_HOSPITAL" : "EXPIRED", now);
-        }
-        log.info("排班关闭，scheduleId={}, operatorUserId={}", scheduleId, operatorUserId);
-    }
-
     private void closePending(ScheduleLifecycleView schedule, AppointmentLifecycleView appointment,
                               PaymentLifecycleView payment, String status, LocalDateTime now) {
         appointments.releaseHeldInventory(schedule.id());
@@ -199,9 +176,9 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
 
     private boolean resolvePaidPending(ScheduleLifecycleView schedule, AppointmentLifecycleView appointment,
                                        PaymentLifecycleView payment, LocalDateTime now) {
-        boolean paidAfterDeadline = payment.paidAt() == null
-                || payment.paidAt().isAfter(appointment.paymentExpiresAt());
-        if (!"OPEN".equals(schedule.status()) || paidAfterDeadline) {
+        boolean paidAtOrAfterDeadline = payment.paidAt() == null
+                || !payment.paidAt().isBefore(appointment.paymentExpiresAt());
+        if (paidAtOrAfterDeadline) {
             refunds.requestFullRefund(payment.id(), "APPOINTMENT_NOT_CONFIRMABLE");
             appointments.releaseHeldInventory(schedule.id());
             appointments.closePendingAppointment(appointment.id(), "EXPIRED", now);

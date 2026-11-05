@@ -7,5 +7,4 @@ public interface ScheduleManagementService {
     AdminScheduleResponse update(Long scheduleId, UpdateScheduleRequest request);
     AdminScheduleResponse adjustInventory(Long operatorUserId, Long scheduleId,
                                           AdjustScheduleInventoryRequest request);
-    AdminScheduleResponse close(Long operatorUserId, Long scheduleId);
 }

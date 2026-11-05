@@ -27,7 +27,8 @@ class DefaultBookingCoordinator implements BookingCoordinator {
     public AppointmentCreationResult create(Long userId, String rawIdempotencyKey,
                                              CreateAppointmentRequest request) {
         String idempotencyKey = normalizeKey(rawIdempotencyKey);
-        String requestHash = hash(request.getScheduleId(), request.getPatientId());
+        String requestHash = hash(request.getDoctorId(), request.getAppointmentDate(),
+                request.getSessionType(), request.getPatientId());
         try {
             return creationTransaction.create(userId, idempotencyKey, requestHash, request);
         } catch (DuplicateKeyException exception) {
@@ -51,10 +52,12 @@ class DefaultBookingCoordinator implements BookingCoordinator {
         }
     }
 
-    private String hash(Long scheduleId, Long patientId) {
+    private String hash(Long doctorId, java.time.LocalDate appointmentDate, String sessionType, Long patientId) {
         try {
+            String normalizedSession = sessionType == null ? "" : sessionType.trim().toUpperCase(java.util.Locale.ROOT);
             byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest((scheduleId + ":" + patientId).getBytes(StandardCharsets.UTF_8));
+                    .digest((doctorId + ":" + appointmentDate + ":" + normalizedSession + ":" + patientId)
+                            .getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("JDK 缺少 SHA-256", exception);

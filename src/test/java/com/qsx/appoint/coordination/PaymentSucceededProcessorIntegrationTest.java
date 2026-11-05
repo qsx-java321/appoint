@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -16,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.datasource.url=jdbc:h2:mem:paid-confirmation;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.messaging.enabled=false"
 })
+@Transactional
 class PaymentSucceededProcessorIntegrationTest {
     @Autowired private PaymentSucceededProcessor processor;
     @Autowired private JdbcTemplate jdbcTemplate;
@@ -46,6 +48,27 @@ class PaymentSucceededProcessorIntegrationTest {
                 event.eventId())).isEqualTo(1);
     }
 
+    @Test
+    void paymentConfirmedAtExactDeadlineIsRefundedWithoutRestoringAppointment() {
+        fixture();
+        PaymentSucceededEvent event = new PaymentSucceededEvent(
+                "00000000-0000-0000-0000-000000001102", 1, LocalDateTime.of(2098, 12, 1, 8, 15),
+                11_004L, 11_003L, 11_005L, new BigDecimal("50.00"), "CNY", "MOCK",
+                LocalDateTime.of(2098, 12, 1, 8, 15));
+
+        assertThat(processor.process(event)).isEqualTo("REFUND_REQUIRED");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM appointment_orders WHERE id = 11003", String.class))
+                .isEqualTo("PENDING_PAYMENT");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT held_capacity FROM schedules WHERE id = 4", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT confirmed_capacity FROM schedules WHERE id = 4", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM payment_orders WHERE id = 11004", String.class))
+                .isEqualTo("REFUND_PENDING");
+    }
+
     private void fixture() {
         jdbcTemplate.update("""
                 UPDATE schedules SET status='OPEN', session_type='MORNING', start_time='08:00:00', end_time='12:00:00',
@@ -74,6 +97,14 @@ class PaymentSucceededProcessorIntegrationTest {
                 INSERT INTO payment_orders
                   (id,payment_no,appointment_order_id,user_id,status,amount,currency,expires_at,legacy)
                 VALUES (11004,'P11004',11003,11001,'PAID',50.00,'CNY','2098-12-01 08:15:00',FALSE)
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO payment_attempts
+                  (id,attempt_no,payment_order_id,channel,provider_order_no,provider_transaction_no,
+                   status,created_at,processing_at,completed_at,updated_at)
+                VALUES (11005,'PA11005',11004,'MOCK','PO11005','PT11005','SUCCEEDED',
+                        '2098-12-01 08:00:00','2098-12-01 08:00:00','2098-12-01 08:15:00',
+                        '2098-12-01 08:15:00')
                 """);
     }
 }

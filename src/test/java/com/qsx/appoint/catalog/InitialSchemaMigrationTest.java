@@ -19,7 +19,7 @@ class InitialSchemaMigrationTest {
         DriverManagerDataSource dataSource = new DriverManagerDataSource(url, "sa", "");
         Flyway flyway = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
 
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(8);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(9);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
 
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
@@ -56,6 +56,8 @@ class InitialSchemaMigrationTest {
                 "payment_attempts", "payment_refunds", "payment_notifications",
                 "payment_outbox_events", "coordination_inbox_events");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM appointment_create_requests", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT capacity_per_session FROM booking_settings WHERE id = 1", Integer.class))
+                .isEqualTo(20);
     }
 
     @Test
@@ -118,7 +120,7 @@ class InitialSchemaMigrationTest {
         insertV3Order(jdbc, "CANCELLED", "CLOSED");
 
         Flyway full = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
-        assertThat(full.migrate().migrationsExecuted).isEqualTo(5);
+        assertThat(full.migrate().migrationsExecuted).isEqualTo(6);
 
         assertThat(jdbc.queryForObject("SELECT status FROM appointment_orders WHERE appointment_no = 'APV4'", String.class))
                 .isEqualTo("CANCELLED");

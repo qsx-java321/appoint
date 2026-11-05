@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -37,11 +36,6 @@ class AppointmentLifecycleOperationsImpl implements AppointmentLifecycleOperatio
     @Override
     public AppointmentLifecycleView lockAppointment(Long id) {
         return view(appointmentOrderMapper.selectByIdForUpdate(id));
-    }
-
-    @Override
-    public List<AppointmentLifecycleView> lockPendingAppointments(Long scheduleId) {
-        return appointmentOrderMapper.selectPendingByScheduleForUpdate(scheduleId).stream().map(this::view).toList();
     }
 
     @Override
@@ -74,11 +68,6 @@ class AppointmentLifecycleOperationsImpl implements AppointmentLifecycleOperatio
     public void cancelConfirmedAppointment(Long id, LocalDateTime closedAt) {
         requireOne(appointmentOrderMapper.cancelIfConfirmed(id, closedAt));
         requireOne(activeClaimMapper.deleteByAppointmentOrderId(id));
-    }
-
-    @Override
-    public void closeSchedule(Long scheduleId, Long operatorUserId, LocalDateTime closedAt) {
-        requireOne(scheduleMapper.closeIfOpen(scheduleId, closedAt, operatorUserId));
     }
 
     private AppointmentLifecycleView view(AppointmentOrder order) {

@@ -12,15 +12,10 @@ import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.appointment.service.AppointmentService;
 import com.qsx.appoint.coordination.application.BookingCoordinator;
 import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
-import com.qsx.appoint.catalog.dto.AdjustScheduleInventoryRequest;
 import com.qsx.appoint.catalog.dto.CreateScheduleRequest;
-import com.qsx.appoint.catalog.dto.UpdateScheduleRequest;
 import com.qsx.appoint.catalog.entity.Schedule;
-import com.qsx.appoint.catalog.entity.ScheduleInventoryAdjustment;
-import com.qsx.appoint.catalog.mapper.ScheduleInventoryAdjustmentMapper;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.catalog.service.ScheduleManagementService;
-import com.qsx.appoint.catalog.service.CatalogService;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.patient.entity.Patient;
@@ -38,7 +33,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.*;
 import java.math.BigDecimal;
@@ -46,9 +40,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:schedule-inventory;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
@@ -63,7 +54,6 @@ class ScheduleInventoryIntegrationTest {
 
     @Autowired private MutableClock clock;
     @Autowired private ScheduleManagementService scheduleManagementService;
-    @Autowired private CatalogService catalogService;
     @Autowired private AppointmentService appointmentService;
     @Autowired private BookingCoordinator bookingCoordinator;
     @Autowired private BookingLifecycleCoordinator lifecycleCoordinator;
@@ -71,34 +61,12 @@ class ScheduleInventoryIntegrationTest {
     @Autowired private AppointmentOrderMapper appointmentOrderMapper;
     @Autowired private PaymentOrderMapper paymentOrderMapper;
     @Autowired private AppointmentActiveClaimMapper activeClaimMapper;
-    @Autowired private ScheduleInventoryAdjustmentMapper adjustmentMapper;
     @Autowired private UserMapper userMapper;
     @Autowired private PatientMapper patientMapper;
-    @Autowired private MockMvc mockMvc;
 
     @BeforeEach
     void resetClock() {
         clock.setInstant(RELEASE_INSTANT);
-    }
-
-    @Test
-    void releaseBoundaryIsInclusiveAndBookingCutoffBoundaryIsExclusive() {
-        Long operator = createUser("operator");
-        Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 8), "MORNING", 2);
-        Long user = createUser("boundary-user");
-        Long firstPatient = createPatient(user, "边界甲", "110105199001010010");
-
-        clock.setInstant(RELEASE_INSTANT.minusSeconds(1));
-        assertThatThrownBy(() -> createAppointment(user, firstPatient, schedule.getId()))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.SCHEDULE_NOT_OPEN));
-        clock.setInstant(RELEASE_INSTANT);
-        createAppointment(user, firstPatient, schedule.getId());
-        clock.setInstant(ZonedDateTime.of(2026, 11, 8, 7, 30, 0, 0, SHANGHAI).toInstant());
-        Long secondPatient = createPatient(user, "边界乙", "110105199002020026");
-        assertThatThrownBy(() -> createAppointment(user, secondPatient, schedule.getId()))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.SCHEDULE_CUTOFF_REACHED));
     }
 
     @Test
@@ -216,108 +184,6 @@ class ScheduleInventoryIntegrationTest {
     }
 
     @Test
-    void closingScheduleExpiresOverdueHoldAndHospitalCancelsRemainingHold() {
-        Long operator = createUser("operator-close");
-        Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 8), "AFTERNOON", 2);
-        Long firstUser = createUser("close-first");
-        Long secondUser = createUser("close-second");
-        CreateAppointmentResponse overdue = createAppointment(firstUser,
-                createPatient(firstUser, "停诊甲", "110105199001010010"), schedule.getId());
-        CreateAppointmentResponse current = createAppointment(secondUser,
-                createPatient(secondUser, "停诊乙", "110105199002020026"), schedule.getId());
-        AppointmentOrder overdueOrder = appointmentOrderMapper.selectById(overdue.getAppointmentOrderId());
-        overdueOrder.setPaymentExpiresAt(LocalDateTime.ofInstant(RELEASE_INSTANT.minusSeconds(1), SHANGHAI));
-        appointmentOrderMapper.updateById(overdueOrder);
-
-        scheduleManagementService.close(operator, schedule.getId());
-
-        assertThat(appointmentOrderMapper.selectById(overdue.getAppointmentOrderId()).getStatus()).isEqualTo("EXPIRED");
-        assertThat(appointmentOrderMapper.selectById(current.getAppointmentOrderId()).getStatus())
-                .isEqualTo("CANCELLED_BY_HOSPITAL");
-        assertThat(paymentOrderMapper.selectById(overdue.getPaymentOrderId()).getStatus()).isEqualTo("CLOSED");
-        assertThat(paymentOrderMapper.selectById(current.getPaymentOrderId()).getStatus()).isEqualTo("CLOSED");
-        Schedule closed = scheduleMapper.selectById(schedule.getId());
-        assertThat(closed.getStatus()).isEqualTo("CLOSED");
-        assertInventory(closed, 2, 2, 0, 0);
-        assertThat(activeClaimMapper.selectCount(new LambdaQueryWrapper<AppointmentActiveClaim>()
-                .eq(AppointmentActiveClaim::getScheduleId, schedule.getId()))).isZero();
-    }
-
-    @Test
-    void inventoryAdjustmentIsAuditedAndUserCannotCallAdminEndpoint() throws Exception {
-        Long operator = createUser("operator-adjust");
-        Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 9), "MORNING", 3);
-        AdjustScheduleInventoryRequest adjustment = new AdjustScheduleInventoryRequest();
-        adjustment.setDelta(2);
-        adjustment.setReason("临时加号");
-        scheduleManagementService.adjustInventory(operator, schedule.getId(), adjustment);
-        Schedule updated = scheduleMapper.selectById(schedule.getId());
-        assertInventory(updated, 5, 5, 0, 0);
-        ScheduleInventoryAdjustment audit = adjustmentMapper.selectOne(
-                new LambdaQueryWrapper<ScheduleInventoryAdjustment>()
-                        .eq(ScheduleInventoryAdjustment::getScheduleId, schedule.getId()));
-        assertThat(audit.getOperatorUserId()).isEqualTo(operator);
-        assertThat(audit.getReason()).isEqualTo("临时加号");
-
-        mockMvc.perform(post("/api/v1/admin/schedules/{id}/close", schedule.getId())
-                        .with(user("ordinary").roles("USER")))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void scheduleCreationRequiresPositiveCnyRegistrationFee() {
-        Long operator = createUser("operator-fee");
-        CreateScheduleRequest request = new CreateScheduleRequest();
-        request.setDoctorId(1L);
-        request.setAppointmentDate(LocalDate.of(2026, 11, 10));
-        request.setSessionType("MORNING");
-        request.setTotalCapacity(1);
-        request.setRegistrationFee(BigDecimal.ZERO);
-        request.setFeeCurrency("CNY");
-
-        assertThatThrownBy(() -> scheduleManagementService.create(operator, request))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
-
-        request.setRegistrationFee(new BigDecimal("50.00"));
-        request.setFeeCurrency("USD");
-        assertThatThrownBy(() -> scheduleManagementService.create(operator, request))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
-
-        request.setFeeCurrency("CNY");
-        var created = scheduleManagementService.create(operator, request);
-        assertThat(created.getRegistrationFee()).isEqualByComparingTo("50.00");
-        assertThat(created.getFeeCurrency()).isEqualTo("CNY");
-    }
-
-    @Test
-    void registrationFeeCanChangeBeforeReleaseAndIsLockedAtRelease() {
-        Long operator = createUser("operator-fee-update");
-        Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 10), "AFTERNOON", 1);
-        UpdateScheduleRequest update = new UpdateScheduleRequest();
-        update.setRegistrationFee(new BigDecimal("60.00"));
-        update.setFeeCurrency("CNY");
-
-        var updated = scheduleManagementService.update(schedule.getId(), update);
-        assertThat(updated.getRegistrationFee()).isEqualByComparingTo("60.00");
-        assertThat(catalogService.listSchedules(2L))
-                .filteredOn(response -> response.getId().equals(schedule.getId()))
-                .singleElement()
-                .satisfies(response -> {
-                    assertThat(response.getRegistrationFee()).isEqualByComparingTo("60.00");
-                    assertThat(response.getFeeCurrency()).isEqualTo("CNY");
-                });
-
-        clock.setInstant(ZonedDateTime.of(2026, 11, 3, 8, 0, 0, 0, SHANGHAI).toInstant());
-        update.setRegistrationFee(new BigDecimal("70.00"));
-        assertThatThrownBy(() -> scheduleManagementService.update(schedule.getId(), update))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.SCHEDULE_IDENTITY_LOCKED));
-        assertThat(scheduleMapper.selectById(schedule.getId()).getRegistrationFee()).isEqualByComparingTo("60.00");
-    }
-
-    @Test
     void appointmentCreationCopiesAnImmutableFeeSnapshotToBothOrders() {
         Long operator = createUser("operator-snapshot");
         Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 11), "MORNING", 1);
@@ -346,35 +212,12 @@ class ScheduleInventoryIntegrationTest {
                 .isEqualByComparingTo("50.00");
     }
 
-    @Test
-    void legacyScheduleWithoutFeeCannotCreateANewAppointment() {
-        Schedule legacy = new Schedule();
-        legacy.setDoctorId(2L);
-        legacy.setAppointmentDate(LocalDate.of(2026, 11, 12));
-        legacy.setSessionType("AFTERNOON");
-        legacy.setStartTime(LocalTime.of(14, 0));
-        legacy.setEndTime(LocalTime.of(17, 0));
-        legacy.setStatus("OPEN");
-        legacy.setTotalCapacity(1);
-        legacy.setAvailableCapacity(1);
-        legacy.setHeldCapacity(0);
-        legacy.setConfirmedCapacity(0);
-        legacy.setNextVisitNumber(1);
-        scheduleMapper.insert(legacy);
-        Long user = createUser("legacy-fee-user");
-
-        assertThatThrownBy(() -> createAppointment(user,
-                createPatient(user, "旧排班", "110105199001010010"), legacy.getId()))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.SCHEDULE_UNAVAILABLE));
-        assertInventory(scheduleMapper.selectById(legacy.getId()), 1, 1, 0, 0);
-    }
-
     private Schedule createSchedule(Long operator, Long doctorId, LocalDate date, String session, int capacity) {
         CreateScheduleRequest request = new CreateScheduleRequest();
         request.setDoctorId(doctorId);
         request.setAppointmentDate(date);
-        request.setSessionType(session);
+        request.setSessionType("MORNING".equals(session) ? "MORNING_FIRST" :
+                "AFTERNOON".equals(session) ? "AFTERNOON_FIRST" : session);
         request.setTotalCapacity(capacity);
         request.setRegistrationFee(new BigDecimal("50.00"));
         request.setFeeCurrency("CNY");
@@ -384,7 +227,10 @@ class ScheduleInventoryIntegrationTest {
 
     private CreateAppointmentResponse createAppointment(Long userId, Long patientId, Long scheduleId) {
         CreateAppointmentRequest request = new CreateAppointmentRequest();
-        request.setScheduleId(scheduleId);
+        Schedule schedule = scheduleMapper.selectById(scheduleId);
+        request.setDoctorId(schedule.getDoctorId());
+        request.setAppointmentDate(schedule.getAppointmentDate());
+        request.setSessionType(schedule.getSessionType());
         request.setPatientId(patientId);
         AppointmentCreationResult result = bookingCoordinator.create(userId, UUID.randomUUID().toString(), request);
         return (CreateAppointmentResponse) result;

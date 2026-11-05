@@ -64,7 +64,7 @@ Authorization: Bearer {{accessToken}}
 DELETE {{baseUrl}}/api/v1/admin/hospitals/{{adminHospitalId}}
 Authorization: Bearer {{accessToken}}
 
-### 无排班时可按医生、科室、医院顺序清理
+### 尚未生成预约场次且无历史引用时，可按医生、科室、医院顺序清理
 DELETE {{baseUrl}}/api/v1/admin/doctors/{{adminDoctorId}}
 Authorization: Bearer {{accessToken}}
 

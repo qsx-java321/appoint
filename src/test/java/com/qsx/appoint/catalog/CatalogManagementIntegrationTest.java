@@ -25,6 +25,7 @@ import com.qsx.appoint.appointment.service.AppointmentService;
 import com.qsx.appoint.coordination.application.BookingCoordinator;
 import com.qsx.appoint.patient.entity.Patient;
 import com.qsx.appoint.patient.mapper.PatientMapper;
+import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.user.entity.User;
 import com.qsx.appoint.user.mapper.UserMapper;
 import com.qsx.appoint.common.BusinessException;
@@ -60,6 +61,7 @@ class CatalogManagementIntegrationTest {
     @Autowired private AppointmentService appointmentService;
     @Autowired private UserMapper userMapper;
     @Autowired private PatientMapper patientMapper;
+    @Autowired private ScheduleMapper scheduleMapper;
     @Autowired private Clock appointmentClock;
 
     @Test
@@ -142,20 +144,6 @@ class CatalogManagementIntegrationTest {
         JsonNode doctor = createDoctor(departmentId, "全链路医生", "主任医师", "全链路测试");
         LocalDate appointmentDate = LocalDate.now(appointmentClock).plusDays(6);
 
-        String scheduleBody = mockMvc.perform(post("/api/v1/admin/schedules")
-                        .with(authentication(new TestingAuthenticationToken(1L, null, "ROLE_ADMIN")))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(java.util.Map.of(
-                                "doctorId", doctor.path("id").asLong(),
-                                "appointmentDate", appointmentDate.toString(),
-                                "sessionType", "MORNING",
-                                "totalCapacity", 2,
-                                "registrationFee", new BigDecimal("50.00"),
-                                "feeCurrency", "CNY"))))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        Long scheduleId = objectMapper.readTree(scheduleBody).at("/data/id").asLong();
-
         mockMvc.perform(get("/api/v1/hospitals").with(user("user").roles("USER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[?(@.id == '" + hospitalId + "')]").isNotEmpty());
@@ -170,11 +158,18 @@ class CatalogManagementIntegrationTest {
         mockMvc.perform(get("/api/v1/doctors/{id}/schedules", doctor.path("id").asText())
                         .with(user("user").roles("USER")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[?(@.id == '" + scheduleId + "')]").isNotEmpty());
+                .andExpect(jsonPath("$.data.length()").value(28))
+                .andExpect(jsonPath("$.data[0].sessionType").value("MORNING_FIRST"));
 
         Long userId = createUser();
         Long patientId = createPatient(userId);
-        CreateAppointmentResponse appointment = createAppointment(userId, patientId, scheduleId);
+        CreateAppointmentRequest request = new CreateAppointmentRequest();
+        request.setDoctorId(doctor.path("id").asLong());
+        request.setAppointmentDate(appointmentDate);
+        request.setSessionType("MORNING_FIRST");
+        request.setPatientId(patientId);
+        CreateAppointmentResponse appointment = (CreateAppointmentResponse) bookingCoordinator.create(
+                userId, UUID.randomUUID().toString(), request);
         org.assertj.core.api.Assertions.assertThat(appointment.getAppointmentOrderId()).isNotNull();
     }
 
@@ -324,7 +319,7 @@ class CatalogManagementIntegrationTest {
     }
 
     @Test
-    void missingParentsReturnNotFoundAndScheduleCreationReturnsCreated() throws Exception {
+    void missingParentsReturnNotFoundAndManualScheduleEndpointsAreGone() throws Exception {
         mockMvc.perform(post("/api/v1/admin/hospitals/999999/departments")
                         .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -352,7 +347,7 @@ class CatalogManagementIntegrationTest {
                                   "feeCurrency": "CNY"
                                 }
                                 """.formatted(date)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isNotFound());
 
         mockMvc.perform(post("/api/v1/admin/schedules")
                         .with(authentication(new TestingAuthenticationToken(1L, null, "ROLE_ADMIN")))
@@ -407,8 +402,8 @@ class CatalogManagementIntegrationTest {
         JsonNode doctor = createDoctor(departmentId, "快照旧医生", "旧职称", "旧简介");
         Long doctorId = doctor.path("id").asLong();
         LocalDate appointmentDate = LocalDate.now(appointmentClock).plusDays(6);
-        Long morningScheduleId = createSchedule(doctorId, appointmentDate, "MORNING");
-        Long afternoonScheduleId = createSchedule(doctorId, appointmentDate, "AFTERNOON");
+        Long morningScheduleId = createSchedule(doctorId, appointmentDate, "MORNING_FIRST");
+        Long afternoonScheduleId = createSchedule(doctorId, appointmentDate, "AFTERNOON_FIRST");
         Long userId = createUser();
         Long patientId = createPatient(userId);
 
@@ -546,9 +541,12 @@ class CatalogManagementIntegrationTest {
     }
 
     private CreateAppointmentResponse createAppointment(Long userId, Long patientId, Long scheduleId) {
+        com.qsx.appoint.catalog.entity.Schedule schedule = scheduleMapper.selectById(scheduleId);
         CreateAppointmentRequest request = new CreateAppointmentRequest();
         request.setPatientId(patientId);
-        request.setScheduleId(scheduleId);
+        request.setDoctorId(schedule.getDoctorId());
+        request.setAppointmentDate(schedule.getAppointmentDate());
+        request.setSessionType(schedule.getSessionType());
         AppointmentCreationResult result = bookingCoordinator.create(userId, UUID.randomUUID().toString(), request);
         return (CreateAppointmentResponse) result;
     }

@@ -1,100 +1,26 @@
-# 先在 auth.http 注册 student@example.com。管理员角色没有公开授予接口，
-# 请由受控运维账号在 MySQL 执行以下 SQL，然后重新运行 auth.http 的登录请求取得新 Token：
-# INSERT IGNORE INTO user_roles (user_id, role_id)
-# SELECT u.id, r.id FROM users u JOIN roles r ON r.code = 'ADMIN'
-# WHERE u.email = 'student@example.com';
-#
-# 将下面三个日期改为当前日期后 1–7 天内、且尚未到对应场次预约截止的日期。
+# 管理员不再逐日创建、修改、调整或关闭场次。
+# 先在 auth.http 登录具有 ADMIN 角色的账号，然后管理全局统一预约设置。
 
-@paidDate = 2026-11-03
-@cancelDate = 2026-11-04
-@expireDate = 2026-11-05
-@manageDate = 2026-11-10
-@manageUpdatedDate = 2026-11-11
+### 查询当前统一设置
+GET {{baseUrl}}/api/v1/admin/booking-settings
+Authorization: Bearer {{accessToken}}
 
-### 创建用于支付和退款演示的上午排班
-POST {{baseUrl}}/api/v1/admin/schedules
+### 完整更新：只影响之后首次生成的场次
+PUT {{baseUrl}}/api/v1/admin/booking-settings
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "doctorId": "1",
-  "appointmentDate": "{{paidDate}}",
-  "sessionType": "MORNING",
-  "totalCapacity": 20,
-  "registrationFee": 50.00,
-  "feeCurrency": "CNY"
+  "capacityPerSession": 20,
+  "registrationFee": 10.00
 }
-
-> {% client.global.set("paidScheduleId", response.body.data.id); %}
-
-### 创建用于待支付取消和重新预约的下午排班
-POST {{baseUrl}}/api/v1/admin/schedules
+### 非法容量或超过两位小数返回 400 / 1001
+PUT {{baseUrl}}/api/v1/admin/booking-settings
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "doctorId": "1",
-  "appointmentDate": "{{cancelDate}}",
-  "sessionType": "AFTERNOON",
-  "totalCapacity": 5,
-  "registrationFee": 30.00,
-  "feeCurrency": "CNY"
+  "capacityPerSession": 0,
+  "registrationFee": 10.001
 }
 
-> {% client.global.set("cancelScheduleId", response.body.data.id); %}
-
-### 创建用于超时演示的上午排班
-POST {{baseUrl}}/api/v1/admin/schedules
-Authorization: Bearer {{accessToken}}
-Content-Type: application/json
-
-{
-  "doctorId": "2",
-  "appointmentDate": "{{expireDate}}",
-  "sessionType": "MORNING",
-  "totalCapacity": 5,
-  "registrationFee": 20.00,
-  "feeCurrency": "CNY"
-}
-
-> {% client.global.set("expireScheduleId", response.body.data.id); %}
-
-### 创建一个尚未开放的管理演示排班
-POST {{baseUrl}}/api/v1/admin/schedules
-Authorization: Bearer {{accessToken}}
-Content-Type: application/json
-
-{
-  "doctorId": "2",
-  "appointmentDate": "{{manageDate}}",
-  "sessionType": "AFTERNOON",
-  "totalCapacity": 3,
-  "registrationFee": 40.00,
-  "feeCurrency": "CNY"
-}
-
-> {% client.global.set("manageScheduleId", response.body.data.id); %}
-
-### 开放前修改排班身份；开放后调用返回 4206
-PATCH {{baseUrl}}/api/v1/admin/schedules/{{manageScheduleId}}
-Authorization: Bearer {{accessToken}}
-Content-Type: application/json
-
-{
-  "appointmentDate": "{{manageUpdatedDate}}"
-}
-
-### 为管理演示排班增加 2 个名额并写审计
-POST {{baseUrl}}/api/v1/admin/schedules/{{manageScheduleId}}/inventory-adjustments
-Authorization: Bearer {{accessToken}}
-Content-Type: application/json
-
-{
-  "delta": 2,
-  "reason": "HTTP 示例临时加号"
-}
-
-### 关闭排班；不可重开，待支付预约会立即关闭并释放
-POST {{baseUrl}}/api/v1/admin/schedules/{{manageScheduleId}}/close
-Authorization: Bearer {{accessToken}}

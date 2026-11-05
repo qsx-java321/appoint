@@ -4,13 +4,17 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.qsx.appoint.catalog.dto.*;
 import com.qsx.appoint.catalog.entity.*;
 import com.qsx.appoint.catalog.mapper.*;
+import com.qsx.appoint.catalog.model.AppointmentSession;
 import com.qsx.appoint.catalog.service.CatalogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** 演示数据查询实现，刻意保持一层清晰的数据映射。 */
 @Service @RequiredArgsConstructor
@@ -19,38 +23,48 @@ public class CatalogServiceImpl implements CatalogService {
     private final DepartmentMapper departmentMapper;
     private final DoctorMapper doctorMapper;
     private final ScheduleMapper scheduleMapper;
+    private final BookingSettingsMapper bookingSettingsMapper;
     private final Clock appointmentClock;
 
     public List<HospitalResponse> listHospitals() { return hospitalMapper.selectList(null).stream().map(x -> new HospitalResponse(x.getId(), x.getName(), x.getAddress())).toList(); }
     public List<DepartmentResponse> listDepartments(Long hospitalId) { return departmentMapper.selectList(new LambdaQueryWrapper<Department>().eq(Department::getHospitalId, hospitalId)).stream().map(x -> new DepartmentResponse(x.getId(), x.getName())).toList(); }
     public List<DoctorResponse> listDoctors(Long departmentId) { return doctorMapper.selectList(new LambdaQueryWrapper<Doctor>().eq(Doctor::getDepartmentId, departmentId)).stream().map(x -> new DoctorResponse(x.getId(), x.getDoctorNo(), x.getName(), x.getTitle(), x.getIntroduction())).toList(); }
+    @Transactional(readOnly = true)
     public List<ScheduleResponse> listSchedules(Long doctorId) {
-        LocalDateTime now = LocalDateTime.now(appointmentClock);
         Doctor doctor = doctorMapper.selectById(doctorId);
         if (doctor == null) return List.of();
-        return scheduleMapper.selectList(new LambdaQueryWrapper<Schedule>()
+        LocalDate firstDate = LocalDate.now(appointmentClock).plusDays(1);
+        LocalDate lastDate = firstDate.plusDays(6);
+        List<String> sessionTypes = java.util.Arrays.stream(AppointmentSession.values())
+                .map(Enum::name).toList();
+        Map<SessionKey, Schedule> persisted = new HashMap<>();
+        scheduleMapper.selectList(new LambdaQueryWrapper<Schedule>()
                         .eq(Schedule::getDoctorId, doctorId)
-                        .isNotNull(Schedule::getSessionType)
-                        .and(query -> query.gt(Schedule::getAppointmentDate, now.toLocalDate())
-                                .or(sameDay -> sameDay.eq(Schedule::getAppointmentDate, now.toLocalDate())
-                                        .gt(Schedule::getEndTime, now.toLocalTime())))
-                        .orderByAsc(Schedule::getAppointmentDate, Schedule::getStartTime))
-                .stream().map(schedule -> response(schedule, doctor.getDoctorNo(), now)).toList();
+                        .between(Schedule::getAppointmentDate, firstDate, lastDate)
+                        .in(Schedule::getSessionType, sessionTypes))
+                .forEach(schedule -> persisted.put(
+                        new SessionKey(schedule.getAppointmentDate(), schedule.getSessionType()), schedule));
+        BookingSettings settings = bookingSettingsMapper.selectById((short) 1);
+        if (settings == null) throw new com.qsx.appoint.common.BusinessException(
+                com.qsx.appoint.common.ErrorCode.INTERNAL_ERROR);
+
+        java.util.ArrayList<ScheduleResponse> result = new java.util.ArrayList<>(28);
+        for (int day = 0; day < 7; day++) {
+            LocalDate date = firstDate.plusDays(day);
+            for (AppointmentSession session : AppointmentSession.values()) {
+                Schedule schedule = persisted.get(new SessionKey(date, session.name()));
+                int total = schedule == null ? settings.getCapacityPerSession() : schedule.getTotalCapacity();
+                int available = schedule == null ? settings.getCapacityPerSession() : schedule.getAvailableCapacity();
+                java.math.BigDecimal fee = schedule == null
+                        ? settings.getRegistrationFee() : schedule.getRegistrationFee();
+                String currency = schedule == null ? settings.getCurrency() : schedule.getFeeCurrency();
+                result.add(new ScheduleResponse(schedule == null ? null : schedule.getId(),
+                        doctorId, doctor.getDoctorNo(), date, session.name(),
+                        session.startTime(), session.endTime(), total, available, fee, currency, available > 0));
+            }
+        }
+        return result;
     }
 
-    private ScheduleResponse response(Schedule schedule, String doctorNo, LocalDateTime now) {
-        LocalDateTime releaseAt = LocalDateTime.of(schedule.getAppointmentDate().minusDays(7), LocalTime.of(8, 0));
-        LocalDateTime cutoffAt = LocalDateTime.of(schedule.getAppointmentDate(), schedule.getStartTime()).minusMinutes(30);
-        String availability;
-        if ("CLOSED".equals(schedule.getStatus())) availability = "CLOSED";
-        else if (now.isBefore(releaseAt)) availability = "NOT_OPEN";
-        else if (!now.isBefore(cutoffAt)) availability = "CUTOFF_REACHED";
-        else if (schedule.getAvailableCapacity() == null || schedule.getAvailableCapacity() <= 0) availability = "FULL";
-        else availability = "AVAILABLE";
-        return new ScheduleResponse(schedule.getId(), schedule.getDoctorId(), doctorNo,
-                schedule.getAppointmentDate(), schedule.getSessionType(), schedule.getStartTime(), schedule.getEndTime(),
-                schedule.getStatus(), schedule.getTotalCapacity(), schedule.getAvailableCapacity(),
-                schedule.getRegistrationFee(), schedule.getFeeCurrency(), availability,
-                "AVAILABLE".equals(availability), releaseAt, cutoffAt);
-    }
+    private record SessionKey(LocalDate date, String sessionType) { }
 }

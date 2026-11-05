@@ -4,7 +4,9 @@ import java.time.LocalDateTime;
 
 public record CreateAppointmentHoldCommand(
         Long userId,
-        Long scheduleId,
+        Long doctorId,
+        java.time.LocalDate appointmentDate,
+        String sessionType,
         Long patientId,
         LocalDateTime createdAt) {
 }

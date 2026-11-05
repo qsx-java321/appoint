@@ -11,7 +11,6 @@ import com.qsx.appoint.coordination.application.BookingCoordinator;
 import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
 import com.qsx.appoint.catalog.entity.Schedule;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
-import com.qsx.appoint.catalog.service.ScheduleManagementService;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.payment.entity.PaymentOrder;
 import com.qsx.appoint.payment.application.PaymentAttemptService;
@@ -50,6 +49,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -82,7 +82,6 @@ class AppointmentLifecycleMySqlIT {
     @Autowired private PaymentNotificationIngress paymentNotificationIngress;
     @Autowired private MockPaymentGateway mockPaymentGateway;
     @Autowired private ScheduleMapper scheduleMapper;
-    @Autowired private ScheduleManagementService scheduleManagementService;
     @Autowired private UserMapper userMapper;
     @Autowired private PatientMapper patientMapper;
     @Autowired private PatientService patientService;
@@ -123,6 +122,41 @@ class AppointmentLifecycleMySqlIT {
         assertThat(outcomes).noneMatch(BusinessException.class::isInstance);
         assertThat(appointmentOrderMapper.selectById(created.getAppointmentOrderId()).getStatus()).isEqualTo("CONFIRMED");
         assertThat(paymentOrderMapper.selectById(created.getPaymentOrderId()).getStatus()).isEqualTo("PAID");
+    }
+
+    @Test
+    void concurrentFirstBookingCreatesOneSessionAndNeverOversellsDefaultCapacity() throws Exception {
+        LocalDate appointmentDate = LocalDate.now().plusDays(7);
+        int contenders = 21;
+        CountDownLatch ready = new CountDownLatch(contenders);
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService executor = Executors.newFixedThreadPool(contenders)) {
+            List<Future<Object>> futures = IntStream.range(0, contenders)
+                    .mapToObj(index -> {
+                        Long userId = createUser();
+                        Long patientId = createPatient(userId, "DOC-ON-DEMAND-" + index);
+                        return executor.submit(awaitStart(() -> createOnDemandAppointment(
+                                userId, patientId, appointmentDate), ready, start));
+                    })
+                    .toList();
+            ready.await();
+            start.countDown();
+            List<Object> outcomes = new java.util.ArrayList<>();
+            for (Future<Object> future : futures) outcomes.add(future.get());
+
+            assertThat(outcomes.stream().filter(CreateAppointmentResponse.class::isInstance).count()).isEqualTo(20);
+            assertThat(outcomes.stream().filter(BusinessException.class::isInstance).count()).isEqualTo(1);
+        }
+
+        Schedule schedule = scheduleMapper.selectByDoctorDateSession(
+                2L, appointmentDate, "MORNING_SECOND");
+        assertThat(schedule).isNotNull();
+        assertInventory(schedule, 20, 0, 20, 0);
+        assertThat(scheduleMapper.selectList(null).stream()
+                .filter(item -> item.getDoctorId().equals(2L))
+                .filter(item -> item.getAppointmentDate().equals(appointmentDate))
+                .filter(item -> "MORNING_SECOND".equals(item.getSessionType())))
+                .hasSize(1);
     }
 
     @Test
@@ -184,37 +218,6 @@ class AppointmentLifecycleMySqlIT {
     }
 
     @Test
-    void paymentRacingScheduleClosureKeepsOneConsistentInventoryState() throws Exception {
-        Long userId = createUser();
-        Long operatorId = createUser();
-        Long scheduleId = createSchedule();
-        CreateAppointmentResponse created = createAppointment(userId, scheduleId);
-
-        race(
-                () -> lifecycleService.simulatePaymentSuccess(userId, created.getPaymentOrderId()),
-                () -> scheduleManagementService.close(operatorId, scheduleId));
-
-        AppointmentOrder appointment = appointmentOrderMapper.selectById(created.getAppointmentOrderId());
-        PaymentOrder payment = paymentOrderMapper.selectById(created.getPaymentOrderId());
-        Schedule schedule = scheduleMapper.selectById(scheduleId);
-        assertThat(schedule.getStatus()).isEqualTo("CLOSED");
-        if ("CONFIRMED".equals(appointment.getStatus())) {
-            assertThat(payment.getStatus()).isEqualTo("PAID");
-            assertThat(schedule.getAvailableCapacity()).isZero();
-            assertThat(schedule.getHeldCapacity()).isZero();
-            assertThat(schedule.getConfirmedCapacity()).isEqualTo(1);
-        } else {
-            assertThat(appointment.getStatus()).isEqualTo("CANCELLED_BY_HOSPITAL");
-            assertThat(payment.getStatus()).isEqualTo("CLOSED");
-            assertThat(schedule.getAvailableCapacity()).isEqualTo(1);
-            assertThat(schedule.getHeldCapacity()).isZero();
-            assertThat(schedule.getConfirmedCapacity()).isZero();
-        }
-        assertThat(schedule.getAvailableCapacity() + schedule.getHeldCapacity()
-                + schedule.getConfirmedCapacity()).isEqualTo(schedule.getTotalCapacity());
-    }
-
-    @Test
     void callbackRacingCancellationConvergesToOneRefundAndReleasedInventory() throws Exception {
         Long userId = createUser();
         Long scheduleId = createSchedule();
@@ -243,22 +246,6 @@ class AppointmentLifecycleMySqlIT {
                 () -> lifecycleService.expireIfDue(created.getAppointmentOrderId()));
 
         assertClosedWithSingleRefund(created, scheduleId, "EXPIRED");
-    }
-
-    @Test
-    void callbackRacingScheduleClosureConvergesToOneRefundAndReleasedInventory() throws Exception {
-        Long userId = createUser();
-        Long operatorId = createUser();
-        Long scheduleId = createSchedule();
-        CreateAppointmentResponse created = createAppointment(userId, scheduleId);
-        var callback = successfulCallback(userId, created.getPaymentOrderId());
-
-        race(
-                () -> paymentNotificationIngress.handle(PaymentChannel.MOCK, callback),
-                () -> scheduleManagementService.close(operatorId, scheduleId));
-
-        assertClosedWithSingleRefund(created, scheduleId, "CANCELLED_BY_HOSPITAL");
-        assertThat(scheduleMapper.selectById(scheduleId).getStatus()).isEqualTo("CLOSED");
     }
 
     @Test
@@ -423,9 +410,9 @@ class AppointmentLifecycleMySqlIT {
         schedule.setDoctorId(1L + (sequence % 4) / 2);
         schedule.setAppointmentDate(LocalDate.now().plusDays(2L + sequence / 4));
         boolean morning = sequence % 2 == 0;
-        schedule.setSessionType(morning ? "MORNING" : "AFTERNOON");
+        schedule.setSessionType(morning ? "MORNING_FIRST" : "AFTERNOON_FIRST");
         schedule.setStartTime(morning ? LocalTime.of(8, 0) : LocalTime.of(14, 0));
-        schedule.setEndTime(morning ? LocalTime.of(12, 0) : LocalTime.of(17, 0));
+        schedule.setEndTime(morning ? LocalTime.of(10, 0) : LocalTime.of(16, 0));
         schedule.setStatus("OPEN");
         schedule.setTotalCapacity(capacity);
         schedule.setRegistrationFee(new java.math.BigDecimal("50.00"));
@@ -450,9 +437,22 @@ class AppointmentLifecycleMySqlIT {
 
     private AppointmentCreationResult createAppointmentResult(Long userId, Long patientId, Long scheduleId, String key) {
         CreateAppointmentRequest request = new CreateAppointmentRequest();
-        request.setScheduleId(scheduleId);
+        Schedule schedule = scheduleMapper.selectById(scheduleId);
+        request.setDoctorId(schedule.getDoctorId());
+        request.setAppointmentDate(schedule.getAppointmentDate());
+        request.setSessionType(schedule.getSessionType());
         request.setPatientId(patientId);
         return bookingCoordinator.create(userId, key, request);
+    }
+
+    private AppointmentCreationResult createOnDemandAppointment(Long userId, Long patientId,
+                                                                 LocalDate appointmentDate) {
+        CreateAppointmentRequest request = new CreateAppointmentRequest();
+        request.setDoctorId(2L);
+        request.setAppointmentDate(appointmentDate);
+        request.setSessionType("MORNING_SECOND");
+        request.setPatientId(patientId);
+        return bookingCoordinator.create(userId, UUID.randomUUID().toString(), request);
     }
 
     private Long createPatient(Long userId) {

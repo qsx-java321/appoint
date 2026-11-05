@@ -237,7 +237,7 @@ class AppointmentQueryIntegrationTest {
                         "CONFIRMED".equals(appointmentStatus) ? "CONFIRMED" : "WAITING_FOR_PAYMENT"))
                 .andExpect(jsonPath("$.data.appointmentDate").value(LocalDate.now().plusDays(6).toString()))
                 .andExpect(jsonPath("$.data.startTime").value("08:00:00"))
-                .andExpect(jsonPath("$.data.endTime").value("12:00:00"))
+                .andExpect(jsonPath("$.data.endTime").value("10:00:00"))
                 .andExpect(jsonPath("$.data.paymentExpiresAt").isNotEmpty())
                 .andExpect(jsonPath("$.data.serverTime").isNotEmpty())
                 .andExpect(jsonPath("$.data.doctor.id").value("1"))
@@ -263,7 +263,7 @@ class AppointmentQueryIntegrationTest {
                         "CONFIRMED".equals(appointmentStatus) ? "CONFIRMED" : "WAITING_FOR_PAYMENT"))
                 .andExpect(jsonPath("$.data[0].appointmentDate").value(LocalDate.now().plusDays(6).toString()))
                 .andExpect(jsonPath("$.data[0].startTime").value("08:00:00"))
-                .andExpect(jsonPath("$.data[0].endTime").value("12:00:00"))
+                .andExpect(jsonPath("$.data[0].endTime").value("10:00:00"))
                 .andExpect(jsonPath("$.data[0].doctor.id").value("1"))
                 .andExpect(jsonPath("$.data[0].doctor.doctorNo").value("DOC000001"))
                 .andExpect(jsonPath("$.data[0].doctor.name").value("张医生"))
@@ -311,11 +311,15 @@ class AppointmentQueryIntegrationTest {
     }
 
     private CreatedAppointment createAppointment(AuthenticatedUser user, Long scheduleId) throws Exception {
+        Schedule selected = scheduleMapper.selectById(scheduleId);
         String response = mockMvc.perform(post("/api/v1/appointments")
                         .header("Authorization", bearer(user))
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scheduleId\":" + scheduleId + ",\"patientId\":" + user.patientId() + "}"))
+                        .content("{\"doctorId\":" + selected.getDoctorId()
+                                + ",\"appointmentDate\":\"" + selected.getAppointmentDate()
+                                + "\",\"sessionType\":\"" + selected.getSessionType()
+                                + "\",\"patientId\":" + user.patientId() + "}"))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         JsonNode data = objectMapper.readTree(response).get("data");
@@ -327,9 +331,9 @@ class AppointmentQueryIntegrationTest {
         schedule.setDoctorId(1L);
         schedule.setAppointmentDate(LocalDate.now().plusDays(6));
         schedule.setStartTime(LocalTime.of(8, 0));
-        schedule.setEndTime(LocalTime.of(12, 0));
+        schedule.setEndTime(LocalTime.of(10, 0));
         schedule.setStatus("OPEN");
-        schedule.setSessionType("MORNING");
+        schedule.setSessionType("MORNING_FIRST");
         schedule.setTotalCapacity(5);
         schedule.setRegistrationFee(new java.math.BigDecimal("50.00"));
         schedule.setFeeCurrency("CNY");

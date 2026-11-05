@@ -44,7 +44,7 @@ class AppointmentIdempotencyIntegrationTest {
         String patientId = createPatient(token, "原姓名", "110105199001010010");
         Long scheduleId = createSchedule(LocalDate.of(2099, 8, 1), LocalTime.of(8, 0));
         String key = UUID.randomUUID().toString().toUpperCase();
-        String request = "{\"scheduleId\":\"" + scheduleId + "\",\"patientId\":\"" + patientId + "\"}";
+        String request = appointmentBody(scheduleId, patientId);
 
         String first = createAppointment(token, key, request);
         JsonNode firstData = objectMapper.readTree(first).path("data");
@@ -254,7 +254,11 @@ class AppointmentIdempotencyIntegrationTest {
     }
 
     private String appointmentBody(Long scheduleId, String patientId) {
-        return "{\"scheduleId\":\"" + scheduleId + "\",\"patientId\":\"" + patientId + "\"}";
+        Schedule schedule = scheduleMapper.selectById(scheduleId);
+        return "{\"doctorId\":\"" + schedule.getDoctorId()
+                + "\",\"appointmentDate\":\"" + schedule.getAppointmentDate()
+                + "\",\"sessionType\":\"" + schedule.getSessionType()
+                + "\",\"patientId\":\"" + patientId + "\"}";
     }
 
     private String registerAndLogin() throws Exception {
@@ -276,9 +280,9 @@ class AppointmentIdempotencyIntegrationTest {
         schedule.setAppointmentDate(LocalDate.now().plusDays(1 + sequence / 2));
         boolean afternoon = sequence % 2 == 1;
         schedule.setStartTime(afternoon ? LocalTime.of(14, 0) : LocalTime.of(8, 0));
-        schedule.setEndTime(afternoon ? LocalTime.of(17, 0) : LocalTime.of(12, 0));
+        schedule.setEndTime(afternoon ? LocalTime.of(16, 0) : LocalTime.of(10, 0));
         schedule.setStatus("OPEN");
-        schedule.setSessionType(afternoon ? "AFTERNOON" : "MORNING");
+        schedule.setSessionType(afternoon ? "AFTERNOON_FIRST" : "MORNING_FIRST");
         schedule.setTotalCapacity(5);
         schedule.setRegistrationFee(new java.math.BigDecimal("50.00"));
         schedule.setFeeCurrency("CNY");

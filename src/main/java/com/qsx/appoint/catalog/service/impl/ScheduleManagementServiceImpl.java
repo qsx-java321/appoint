@@ -1,6 +1,5 @@
 package com.qsx.appoint.catalog.service.impl;
 
-import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
 import com.qsx.appoint.catalog.dto.*;
 import com.qsx.appoint.catalog.entity.Doctor;
 import com.qsx.appoint.catalog.entity.Schedule;
@@ -30,7 +29,6 @@ public class ScheduleManagementServiceImpl implements ScheduleManagementService 
     private final ScheduleMapper scheduleMapper;
     private final DoctorMapper doctorMapper;
     private final ScheduleInventoryAdjustmentMapper adjustmentMapper;
-    private final BookingLifecycleCoordinator lifecycleService;
     private final Clock appointmentClock;
 
     @Override
@@ -133,17 +131,6 @@ public class ScheduleManagementServiceImpl implements ScheduleManagementService 
         return response(updated);
     }
 
-    @Override
-    @Transactional
-    public AdminScheduleResponse close(Long operatorUserId, Long scheduleId) {
-        Schedule schedule = requireNewScheduleForUpdate(scheduleId);
-        if (!"OPEN".equals(schedule.getStatus())) throw new BusinessException(ErrorCode.SCHEDULE_CLOSED);
-        LocalDateTime now = now();
-        if (!now.isBefore(startAt(schedule))) throw new BusinessException(ErrorCode.SCHEDULE_STARTED);
-        lifecycleService.closeScheduleLocked(schedule.getId(), operatorUserId, now);
-        return response(scheduleMapper.selectById(scheduleId));
-    }
-
     private Schedule requireNewScheduleForUpdate(Long scheduleId) {
         Schedule schedule = scheduleMapper.selectByIdForUpdate(scheduleId);
         if (schedule == null || schedule.getSessionType() == null) {
@@ -180,6 +167,10 @@ public class ScheduleManagementServiceImpl implements ScheduleManagementService 
         return switch (type) {
             case "MORNING" -> new SessionTimes(type, LocalTime.of(8, 0), LocalTime.of(12, 0));
             case "AFTERNOON" -> new SessionTimes(type, LocalTime.of(14, 0), LocalTime.of(17, 0));
+            case "MORNING_FIRST" -> new SessionTimes(type, LocalTime.of(8, 0), LocalTime.of(10, 0));
+            case "MORNING_SECOND" -> new SessionTimes(type, LocalTime.of(10, 30), LocalTime.of(12, 0));
+            case "AFTERNOON_FIRST" -> new SessionTimes(type, LocalTime.of(14, 0), LocalTime.of(16, 0));
+            case "AFTERNOON_SECOND" -> new SessionTimes(type, LocalTime.of(16, 30), LocalTime.of(18, 0));
             default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         };
     }

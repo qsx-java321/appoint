@@ -36,7 +36,8 @@ class BookingCreationTransaction {
         LocalDateTime now = LocalDateTime.now(appointmentClock).truncatedTo(ChronoUnit.SECONDS);
         Long requestId = creationRequestService.register(userId, idempotencyKey, requestHash, now);
         AppointmentHold hold = holdService.createHold(
-                new CreateAppointmentHoldCommand(userId, request.getScheduleId(), request.getPatientId(), now));
+                new CreateAppointmentHoldCommand(userId, request.getDoctorId(), request.getAppointmentDate(),
+                        request.getSessionType(), request.getPatientId(), now));
         PaymentOrderResult payment = paymentOrderCreationService.createOrder(new CreatePaymentOrderCommand(
                 hold.appointmentOrderId(), hold.userId(), hold.amount(), hold.currency(),
                 hold.paymentExpiresAt(), hold.createdAt()));

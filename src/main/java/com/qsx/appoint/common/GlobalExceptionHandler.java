@@ -12,6 +12,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 将 Controller 与业务层抛出的异常收敛为统一 JSON，避免每个接口重复编写错误处理。
@@ -49,6 +50,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Result<Void>> handleDenied(AccessDeniedException exception) {
         return ResponseEntity.status(ErrorCode.FORBIDDEN.getHttpStatus()).body(Result.failure(ErrorCode.FORBIDDEN));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Result<Void>> handleNotFound(NoResourceFoundException exception) {
+        return ResponseEntity.status(ErrorCode.RESOURCE_NOT_FOUND.getHttpStatus())
+                .body(Result.failure(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
     @ExceptionHandler(Exception.class)

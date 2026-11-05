@@ -126,7 +126,7 @@ class ApiFlowIntegrationTest {
         mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scheduleId\":\"" + scheduleId + "\",\"patientId\":\"" + patientId + "\"}"))
+                        .content(appointmentBody(scheduleId, patientId)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.appointmentOrderId").isString())
                 .andExpect(jsonPath("$.data.paymentOrderId").isString());
@@ -146,7 +146,7 @@ class ApiFlowIntegrationTest {
         String appointmentResult = mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scheduleId\":" + scheduleId + ",\"patientId\":\"" + patientId + "\"}"))
+                        .content(appointmentBody(scheduleId, patientId)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.data.appointmentStatus").value("PENDING_PAYMENT"))
                 .andReturn().getResponse().getContentAsString();
         JsonNode data = objectMapper.readTree(appointmentResult).get("data");
@@ -161,7 +161,7 @@ class ApiFlowIntegrationTest {
         mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scheduleId\":" + scheduleId + ",\"patientId\":\"" + patientId + "\"}"))
+                        .content(appointmentBody(scheduleId, patientId)))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4204));
     }
 
@@ -179,7 +179,7 @@ class ApiFlowIntegrationTest {
                         .header("Authorization", "Bearer " + token)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scheduleId\":" + scheduleId + ",\"patientId\":\"" + patientId + "\"}"))
+                        .content(appointmentBody(scheduleId, patientId)))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         String paymentId = objectMapper.readTree(appointmentResult).at("/data/paymentOrderId").asText();
 
@@ -268,9 +268,9 @@ class ApiFlowIntegrationTest {
         schedule.setDoctorId(1L);
         schedule.setAppointmentDate(date);
         schedule.setStartTime(LocalTime.of(8, 0));
-        schedule.setEndTime(LocalTime.of(12, 0));
+        schedule.setEndTime(LocalTime.of(10, 0));
         schedule.setStatus("OPEN");
-        schedule.setSessionType("MORNING");
+        schedule.setSessionType("MORNING_FIRST");
         schedule.setTotalCapacity(2);
         schedule.setRegistrationFee(new java.math.BigDecimal("50.00"));
         schedule.setFeeCurrency("CNY");
@@ -280,5 +280,13 @@ class ApiFlowIntegrationTest {
         schedule.setNextVisitNumber(1);
         scheduleMapper.insert(schedule);
         return schedule.getId();
+    }
+
+    private String appointmentBody(Long scheduleId, String patientId) {
+        Schedule schedule = scheduleMapper.selectById(scheduleId);
+        return "{\"doctorId\":\"" + schedule.getDoctorId()
+                + "\",\"appointmentDate\":\"" + schedule.getAppointmentDate()
+                + "\",\"sessionType\":\"" + schedule.getSessionType()
+                + "\",\"patientId\":\"" + patientId + "\"}";
     }
 }

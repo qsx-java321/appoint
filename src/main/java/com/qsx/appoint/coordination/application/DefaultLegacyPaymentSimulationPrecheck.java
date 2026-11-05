@@ -2,7 +2,6 @@ package com.qsx.appoint.coordination.application;
 
 import com.qsx.appoint.appointment.application.AppointmentLifecycleOperations;
 import com.qsx.appoint.appointment.application.AppointmentLifecycleView;
-import com.qsx.appoint.appointment.application.ScheduleLifecycleView;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.payment.application.PaymentLifecycleOperations;
@@ -35,7 +34,6 @@ class DefaultLegacyPaymentSimulationPrecheck implements LegacyPaymentSimulationP
         if (!LocalDateTime.now(appointmentClock).isBefore(appointment.paymentExpiresAt())) {
             throw new BusinessException(ErrorCode.PAYMENT_EXPIRED);
         }
-        ScheduleLifecycleView schedule = appointments.lockSchedule(appointment.scheduleId());
-        if (!"OPEN".equals(schedule.status())) throw new BusinessException(ErrorCode.SCHEDULE_CLOSED);
+        appointments.lockSchedule(appointment.scheduleId());
     }
 }

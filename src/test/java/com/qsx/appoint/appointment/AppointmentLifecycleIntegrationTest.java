@@ -352,7 +352,10 @@ class AppointmentLifecycleIntegrationTest {
         mockMvc.perform(post("/api/v1/appointments").header("Authorization", bearer(user))
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scheduleId\":" + schedule.getId() + ",\"patientId\":" + user.patientId() + "}"))
+                        .content("{\"doctorId\":" + schedule.getDoctorId()
+                                + ",\"appointmentDate\":\"" + schedule.getAppointmentDate()
+                                + "\",\"sessionType\":\"" + schedule.getSessionType()
+                                + "\",\"patientId\":" + user.patientId() + "}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(4202));
     }
@@ -387,11 +390,15 @@ class AppointmentLifecycleIntegrationTest {
     }
 
     private CreatedAppointment createAppointment(AuthenticatedUser user, Long scheduleId) throws Exception {
+        Schedule selected = scheduleMapper.selectById(scheduleId);
         String response = mockMvc.perform(post("/api/v1/appointments")
                         .header("Authorization", bearer(user))
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"scheduleId\":" + scheduleId + ",\"patientId\":" + user.patientId() + "}"))
+                        .content("{\"doctorId\":" + selected.getDoctorId()
+                                + ",\"appointmentDate\":\"" + selected.getAppointmentDate()
+                                + "\",\"sessionType\":\"" + selected.getSessionType()
+                                + "\",\"patientId\":" + user.patientId() + "}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.paymentExpiresAt").isNotEmpty())
                 .andExpect(jsonPath("$.data.serverTime").isNotEmpty())
@@ -408,9 +415,9 @@ class AppointmentLifecycleIntegrationTest {
         boolean afternoon = !past && sequence % 2 == 1;
         schedule.setAppointmentDate(past ? date : LocalDate.now(appointmentClock).plusDays(1 + sequence / 2));
         schedule.setStartTime(afternoon ? LocalTime.of(14, 0) : LocalTime.of(8, 0));
-        schedule.setEndTime(afternoon ? LocalTime.of(17, 0) : LocalTime.of(12, 0));
+        schedule.setEndTime(afternoon ? LocalTime.of(16, 0) : LocalTime.of(10, 0));
         schedule.setStatus("OPEN");
-        schedule.setSessionType(afternoon ? "AFTERNOON" : "MORNING");
+        schedule.setSessionType(afternoon ? "AFTERNOON_FIRST" : "MORNING_FIRST");
         schedule.setTotalCapacity(5);
         schedule.setRegistrationFee(new java.math.BigDecimal("50.00"));
         schedule.setFeeCurrency("CNY");

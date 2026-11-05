@@ -13,6 +13,9 @@ import com.qsx.appoint.catalog.mapper.DepartmentMapper;
 import com.qsx.appoint.catalog.mapper.DoctorMapper;
 import com.qsx.appoint.catalog.mapper.HospitalMapper;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
+import com.qsx.appoint.catalog.mapper.BookingSettingsMapper;
+import com.qsx.appoint.catalog.entity.BookingSettings;
+import com.qsx.appoint.catalog.model.AppointmentSession;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.patient.entity.Patient;
@@ -25,6 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Service
@@ -33,31 +39,47 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
     private final AppointmentActiveClaimMapper activeClaimMapper;
     private final PatientMapper patientMapper;
     private final ScheduleMapper scheduleMapper;
+    private final BookingSettingsMapper bookingSettingsMapper;
     private final DoctorMapper doctorMapper;
     private final DepartmentMapper departmentMapper;
     private final HospitalMapper hospitalMapper;
     private final AppointmentOrderMapper appointmentOrderMapper;
     private final AppointmentProperties appointmentProperties;
+    private final Clock appointmentClock;
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public AppointmentHold createHold(CreateAppointmentHoldCommand command) {
         LocalDateTime now = command.createdAt();
-        Schedule schedule = scheduleMapper.selectByIdForUpdate(command.scheduleId());
-        validateBookable(schedule, now);
+        AppointmentSession session = AppointmentSession.require(command.sessionType());
+        validateBookingDate(command.appointmentDate());
+        Doctor selectedDoctor = doctorMapper.selectById(command.doctorId());
+        if (selectedDoctor == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        BookingSettings settings = bookingSettingsMapper.selectForUpdate();
+        if (settings == null) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        scheduleMapper.insertGenerated(command.doctorId(), command.appointmentDate(),
+                session.startTime(), session.endTime(), session.name(), settings.getCapacityPerSession(),
+                settings.getRegistrationFee(), settings.getCurrency());
+        Schedule schedule = scheduleMapper.selectByDoctorDateSessionForUpdate(
+                command.doctorId(), command.appointmentDate(), session.name());
+        validateBookingDate(command.appointmentDate());
+        validateBookable(schedule);
 
         Patient patient = patientMapper.selectByIdForUpdate(command.patientId());
         if (patient == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         if (!patient.getUserId().equals(command.userId())) throw new BusinessException(ErrorCode.FORBIDDEN);
         if (!Boolean.TRUE.equals(patient.getEnabled())) throw new BusinessException(ErrorCode.PATIENT_DISABLED);
 
-        Doctor doctor = doctorMapper.selectById(schedule.getDoctorId());
+        Doctor doctor = selectedDoctor;
         Department department = doctor == null ? null : departmentMapper.selectById(doctor.getDepartmentId());
         Hospital hospital = department == null ? null : hospitalMapper.selectById(department.getHospitalId());
         if (doctor == null || department == null || hospital == null) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         }
-        if (scheduleMapper.holdOne(schedule.getId()) != 1) {
+        validateBookingDate(command.appointmentDate());
+        LocalDate finalAcceptanceDate = LocalDate.now(appointmentClock);
+        validateBookingDate(command.appointmentDate(), finalAcceptanceDate);
+        if (scheduleMapper.holdOneFutureSession(schedule.getId(), finalAcceptanceDate) != 1) {
             throw new BusinessException(ErrorCode.SCHEDULE_UNAVAILABLE);
         }
 
@@ -86,9 +108,7 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
         appointment.setStatus("PENDING_PAYMENT");
         appointment.setCreatedAt(now);
         appointment.setUpdatedAt(now);
-        LocalDateTime appointmentStart = LocalDateTime.of(schedule.getAppointmentDate(), schedule.getStartTime());
-        LocalDateTime timeoutAt = now.plus(appointmentProperties.paymentTimeout());
-        appointment.setPaymentExpiresAt(timeoutAt.isBefore(appointmentStart) ? timeoutAt : appointmentStart);
+        appointment.setPaymentExpiresAt(now.plus(appointmentProperties.paymentTimeout()));
         appointment.setFeeAmount(schedule.getRegistrationFee().setScale(2, RoundingMode.UNNECESSARY));
         appointment.setFeeCurrency(schedule.getFeeCurrency());
         appointmentOrderMapper.insert(appointment);
@@ -111,7 +131,7 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
                 appointment.getPaymentExpiresAt(), now);
     }
 
-    private void validateBookable(Schedule schedule, LocalDateTime now) {
+    private void validateBookable(Schedule schedule) {
         if (schedule == null || schedule.getSessionType() == null) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         }
@@ -119,14 +139,21 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
                 || !"CNY".equals(schedule.getFeeCurrency())) {
             throw new BusinessException(ErrorCode.SCHEDULE_UNAVAILABLE);
         }
-        if ("CLOSED".equals(schedule.getStatus())) throw new BusinessException(ErrorCode.SCHEDULE_CLOSED);
         if (!"OPEN".equals(schedule.getStatus())) throw new BusinessException(ErrorCode.SCHEDULE_UNAVAILABLE);
-        LocalDateTime start = LocalDateTime.of(schedule.getAppointmentDate(), schedule.getStartTime());
-        LocalDateTime release = LocalDateTime.of(schedule.getAppointmentDate().minusDays(7), java.time.LocalTime.of(8, 0));
-        if (now.isBefore(release)) throw new BusinessException(ErrorCode.SCHEDULE_NOT_OPEN);
-        if (!now.isBefore(start.minusMinutes(30))) throw new BusinessException(ErrorCode.SCHEDULE_CUTOFF_REACHED);
         if (schedule.getAvailableCapacity() == null || schedule.getAvailableCapacity() <= 0) {
             throw new BusinessException(ErrorCode.SCHEDULE_UNAVAILABLE);
+        }
+    }
+
+    private void validateBookingDate(LocalDate appointmentDate) {
+        LocalDate today = LocalDateTime.now(appointmentClock).truncatedTo(ChronoUnit.SECONDS).toLocalDate();
+        validateBookingDate(appointmentDate, today);
+    }
+
+    private void validateBookingDate(LocalDate appointmentDate, LocalDate today) {
+        if (appointmentDate == null || appointmentDate.isBefore(today.plusDays(1))
+                || appointmentDate.isAfter(today.plusDays(7))) {
+            throw new BusinessException(ErrorCode.SCHEDULE_CUTOFF_REACHED);
         }
     }
 }

@@ -2,8 +2,6 @@ package com.qsx.appoint;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.qsx.appoint.catalog.entity.Schedule;
-import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,7 +19,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.Map;
 import java.util.UUID;
 
@@ -54,7 +51,6 @@ class PatientJourneyHttpMySqlIT {
 
     @LocalServerPort private int port;
     @Autowired private ObjectMapper objectMapper;
-    @Autowired private ScheduleMapper scheduleMapper;
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
     @Test
@@ -85,18 +81,16 @@ class PatientJourneyHttpMySqlIT {
                 .json().at("/data/0/doctorNo").asText()).isEqualTo("DOC000001");
 
         LocalDate visitDate = LocalDate.now().plusDays(2);
-        Long paidScheduleId = createSchedule(visitDate, "MORNING");
-        Long cancelledScheduleId = createSchedule(visitDate, "AFTERNOON");
         HttpResult schedules = send("GET", "/api/v1/doctors/1/schedules", ownerToken, null);
-        assertThat(schedules.json().path("data").findValuesAsText("id"))
-                .contains(paidScheduleId.toString(), cancelledScheduleId.toString());
+        assertThat(schedules.json().path("data")).hasSize(28);
 
         HttpResult invalidAppointment = send("POST", "/api/v1/appointments", ownerToken, "{}",
                 Map.of("Idempotency-Key", UUID.randomUUID().toString()));
         assertThat(invalidAppointment.status()).isEqualTo(400);
         assertThat(invalidAppointment.json().path("code").asInt()).isEqualTo(1001);
 
-        HttpResult paidAppointment = createAppointment(ownerToken, ownerPatientId, paidScheduleId);
+        HttpResult paidAppointment = createAppointment(ownerToken, ownerPatientId,
+                visitDate, "MORNING_FIRST");
         String paidAppointmentId = paidAppointment.json().at("/data/appointmentOrderId").asText();
         String paymentId = paidAppointment.json().at("/data/paymentOrderId").asText();
         assertThat(paidAppointment.json().at("/data/appointmentOrderId").isTextual()).isTrue();
@@ -115,9 +109,10 @@ class PatientJourneyHttpMySqlIT {
         register(otherEmail);
         String otherToken = login(otherEmail);
         String otherPatientId = createPatient(otherToken);
-        HttpResult occupied = createAppointment(otherToken, otherPatientId, paidScheduleId);
+        HttpResult occupied = createAppointment(otherToken, otherPatientId,
+                visitDate, "MORNING_FIRST");
         assertThat(occupied.status()).isEqualTo(409);
-        assertThat(occupied.json().path("code").asInt()).isEqualTo(4002);
+        assertThat(occupied.json().path("code").asInt()).isEqualTo(4204);
         assertThat(send("GET", "/api/v1/appointments/" + paidAppointmentId, otherToken, null).status())
                 .isEqualTo(403);
 
@@ -144,7 +139,8 @@ class PatientJourneyHttpMySqlIT {
         assertThat(confirmedCancel.json().at("/data/status").asText()).isEqualTo("CANCELLED");
         assertThat(confirmedCancel.json().at("/data/paymentStatus").asText()).isEqualTo("REFUND_PENDING");
 
-        HttpResult toCancel = createAppointment(ownerToken, ownerPatientId, cancelledScheduleId);
+        HttpResult toCancel = createAppointment(ownerToken, ownerPatientId,
+                visitDate, "AFTERNOON_FIRST");
         String cancelledAppointmentId = toCancel.json().at("/data/appointmentOrderId").asText();
         HttpResult cancelled = send("POST", "/api/v1/appointments/" + cancelledAppointmentId + "/cancel",
                 ownerToken, null);
@@ -153,7 +149,8 @@ class PatientJourneyHttpMySqlIT {
         assertThat(send("POST", "/api/v1/appointments/" + cancelledAppointmentId + "/cancel",
                 ownerToken, null).status()).isEqualTo(200);
 
-        HttpResult rebooked = createAppointment(otherToken, otherPatientId, cancelledScheduleId);
+        HttpResult rebooked = createAppointment(otherToken, otherPatientId,
+                visitDate, "AFTERNOON_FIRST");
         assertThat(rebooked.status()).isEqualTo(201);
         assertThat(rebooked.json().at("/data/appointmentStatus").asText()).isEqualTo("PENDING_PAYMENT");
     }
@@ -164,8 +161,9 @@ class PatientJourneyHttpMySqlIT {
         register(email);
         String token = login(email);
         String patientId = createPatient(token);
-        Long scheduleId = createSchedule(LocalDate.now().plusDays(3), "MORNING");
-        HttpResult created = createAppointment(token, patientId, scheduleId);
+        LocalDate appointmentDate = LocalDate.now().plusDays(3);
+        HttpResult created = createAppointment(token, patientId,
+                appointmentDate, "MORNING_SECOND");
         assertThat(created.status()).isEqualTo(201);
         String appointmentId = created.json().at("/data/appointmentOrderId").asText();
 
@@ -180,7 +178,11 @@ class PatientJourneyHttpMySqlIT {
         assertThat(detail.json().at("/data/paymentStatus").asText()).isEqualTo("CLOSED");
         assertThat(detail.json().at("/data/paymentExpired").asBoolean()).isTrue();
         HttpResult schedules = send("GET", "/api/v1/doctors/1/schedules", token, null);
-        assertThat(schedules.json().path("data").findValuesAsText("id")).contains(scheduleId.toString());
+        assertThat(schedules.json().path("data")).anySatisfy(item -> {
+            assertThat(item.path("appointmentDate").asText()).isEqualTo(appointmentDate.toString());
+            assertThat(item.path("sessionType").asText()).isEqualTo("MORNING_SECOND");
+            assertThat(item.path("availableCapacity").asInt()).isEqualTo(20);
+        });
     }
 
     private HttpResult register(String email) throws Exception {
@@ -193,9 +195,12 @@ class PatientJourneyHttpMySqlIT {
         return response.json().at("/data/accessToken").asText();
     }
 
-    private HttpResult createAppointment(String token, String patientId, Long scheduleId) throws Exception {
+    private HttpResult createAppointment(String token, String patientId, LocalDate appointmentDate,
+                                         String sessionType) throws Exception {
         return send("POST", "/api/v1/appointments", token,
-                "{\"scheduleId\":\"" + scheduleId + "\",\"patientId\":\"" + patientId + "\"}",
+                "{\"doctorId\":\"1\",\"appointmentDate\":\"" + appointmentDate
+                        + "\",\"sessionType\":\"" + sessionType
+                        + "\",\"patientId\":\"" + patientId + "\"}",
                 Map.of("Idempotency-Key", UUID.randomUUID().toString()));
     }
 
@@ -210,26 +215,6 @@ class PatientJourneyHttpMySqlIT {
 
     private String credentials(String email, String password) {
         return "{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}";
-    }
-
-    private Long createSchedule(LocalDate date, String sessionType) {
-        Schedule schedule = new Schedule();
-        schedule.setDoctorId(1L);
-        schedule.setAppointmentDate(date);
-        schedule.setSessionType(sessionType);
-        boolean morning = "MORNING".equals(sessionType);
-        schedule.setStartTime(morning ? LocalTime.of(8, 0) : LocalTime.of(14, 0));
-        schedule.setEndTime(morning ? LocalTime.of(12, 0) : LocalTime.of(17, 0));
-        schedule.setStatus("OPEN");
-        schedule.setTotalCapacity(1);
-        schedule.setRegistrationFee(new java.math.BigDecimal("50.00"));
-        schedule.setFeeCurrency("CNY");
-        schedule.setAvailableCapacity(1);
-        schedule.setHeldCapacity(0);
-        schedule.setConfirmedCapacity(0);
-        schedule.setNextVisitNumber(1);
-        scheduleMapper.insert(schedule);
-        return schedule.getId();
     }
 
     private HttpResult send(String method, String path, String token, String body) throws Exception {
