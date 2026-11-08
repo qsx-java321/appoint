@@ -42,6 +42,14 @@ docker compose up -d mysql rabbitmq
 ./mvnw spring-boot:run
 ```
 
+使用 Compose 实际依赖执行隔离业务验收：
+
+```bash
+python3 scripts/compose_acceptance.py
+```
+
+验收入口会创建独立数据库、数据库账号和 RabbitMQ vhost，启动 dev profile，验证预约、支付、异步确认、取消与退款；成功后删除验收资源，失败时保留资源标识和日志。Redis 只检查健康状态。
+
 常规测试：
 
 ```bash
