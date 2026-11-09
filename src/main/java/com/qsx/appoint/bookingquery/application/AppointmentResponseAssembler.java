@@ -1,5 +1,7 @@
 package com.qsx.appoint.bookingquery.application;
 
+import com.qsx.appoint.payment.domain.PaymentOrderStatus;
+import com.qsx.appoint.appointment.domain.AppointmentStatus;
 import com.qsx.appoint.appointment.dto.*;
 import com.qsx.appoint.bookingquery.model.WorkflowStatus;
 import com.qsx.appoint.bookingquery.persistence.BookingQueryRecord;
@@ -19,6 +21,8 @@ class AppointmentResponseAssembler {
 
     AppointmentResponse assemble(BookingQueryRecord record, LocalDateTime serverTime) {
         ensurePaymentIntegrity(record);
+        AppointmentStatus appointment = AppointmentStatus.fromStored(record.getStatus());
+        PaymentOrderStatus payment = PaymentOrderStatus.fromStored(record.getPaymentStatus());
         AppointmentDoctorResponse doctor = new AppointmentDoctorResponse(
                 record.getDoctorId(), record.getDoctorNo(), record.getDoctorName(), record.getDoctorTitle(),
                 new AppointmentDepartmentResponse(record.getDepartmentId(), record.getDepartmentName()),
@@ -28,16 +32,16 @@ class AppointmentResponseAssembler {
                 record.getPatientName(), record.getPatientDocumentType(),
                 ResidentIdCard.mask(record.getPatientDocumentNo()), record.getPatientContactPhone(),
                 record.getPatientContactEmail());
-        boolean paymentExpired = "EXPIRED".equals(record.getStatus())
-                || ("PENDING_PAYMENT".equals(record.getStatus())
+        boolean paymentExpired = (appointment == AppointmentStatus.EXPIRED)
+                || ((appointment == AppointmentStatus.PENDING_PAYMENT)
                 && record.getPaymentExpiresAt() != null
                 && !serverTime.isBefore(record.getPaymentExpiresAt()));
-        boolean pendingAndUnpaid = "PENDING_PAYMENT".equals(record.getStatus())
-                && "UNPAID".equals(record.getPaymentStatus());
-        boolean pendingAndCancellable = "PENDING_PAYMENT".equals(record.getStatus())
-                && ("UNPAID".equals(record.getPaymentStatus()) || "PAYING".equals(record.getPaymentStatus()));
-        boolean confirmedAndPaid = "CONFIRMED".equals(record.getStatus())
-                && "PAID".equals(record.getPaymentStatus());
+        boolean pendingAndUnpaid = (appointment == AppointmentStatus.PENDING_PAYMENT)
+                && (payment == PaymentOrderStatus.UNPAID);
+        boolean pendingAndCancellable = (appointment == AppointmentStatus.PENDING_PAYMENT)
+                && ((payment == PaymentOrderStatus.UNPAID) || (payment == PaymentOrderStatus.PAYING));
+        boolean confirmedAndPaid = (appointment == AppointmentStatus.CONFIRMED)
+                && (payment == PaymentOrderStatus.PAID);
         WorkflowStatus workflow = projector.project(record);
         LocalDateTime cancellationDeadline = LocalDateTime.of(
                 record.getAppointmentDate(), record.getStartTime()).minusHours(24);

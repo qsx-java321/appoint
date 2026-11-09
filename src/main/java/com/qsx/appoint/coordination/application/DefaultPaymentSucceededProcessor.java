@@ -1,5 +1,8 @@
 package com.qsx.appoint.coordination.application;
 
+import com.qsx.appoint.appointment.domain.AppointmentCloseReason;
+import com.qsx.appoint.appointment.domain.AppointmentStatus;
+import com.qsx.appoint.payment.domain.RefundReason;
 import com.qsx.appoint.appointment.application.AppointmentLifecycleOperations;
 import com.qsx.appoint.appointment.application.AppointmentLifecycleView;
 import com.qsx.appoint.appointment.application.ScheduleLifecycleView;
@@ -41,15 +44,15 @@ class DefaultPaymentSucceededProcessor implements PaymentSucceededProcessor {
         if (appointment == null || !appointment.id().equals(event.appointmentOrderId())) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         }
-        if ("CONFIRMED".equals(appointment.status())) return "ALREADY_CONFIRMED";
-        if (!"PENDING_PAYMENT".equals(appointment.status())) {
-            refunds.requestFullRefund(event.paymentOrderId(), "APPOINTMENT_NOT_CONFIRMABLE");
+        if (appointment.status() == AppointmentStatus.CONFIRMED) return "ALREADY_CONFIRMED";
+        if (appointment.status() != AppointmentStatus.PENDING_PAYMENT) {
+            refunds.requestFullRefund(event.paymentOrderId(), RefundReason.APPOINTMENT_NOT_CONFIRMABLE);
             return "REFUND_REQUIRED";
         }
         if (!event.paidAt().isBefore(appointment.paymentExpiresAt())) {
             appointments.releaseHeldInventory(schedule.id());
-            appointments.closePendingAppointment(appointment.id(), "EXPIRED", now());
-            refunds.requestFullRefund(event.paymentOrderId(), "APPOINTMENT_NOT_CONFIRMABLE");
+            appointments.closePendingAppointment(appointment.id(), AppointmentCloseReason.PAYMENT_EXPIRED, now());
+            refunds.requestFullRefund(event.paymentOrderId(), RefundReason.APPOINTMENT_NOT_CONFIRMABLE);
             return "REFUND_REQUIRED";
         }
 

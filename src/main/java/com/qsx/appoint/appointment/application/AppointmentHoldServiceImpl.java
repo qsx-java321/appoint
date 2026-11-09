@@ -1,5 +1,6 @@
 package com.qsx.appoint.appointment.application;
 
+import com.qsx.appoint.appointment.domain.AppointmentStatus;
 import com.qsx.appoint.appointment.config.AppointmentProperties;
 import com.qsx.appoint.appointment.entity.AppointmentActiveClaim;
 import com.qsx.appoint.appointment.entity.AppointmentOrder;
@@ -135,7 +136,7 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
         appointment.setAppointmentDate(schedule.getAppointmentDate());
         appointment.setStartTime(schedule.getStartTime());
         appointment.setEndTime(schedule.getEndTime());
-        appointment.setStatus("PENDING_PAYMENT");
+        appointment.setStatus(AppointmentStatus.PENDING_PAYMENT.name());
         appointment.setCreatedAt(now);
         appointment.setUpdatedAt(now);
         appointment.setPaymentExpiresAt(now.plus(appointmentProperties.paymentTimeout()));

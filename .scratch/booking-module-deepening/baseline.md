@@ -63,3 +63,9 @@
 ### 02 暂存快照实际验收
 
 2026-11-09，`/tmp/booking-02-snapshot-g9lqzgi7`：查询聚焦通过、常规168项全通过且零失败/错误/跳过；Compose正常及迟到支付链路通过并清理本次资源。SQL、DTO、锁和消息无变更，按02规格未重复MySQL和可靠性全量（相同生产代码在12快照已通过25/13项）。日志 `/tmp/booking-02-{focused,test,compose}.log`。
+
+### 03 实施范围与兼容边界
+
+本阶段增加AppointmentStatus、AppointmentCloseReason和RefundReason，并类型化两个生命周期快照、协调用例、回调Policy、查询内部状态判断及本轮attempt/退款请求判断。Entity/Mapper字段、Flyway、HTTP DTO和事件JSON保持原字符串；AppointmentHold/PaymentOrderResult作为创建响应事实继续使用稳定字符串，通用退款worker和发布器未因类型化重写。未知存储值通过fromStored映射INTERNAL_ERROR。聚焦74项通过；独立快照门禁运行中。
+
+03最终快照常规170、MySQL25、可靠性13及Compose全部通过，零失败/错误/跳过；日志 `/tmp/booking-03-{test,mysql,reliability,compose}.log`。源码与最终暂存快照一致，仅补充验证记录。

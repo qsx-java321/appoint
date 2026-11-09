@@ -1,5 +1,8 @@
 package com.qsx.appoint.payment.application;
 
+import com.qsx.appoint.payment.domain.PaymentOrderStatus;
+import com.qsx.appoint.payment.domain.PaymentAttemptStatus;
+import com.qsx.appoint.payment.domain.RefundReason;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.common.BusinessException;
@@ -75,7 +78,7 @@ class PaymentNotificationServiceImpl implements PaymentNotificationService {
 
         LocalDateTime now = now();
         var decision = policy.decide(
-                verified.status(), attempt.getStatus(), payment.getStatus());
+                verified.status(), PaymentAttemptStatus.fromStored(attempt.getStatus()), PaymentOrderStatus.fromStored(payment.getStatus()));
         return switch (decision) {
             case ALREADY_SUCCEEDED -> audit(channel, verified, payloadHash, "ALREADY_SUCCEEDED",
                     payment.getId(), payment.getStatus(), false);
@@ -96,7 +99,7 @@ class PaymentNotificationServiceImpl implements PaymentNotificationService {
                         : paymentOrderMapper.payIfPaying(payment.getId(), now));
                 String eventId = insertOutbox(payment, attempt, verified, now);
                 if (latePayment) {
-                    refunds.requestFullRefund(payment.getId(), "LATE_PAYMENT");
+                    refunds.requestFullRefund(payment.getId(), RefundReason.LATE_PAYMENT);
                     yield audit(channel, verified, payloadHash, "SUCCEEDED_REFUND_PENDING",
                             payment.getId(), "REFUND_PENDING", false, eventId);
                 }

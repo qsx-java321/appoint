@@ -1,5 +1,6 @@
 package com.qsx.appoint.payment.controller;
 
+import com.qsx.appoint.payment.domain.PaymentOrderStatus;
 import com.qsx.appoint.common.Result;
 import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
 import com.qsx.appoint.coordination.application.PaymentSucceededEvent;
@@ -49,7 +50,7 @@ public class LegacySimulatePaymentController {
             Authentication authentication, @PathVariable Long id) {
         Long userId = (Long) authentication.getPrincipal();
         PaymentLifecycleView payment = payments.findPayment(id);
-        if (payment != null && "UNPAID".equals(payment.status())) {
+        if (payment != null && (payment.status() == PaymentOrderStatus.UNPAID)) {
             precheck.validate(userId, id);
             PaymentAttemptResponse attempt = attempts.startAttempt(userId, id, PaymentChannel.MOCK);
             LocalDateTime occurredAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);

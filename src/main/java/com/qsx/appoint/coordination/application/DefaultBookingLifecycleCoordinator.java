@@ -1,5 +1,9 @@
 package com.qsx.appoint.coordination.application;
 
+import com.qsx.appoint.appointment.domain.AppointmentCloseReason;
+import com.qsx.appoint.payment.domain.PaymentOrderStatus;
+import com.qsx.appoint.appointment.domain.AppointmentStatus;
+import com.qsx.appoint.payment.domain.RefundReason;
 import com.qsx.appoint.appointment.application.AppointmentLifecycleOperations;
 import com.qsx.appoint.appointment.application.AppointmentLifecycleView;
 import com.qsx.appoint.appointment.application.ScheduleLifecycleView;
@@ -40,10 +44,10 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         validateIntegrity(appointment, payment, paymentId);
         if (!appointment.userId().equals(userId)) throw new BusinessException(ErrorCode.FORBIDDEN);
 
-        if ("CONFIRMED".equals(appointment.status()) && "PAID".equals(payment.status())) {
+        if (appointment.status() == AppointmentStatus.CONFIRMED && payment.status() == PaymentOrderStatus.PAID) {
             return response(payment, appointment);
         }
-        if ("EXPIRED".equals(appointment.status())) throw new BusinessException(ErrorCode.PAYMENT_EXPIRED);
+        if (appointment.status() == AppointmentStatus.EXPIRED) throw new BusinessException(ErrorCode.PAYMENT_EXPIRED);
         if (isInactive(appointment.status())) throw new BusinessException(ErrorCode.ORDER_STATE_ERROR);
         requirePendingUnpaid(appointment, payment, paymentId);
 
@@ -69,32 +73,32 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         validateIntegrity(appointment, payment, payment == null ? null : payment.id());
 
         if (isInactive(appointment.status())) {
-            if (!("CLOSED".equals(payment.status()) || "REFUND_PENDING".equals(payment.status())
-                    || "REFUNDED".equals(payment.status()))) {
+            if (!(payment.status() == PaymentOrderStatus.CLOSED || payment.status() == PaymentOrderStatus.REFUND_PENDING
+                    || payment.status() == PaymentOrderStatus.REFUNDED)) {
                 throw integrityFailure("已关闭预约的支付单状态不一致", appointmentOrderId, payment.id());
             }
-            return "REFUND_PENDING".equals(payment.status());
+            return payment.status() == PaymentOrderStatus.REFUND_PENDING;
         }
         LocalDateTime now = now();
-        if ("CONFIRMED".equals(appointment.status())) {
-            if (!"PAID".equals(payment.status())) {
+        if (appointment.status() == AppointmentStatus.CONFIRMED) {
+            if (payment.status() != PaymentOrderStatus.PAID) {
                 throw integrityFailure("已确认预约的支付单状态不一致", appointmentOrderId, payment.id());
             }
             LocalDateTime deadline = LocalDateTime.of(appointment.appointmentDate(), appointment.startTime()).minusHours(24);
             if (!now.isBefore(deadline)) throw new BusinessException(ErrorCode.CANCELLATION_DEADLINE_REACHED);
             appointments.releaseConfirmedInventory(schedule.id());
-            refunds.requestFullRefund(payment.id(), "APPOINTMENT_CANCELLED");
+            refunds.requestFullRefund(payment.id(), RefundReason.APPOINTMENT_CANCELLED);
             appointments.cancelConfirmedAppointment(appointmentOrderId, now);
             return true;
         }
-        if ("PENDING_PAYMENT".equals(appointment.status()) && "PAID".equals(payment.status())) {
-            String closedStatus = now.isBefore(appointment.paymentExpiresAt()) ? "CANCELLED" : "EXPIRED";
-            closePaidPending(schedule, appointment, payment, closedStatus, "APPOINTMENT_CANCELLED", now);
+        if (appointment.status() == AppointmentStatus.PENDING_PAYMENT && payment.status() == PaymentOrderStatus.PAID) {
+            AppointmentCloseReason closedStatus = now.isBefore(appointment.paymentExpiresAt()) ? AppointmentCloseReason.USER_CANCELLED : AppointmentCloseReason.PAYMENT_EXPIRED;
+            closePaidPending(schedule, appointment, payment, closedStatus, RefundReason.APPOINTMENT_CANCELLED, now);
             return true;
         }
         requirePendingUnpaid(appointment, payment, payment.id());
         closePending(schedule, appointment, payment,
-                now.isBefore(appointment.paymentExpiresAt()) ? "CANCELLED" : "EXPIRED", now);
+                now.isBefore(appointment.paymentExpiresAt()) ? AppointmentCloseReason.USER_CANCELLED : AppointmentCloseReason.PAYMENT_EXPIRED, now);
         return false;
     }
 
@@ -105,16 +109,16 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         if (lookup == null) return false;
         ScheduleLifecycleView schedule = appointments.lockSchedule(lookup.scheduleId());
         AppointmentLifecycleView appointment = appointments.lockAppointment(appointmentOrderId);
-        if (!"PENDING_PAYMENT".equals(appointment.status())) return false;
+        if (appointment.status() != AppointmentStatus.PENDING_PAYMENT) return false;
         LocalDateTime now = now();
         if (now.isBefore(appointment.paymentExpiresAt())) return false;
         PaymentLifecycleView payment = payments.lockByAppointment(appointmentOrderId);
         validateIntegrity(appointment, payment, payment == null ? null : payment.id());
-        if ("PAID".equals(payment.status())) {
+        if (payment.status() == PaymentOrderStatus.PAID) {
             return resolvePaidPending(schedule, appointment, payment, now);
         }
         requirePendingUnpaid(appointment, payment, payment.id());
-        closePending(schedule, appointment, payment, "EXPIRED", now);
+        closePending(schedule, appointment, payment, AppointmentCloseReason.PAYMENT_EXPIRED, now);
         return true;
     }
 
@@ -125,10 +129,10 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         if (lookup == null) return false;
         ScheduleLifecycleView schedule = appointments.lockSchedule(lookup.scheduleId());
         AppointmentLifecycleView appointment = appointments.lockAppointment(appointmentOrderId);
-        if (!"PENDING_PAYMENT".equals(appointment.status())) return false;
+        if (appointment.status() != AppointmentStatus.PENDING_PAYMENT) return false;
         PaymentLifecycleView payment = payments.lockByAppointment(appointmentOrderId);
         validateIntegrity(appointment, payment, payment == null ? null : payment.id());
-        if (!"PAID".equals(payment.status())) return false;
+        if (payment.status() != PaymentOrderStatus.PAID) return false;
         return resolvePaidPending(schedule, appointment, payment, now());
     }
 
@@ -142,34 +146,34 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         if (!isInactive(appointment.status())) return false;
         PaymentLifecycleView payment = payments.lockByAppointment(appointmentOrderId);
         validateIntegrity(appointment, payment, payment == null ? null : payment.id());
-        if ("REFUND_PENDING".equals(payment.status()) || "REFUNDED".equals(payment.status())) return false;
-        if (!"PAID".equals(payment.status())) return false;
-        refunds.requestFullRefund(payment.id(), "RECONCILIATION_CLOSED_PAID");
+        if (payment.status() == PaymentOrderStatus.REFUND_PENDING || payment.status() == PaymentOrderStatus.REFUNDED) return false;
+        if (payment.status() != PaymentOrderStatus.PAID) return false;
+        refunds.requestFullRefund(payment.id(), RefundReason.RECONCILIATION_CLOSED_PAID);
         return true;
     }
 
     private void closePending(ScheduleLifecycleView schedule, AppointmentLifecycleView appointment,
-                              PaymentLifecycleView payment, String status, LocalDateTime now) {
+                              PaymentLifecycleView payment, AppointmentCloseReason status, LocalDateTime now) {
         appointments.releaseHeldInventory(schedule.id());
         appointments.closePendingAppointment(appointment.id(), status, now);
         payments.closeUnpaid(payment.id());
         log.info("预约关闭，appointmentOrderId={}, paymentOrderId={}, status={}",
-                appointment.id(), payment.id(), status);
+                appointment.id(), payment.id(), status.status().name());
     }
 
     private void closePaidPending(ScheduleLifecycleView schedule, AppointmentLifecycleView appointment,
-                                  PaymentLifecycleView payment, String status, String reason,
+                                  PaymentLifecycleView payment, AppointmentCloseReason status, RefundReason reason,
                                   LocalDateTime now) {
         refunds.requestFullRefund(payment.id(), reason);
         appointments.releaseHeldInventory(schedule.id());
         appointments.closePendingAppointment(appointment.id(), status, now);
         log.info("已支付待确认预约关闭并进入退款，appointmentOrderId={}, paymentOrderId={}, status={}",
-                appointment.id(), payment.id(), status);
+                appointment.id(), payment.id(), status.status().name());
     }
 
     private void requirePendingUnpaid(AppointmentLifecycleView appointment, PaymentLifecycleView payment, Long paymentId) {
-        if (!"PENDING_PAYMENT".equals(appointment.status())
-                || !("UNPAID".equals(payment.status()) || "PAYING".equals(payment.status()))) {
+        if (appointment.status() != AppointmentStatus.PENDING_PAYMENT
+                || !(payment.status() == PaymentOrderStatus.UNPAID || payment.status() == PaymentOrderStatus.PAYING)) {
             throw integrityFailure("预约与支付状态组合不一致", appointment.id(), paymentId);
         }
     }
@@ -179,9 +183,9 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         boolean paidAtOrAfterDeadline = payment.paidAt() == null
                 || !payment.paidAt().isBefore(appointment.paymentExpiresAt());
         if (paidAtOrAfterDeadline) {
-            refunds.requestFullRefund(payment.id(), "APPOINTMENT_NOT_CONFIRMABLE");
+            refunds.requestFullRefund(payment.id(), RefundReason.APPOINTMENT_NOT_CONFIRMABLE);
             appointments.releaseHeldInventory(schedule.id());
-            appointments.closePendingAppointment(appointment.id(), "EXPIRED", now);
+            appointments.closePendingAppointment(appointment.id(), AppointmentCloseReason.PAYMENT_EXPIRED, now);
             return true;
         }
         Integer visitNumber = schedule.nextVisitNumber();
@@ -203,8 +207,8 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         }
     }
 
-    private boolean isInactive(String status) {
-        return "CANCELLED".equals(status) || "EXPIRED".equals(status) || "CANCELLED_BY_HOSPITAL".equals(status);
+    private boolean isInactive(AppointmentStatus status) {
+        return status == AppointmentStatus.CANCELLED || status == AppointmentStatus.EXPIRED || status == AppointmentStatus.CANCELLED_BY_HOSPITAL;
     }
 
     private LocalDateTime now() {
@@ -212,8 +216,8 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
     }
 
     private PaymentResponse response(PaymentLifecycleView payment, AppointmentLifecycleView appointment) {
-        return new PaymentResponse(payment.id(), payment.paymentNo(), payment.status(),
-                appointment.id(), appointment.status(), appointment.visitNumber());
+        return new PaymentResponse(payment.id(), payment.paymentNo(), payment.status().name(),
+                appointment.id(), appointment.status().name(), appointment.visitNumber());
     }
 
     private BusinessException integrityFailure(String message, Long appointmentId, Long paymentId) {

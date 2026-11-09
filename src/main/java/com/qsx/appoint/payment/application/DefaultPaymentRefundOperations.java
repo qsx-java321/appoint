@@ -1,5 +1,7 @@
 package com.qsx.appoint.payment.application;
 
+import com.qsx.appoint.payment.domain.PaymentOrderStatus;
+import com.qsx.appoint.payment.domain.RefundReason;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.common.BusinessException;
@@ -35,12 +37,12 @@ class DefaultPaymentRefundOperations implements PaymentRefundOperations {
 
     @Override
     @Transactional
-    public void requestFullRefund(Long paymentOrderId, String reason) {
+    public void requestFullRefund(Long paymentOrderId, RefundReason reason) {
         PaymentOrder payment = paymentOrderMapper.selectByIdForUpdate(paymentOrderId);
         if (payment == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         PaymentRefund existing = refundMapper.selectByPaymentOrderIdForUpdate(paymentOrderId);
         if (existing != null) return;
-        if (!"PAID".equals(payment.getStatus())) {
+        if (PaymentOrderStatus.fromStored(payment.getStatus()) != PaymentOrderStatus.PAID) {
             throw new BusinessException(ErrorCode.ORDER_STATE_ERROR);
         }
         PaymentAttempt attempt = paymentAttemptMapper.selectSucceededByPaymentOrderIdForUpdate(paymentOrderId);
@@ -60,7 +62,7 @@ class DefaultPaymentRefundOperations implements PaymentRefundOperations {
         refund.setCurrency(payment.getCurrency());
         refund.setChannel(attempt.getChannel());
         refund.setStatus("PENDING");
-        refund.setReason(reason);
+        refund.setReason(reason.name());
         refund.setAttemptCount(0);
         refund.setCreatedAt(now);
         refund.setUpdatedAt(now);

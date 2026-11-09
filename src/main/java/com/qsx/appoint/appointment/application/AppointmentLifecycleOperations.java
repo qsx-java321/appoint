@@ -1,5 +1,6 @@
 package com.qsx.appoint.appointment.application;
 
+import com.qsx.appoint.appointment.domain.AppointmentCloseReason;
 import java.time.LocalDateTime;
 
 public interface AppointmentLifecycleOperations {
@@ -9,7 +10,7 @@ public interface AppointmentLifecycleOperations {
     void confirmInventory(Long scheduleId, Integer visitNumber);
     void confirmAppointment(Long appointmentOrderId, Integer visitNumber);
     void releaseHeldInventory(Long scheduleId);
-    void closePendingAppointment(Long appointmentOrderId, String status, LocalDateTime closedAt);
+    void closePendingAppointment(Long appointmentOrderId, AppointmentCloseReason reason, LocalDateTime closedAt);
     void releaseConfirmedInventory(Long scheduleId);
     void cancelConfirmedAppointment(Long appointmentOrderId, LocalDateTime closedAt);
 }

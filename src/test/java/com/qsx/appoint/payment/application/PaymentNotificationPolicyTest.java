@@ -20,7 +20,7 @@ class PaymentNotificationPolicyTest {
             "FAILED, PROCESSING, PAID, IGNORE_LATE_FAILURE",
             "FAILED, PROCESSING, CLOSED, REJECT_STATE"
     })
-    void preservesNotificationDecisions(GatewayPaymentStatus result, String attempt, String payment,
+    void preservesNotificationDecisions(GatewayPaymentStatus result, com.qsx.appoint.payment.domain.PaymentAttemptStatus attempt, com.qsx.appoint.payment.domain.PaymentOrderStatus payment,
                                         PaymentNotificationPolicy.Decision expected) {
         assertThat(policy.decide(result, attempt, payment)).isEqualTo(expected);
     }

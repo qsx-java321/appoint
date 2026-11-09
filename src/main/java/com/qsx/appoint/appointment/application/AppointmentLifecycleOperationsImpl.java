@@ -1,5 +1,7 @@
 package com.qsx.appoint.appointment.application;
 
+import com.qsx.appoint.appointment.domain.AppointmentCloseReason;
+import com.qsx.appoint.appointment.domain.AppointmentStatus;
 import com.qsx.appoint.appointment.entity.AppointmentOrder;
 import com.qsx.appoint.appointment.mapper.AppointmentActiveClaimMapper;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
@@ -54,8 +56,8 @@ class AppointmentLifecycleOperationsImpl implements AppointmentLifecycleOperatio
     }
 
     @Override
-    public void closePendingAppointment(Long id, String status, LocalDateTime closedAt) {
-        requireOne(appointmentOrderMapper.closeIfPending(id, status, closedAt));
+    public void closePendingAppointment(Long id, AppointmentCloseReason reason, LocalDateTime closedAt) {
+        requireOne(appointmentOrderMapper.closeIfPending(id, reason.status().name(), closedAt));
         requireOne(activeClaimMapper.deleteByAppointmentOrderId(id));
     }
 
@@ -73,7 +75,7 @@ class AppointmentLifecycleOperationsImpl implements AppointmentLifecycleOperatio
     private AppointmentLifecycleView view(AppointmentOrder order) {
         if (order == null) return null;
         return new AppointmentLifecycleView(order.getId(), order.getUserId(), order.getScheduleId(),
-                order.getStatus(), order.getPaymentExpiresAt(), order.getAppointmentDate(),
+                AppointmentStatus.fromStored(order.getStatus()), order.getPaymentExpiresAt(), order.getAppointmentDate(),
                 order.getStartTime(), order.getVisitNumber());
     }
 

@@ -2,7 +2,7 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 Blocked by: 01
 
 设计依据：[spec](../spec.md)，执行位置：[map](../map.md)。初始 Status 使用 triage 标签表示待认领；开始实施改为 claimed，验收完成改为 resolved。Triage 不代表依赖已解除。
@@ -75,12 +75,16 @@ Entity 字符串 → 单一显式转换方法 → 类型化 View/上下文 → e
 
 ## 完成状态清单
 
-- [ ] 状态与原因类型及集中映射完成
-- [ ] 全部调用点及 DTO 边缘转换完成
-- [ ] query 已存在部分类型化或交接说明完成
-- [ ] 持久化/HTTP/事件兼容验证
-- [ ] Comments/地图更新
+- [x] 状态与原因类型及集中映射完成
+- [x] 全部调用点及 DTO 边缘转换完成
+- [x] query 已存在部分类型化或交接说明完成
+- [x] 持久化/HTTP/事件兼容验证
+- [x] Comments/地图更新
 
 ## Comments
 
 - 2026-11-08：根据源码复核后的spec创建。仅完成任务定义，未认领、未实施；本轮基线结果见map，不等同于本issue验收结果。 依赖尚未resolved，暂不可开始实施。
+
+- 2026-11-09：01/11/12/02已分别验收。开始类型化生命周期快照、关闭及退款原因；持久化Entity/Mapper、公开HTTP DTO及事件v1保留字符串；回调Policy、attempt与query本轮状态判断迁移到enum。未知/null存储状态统一映射INTERNAL_ERROR。初轮常规168通过，新增契约测试后须独立快照重新验收。
+
+- 2026-11-09：独立快照 `/tmp/booking-03-snapshot-_y2bra_r` 常规170、MySQL25、可靠性13及Compose真实正常/迟到支付链路全部通过，零失败/错误/跳过，Maven串行执行。退款四种原因、数据库/HTTP/事件稳定字面值、未知存储状态内部错误和架构约束均保留。03 resolved。

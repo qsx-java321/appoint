@@ -41,7 +41,7 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 | 11 | [迟到支付释放暂占](issues/11-late-payment-release.md) | fix | resolved | 01 | 已验收 | 过期、释放、退款与 Inbox 原子提交 |
 | 12 | [消费有界重试与可靠转发](issues/12-bounded-consumer-retries.md) | fix | resolved | 01 | 已验收 | 三次处理、确认后 ACK、受控重放 |
 | 02 | [查询流程投影与响应组装分离](issues/02-booking-query-projection.md) | refactor | resolved | 01 | 已验收 | Projector/Assembler；SQL、JSON、权限完全兼容 |
-| 03 | [类型化状态、关闭原因与退款原因](issues/03-typed-lifecycle-language.md) | refactor | ready-for-agent | 01 | 依赖未完成 | 状态/原因类型化；持久化与事件稳定字符串不变 |
+| 03 | [类型化状态、关闭原因与退款原因](issues/03-typed-lifecycle-language.md) | refactor | resolved | 01 | 已验收 | 状态/原因类型化；持久化与事件稳定字符串不变 |
 | 04 | [预约暂占创建内部深度化](issues/04-appointment-hold-deepening.md) | refactor | claimed | 03 | 实施中 | 设置/场次/就诊人/占号/快照顺序及跨零点回滚 |
 | 05 | [支付回调决策分离与支付锁序收敛](issues/05-payment-notification-policy.md) | refactor/fix | claimed | 03 | 实施中 | 回调纯决策；payment父锁先行；原子Outbox/审计/退款 |
 | 06 | [预约与支付生命周期 interface 深度化](issues/06-lifecycle-interfaces.md) | refactor | ready-for-agent | 03、04、05、11 | 依赖未完成 | 完整预约操作封装库存/序号/占用；MANDATORY |
@@ -146,3 +146,5 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 - 2026-11-09：12独立快照常规166、MySQL25、可靠性13及Compose通过，全部零跳过，12 resolved。11提交cb6931e；下一阶段02。
 
 - 2026-11-09：02独立快照常规168、查询聚焦及Compose通过，零跳过，02 resolved。下一阶段03类型化语言。
+
+- 2026-11-09：03类型化语言独立快照常规170、MySQL25、可靠性13及Compose通过，零跳过，03 resolved。下一阶段04。02提交b6a12da，12提交937e717。

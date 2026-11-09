@@ -1,5 +1,6 @@
 package com.qsx.appoint.payment.application;
 
+import com.qsx.appoint.payment.domain.PaymentOrderStatus;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.payment.entity.PaymentOrder;
@@ -66,7 +67,7 @@ class PaymentLifecycleOperationsImpl implements PaymentLifecycleOperations {
     private PaymentLifecycleView view(PaymentOrder order) {
         if (order == null) return null;
         return new PaymentLifecycleView(order.getId(), order.getPaymentNo(), order.getAppointmentOrderId(),
-                order.getUserId(), order.getStatus(), order.getPaidAt());
+                order.getUserId(), PaymentOrderStatus.fromStored(order.getStatus()), order.getPaidAt());
     }
 
     private void requireOne(int updated) {

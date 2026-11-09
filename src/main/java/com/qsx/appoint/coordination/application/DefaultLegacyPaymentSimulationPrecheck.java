@@ -1,5 +1,7 @@
 package com.qsx.appoint.coordination.application;
 
+import com.qsx.appoint.payment.domain.PaymentOrderStatus;
+import com.qsx.appoint.appointment.domain.AppointmentStatus;
 import com.qsx.appoint.appointment.application.AppointmentLifecycleOperations;
 import com.qsx.appoint.appointment.application.AppointmentLifecycleView;
 import com.qsx.appoint.common.BusinessException;
@@ -28,7 +30,7 @@ class DefaultLegacyPaymentSimulationPrecheck implements LegacyPaymentSimulationP
         if (!payment.userId().equals(userId)) throw new BusinessException(ErrorCode.FORBIDDEN);
         AppointmentLifecycleView appointment = appointments.findAppointment(payment.appointmentOrderId());
         if (appointment == null) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        if (!"PENDING_PAYMENT".equals(appointment.status()) || !"UNPAID".equals(payment.status())) {
+        if (appointment.status() != AppointmentStatus.PENDING_PAYMENT || payment.status() != PaymentOrderStatus.UNPAID) {
             throw new BusinessException(ErrorCode.ORDER_STATE_ERROR);
         }
         if (!LocalDateTime.now(appointmentClock).isBefore(appointment.paymentExpiresAt())) {

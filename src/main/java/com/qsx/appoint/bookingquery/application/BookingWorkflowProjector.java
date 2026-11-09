@@ -1,5 +1,7 @@
 package com.qsx.appoint.bookingquery.application;
 
+import com.qsx.appoint.payment.domain.PaymentOrderStatus;
+import com.qsx.appoint.appointment.domain.AppointmentStatus;
 import com.qsx.appoint.bookingquery.model.WorkflowStatus;
 import com.qsx.appoint.bookingquery.persistence.BookingQueryRecord;
 import com.qsx.appoint.common.BusinessException;
@@ -11,31 +13,31 @@ import org.springframework.stereotype.Component;
 @Component
 class BookingWorkflowProjector {
     WorkflowStatus project(BookingQueryRecord record) {
-        String appointment = record.getStatus();
-        String payment = record.getPaymentStatus();
-        if ("PENDING_PAYMENT".equals(appointment) && "UNPAID".equals(payment)) {
+        AppointmentStatus appointment = AppointmentStatus.fromStored(record.getStatus());
+        PaymentOrderStatus payment = PaymentOrderStatus.fromStored(record.getPaymentStatus());
+        if ((appointment == AppointmentStatus.PENDING_PAYMENT) && (payment == PaymentOrderStatus.UNPAID)) {
             return WorkflowStatus.WAITING_FOR_PAYMENT;
         }
-        if ("PENDING_PAYMENT".equals(appointment) && "PAYING".equals(payment)) {
+        if ((appointment == AppointmentStatus.PENDING_PAYMENT) && (payment == PaymentOrderStatus.PAYING)) {
             return WorkflowStatus.PAYMENT_PROCESSING;
         }
-        if ("PENDING_PAYMENT".equals(appointment) && "PAID".equals(payment)) {
+        if ((appointment == AppointmentStatus.PENDING_PAYMENT) && (payment == PaymentOrderStatus.PAID)) {
             return WorkflowStatus.CONFIRMING_APPOINTMENT;
         }
-        if ("CONFIRMED".equals(appointment) && "PAID".equals(payment)) {
+        if ((appointment == AppointmentStatus.CONFIRMED) && (payment == PaymentOrderStatus.PAID)) {
             return WorkflowStatus.CONFIRMED;
         }
-        if (inactive(appointment) && "REFUND_PENDING".equals(payment)) {
+        if (inactive(appointment) && (payment == PaymentOrderStatus.REFUND_PENDING)) {
             return WorkflowStatus.CANCELLED_REFUNDING;
         }
-        if (inactive(appointment) && "REFUNDED".equals(payment)) {
+        if (inactive(appointment) && (payment == PaymentOrderStatus.REFUNDED)) {
             return WorkflowStatus.CANCELLED_REFUNDED;
         }
-        if ("EXPIRED".equals(appointment) && "CLOSED".equals(payment)) {
+        if ((appointment == AppointmentStatus.EXPIRED) && (payment == PaymentOrderStatus.CLOSED)) {
             return WorkflowStatus.EXPIRED;
         }
-        if (("CANCELLED".equals(appointment) || "CANCELLED_BY_HOSPITAL".equals(appointment))
-                && "CLOSED".equals(payment)) {
+        if (((appointment == AppointmentStatus.CANCELLED) || (appointment == AppointmentStatus.CANCELLED_BY_HOSPITAL))
+                && (payment == PaymentOrderStatus.CLOSED)) {
             return null;
         }
         log.error("预约查询发现非法组合状态，appointmentOrderId={}, appointmentStatus={}, paymentStatus={}",
@@ -43,9 +45,9 @@ class BookingWorkflowProjector {
         throw new BusinessException(ErrorCode.INTERNAL_ERROR);
     }
 
-    private boolean inactive(String appointment) {
-        return "CANCELLED".equals(appointment) || "CANCELLED_BY_HOSPITAL".equals(appointment)
-                || "EXPIRED".equals(appointment);
+    private boolean inactive(AppointmentStatus appointment) {
+        return (appointment == AppointmentStatus.CANCELLED) || (appointment == AppointmentStatus.CANCELLED_BY_HOSPITAL)
+                || (appointment == AppointmentStatus.EXPIRED);
     }
 
 }

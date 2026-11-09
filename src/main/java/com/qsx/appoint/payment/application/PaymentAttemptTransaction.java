@@ -1,5 +1,6 @@
 package com.qsx.appoint.payment.application;
 
+import com.qsx.appoint.payment.domain.PaymentOrderStatus;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.payment.domain.PaymentAttemptStatus;
@@ -34,10 +35,10 @@ class PaymentAttemptTransaction {
             throw new BusinessException(ErrorCode.ORDER_STATE_ERROR);
         }
         if (!now.isBefore(payment.getExpiresAt())) throw new BusinessException(ErrorCode.PAYMENT_EXPIRED);
-        if (!"UNPAID".equals(payment.getStatus())) throw new BusinessException(ErrorCode.ORDER_STATE_ERROR);
+        if (PaymentOrderStatus.fromStored(payment.getStatus()) != PaymentOrderStatus.UNPAID) throw new BusinessException(ErrorCode.ORDER_STATE_ERROR);
         boolean active = paymentAttemptMapper.selectByPaymentOrderIdForUpdate(paymentOrderId).stream()
-                .anyMatch(attempt -> PaymentAttemptStatus.CREATED.name().equals(attempt.getStatus())
-                        || PaymentAttemptStatus.PROCESSING.name().equals(attempt.getStatus()));
+                .anyMatch(attempt -> PaymentAttemptStatus.fromStored(attempt.getStatus()) == PaymentAttemptStatus.CREATED
+                        || PaymentAttemptStatus.fromStored(attempt.getStatus()) == PaymentAttemptStatus.PROCESSING);
         if (active) throw new BusinessException(ErrorCode.ORDER_STATE_ERROR);
 
         PaymentAttempt attempt = new PaymentAttempt();
