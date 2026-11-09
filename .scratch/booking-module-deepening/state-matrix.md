@@ -31,12 +31,12 @@
 | 格式/版本/必填字段无效 | VALIDATION_ERROR；不插 Inbox，直接 DLQ | coordination/PaymentSucceededEventCodecTest、coordination/messaging/PaymentSucceededListenerTest |
 | 同 eventId | DUPLICATE；无重复库存/序号/退款 | coordination/PaymentSucceededProcessorIntegrationTest.inboxAndConfirmationCommitOnceForDuplicateEvent |
 | 待支付，paidAt 早于截止 | CONFIRMED，Inbox、库存、序号和预约原子提交 | 同上；消息晚到由 PaymentConfirmationReliabilityIT 覆盖 |
-| 待支付，paidAt 等于或晚于截止 | EXPIRED、释放 held、删 claim、退款 APPOINTMENT_NOT_CONFIRMABLE、RefundRequested Outbox 与 Inbox 原子提交 | 同类 paymentConfirmedAtExactDeadlineIsRefundedWithoutRestoringAppointment（等于）；晚于边界仍待11补测 |
+| 待支付，paidAt 等于或晚于截止 | EXPIRED、释放 held、删 claim、退款 APPOINTMENT_NOT_CONFIRMABLE、RefundRequested Outbox 与 Inbox 原子提交 | 同类 paymentConfirmedAtExactDeadlineIsRefundedWithoutRestoringAppointment（等于与晚于） |
 | 不同 eventId、同一迟到事实 | 只保留一张退款单，不再释放或推进序号 | 同上 |
 | 已确认、新 eventId | ALREADY_CONFIRMED，保留 Inbox，不重读支付 | 同类 newEventForConfirmedAppointmentDoesNotRequirePaymentLookup |
-| 已关闭、新 eventId | REFUND_REQUIRED，只确保退款，不恢复预约或释放库存 | 同上迟到事件第二 eventId；历史状态参数化待11补齐 |
+| 已关闭、新 eventId | REFUND_REQUIRED，只确保退款，不恢复预约或释放库存 | 同上迟到事件第二 eventId；同类 lateEventForClosedAppointmentOnlyEnsuresRefund 覆盖三种历史/当前终态 |
 | 删除占用失败 | 回滚 Inbox、库存和预约，不留退款 | 同类 failedClaimRemovalRollsBackInboxAndInventoryInRealTransaction |
-| 退款创建失败 | 应回滚上述全部事实 | 待11独立事务故障注入 |
+| 退款创建失败 | 应回滚上述全部事实 | 同类 failedRefundCreationRollsBackCloseInventoryClaimAndInbox（测试事务外调用真实代理事务） |
 
 ## 通知与查询
 
@@ -69,3 +69,5 @@
 - 真实 RabbitMQ 已有发布重复、confirm/return、Broker恢复及 Inbox 重复覆盖；提交前/ACK前窗口和可靠重放仍须12/09逐项验收。
 
 本矩阵中的迟到事件原子退款失败、历史状态参数化、MySQL锁竞争和消息故障窗口分别交由11、05、12/09验收；不将它们计为01新增保证。01固定现有行为及风险证据，历史数字不替代本次快照结果。
+
+11新增 `coordination/LatePaymentMySqlIT.lateEventsCancellationAndExpirySerializeToOneReleaseAndRefund`，用有界屏障及Future并发两个不同成功事件、用户取消和过期；校验只释放一次、序号不变、每单一张退款及一个RefundRequested。Compose扩展使用真实HTTP/回调/RabbitMQ验证迟到收款，时间缩短仅在独立验收数据库执行。11独立快照三层及扩展Compose验收已通过，实际数量见baseline。

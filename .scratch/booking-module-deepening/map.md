@@ -38,7 +38,7 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 | 顺序 | Issue | Type | 初始Status/Triage | Blocked by | 当前可执行性 | 独立验收重点 |
 | ---: | --- | --- | --- | --- | --- | --- |
 | 01 | [基线行为、状态决策表与风险证据](issues/01-baseline-state-matrix.md) | test | resolved | 无 | 已验收 | 状态/错误/副作用矩阵、最终日期复验与风险证据 |
-| 11 | [迟到支付释放暂占](issues/11-late-payment-release.md) | fix | claimed | 01 | 验收中 | 过期、释放、退款与 Inbox 原子提交 |
+| 11 | [迟到支付释放暂占](issues/11-late-payment-release.md) | fix | resolved | 01 | 已验收 | 过期、释放、退款与 Inbox 原子提交 |
 | 12 | [消费有界重试与可靠转发](issues/12-bounded-consumer-retries.md) | fix | claimed | 01 | 验收中 | 三次处理、确认后 ACK、受控重放 |
 | 02 | [查询流程投影与响应组装分离](issues/02-booking-query-projection.md) | refactor | claimed | 01 | 实施中 | Projector/Assembler；SQL、JSON、权限完全兼容 |
 | 03 | [类型化状态、关闭原因与退款原因](issues/03-typed-lifecycle-language.md) | refactor | ready-for-agent | 01 | 依赖未完成 | 状态/原因类型化；持久化与事件稳定字符串不变 |
@@ -140,3 +140,5 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 - 2026-11-09：继续实施时 HEAD 为 ea5bbeb，交接所述在途生产改动已提交；初始仅 scripts/__pycache__/ 未跟踪。新增 [状态矩阵](state-matrix.md) 和边界断言；06、09依赖已按用户决定修正。独立快照门禁运行中，不提前标记 resolved。
 
 - 2026-11-09：01独立快照常规154、MySQL24、双容器10及Compose真实链路全部通过，零跳过，01 resolved；提交号见 Git 日志及后续阶段记录。下一阶段11。
+
+- 2026-11-09：11独立快照聚焦28、常规159、MySQL25、可靠性10及扩展Compose验收通过，全部零跳过，11 resolved。下一阶段12；生产修复已包含在ea5bbeb，不重复重写。

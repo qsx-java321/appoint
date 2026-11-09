@@ -51,3 +51,7 @@
 ### 01 暂存快照实际验收
 
 2026-11-09，快照 `/tmp/booking-01-snapshot-cr7kbp14`：常规154、MySQL24、双容器可靠性10，均零失败、零错误、零跳过；三个 Maven 命令均串行、离线执行。Compose 真实预约、支付、异步确认、取消、退款和库存守恒通过，成功清理本次隔离资源。日志 `/tmp/booking-01-{test,mysql,reliability,compose}.log`。后续仅更新报告文字，测试/生产内容与该快照一致。
+
+### 11 暂存快照实际验收
+
+2026-11-09，`/tmp/booking-11-snapshot-nbgv8xyc`：聚焦28、常规159、MySQL25、双容器10，均零失败/错误/跳过。串行命令同01，日志 `/tmp/booking-11-{focused,test,mysql,reliability,compose}.log`。Compose新增真实迟到支付释放及退款通过，仅在本次隔离库缩短截止；过期扫描关闭，确保由事件路径释放。11 resolved；历史候选0条，不自动修复。

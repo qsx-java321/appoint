@@ -77,7 +77,8 @@ def main():
                 'SPRING_RABBITMQ_HOST': '127.0.0.1', 'SPRING_RABBITMQ_PORT': '5672',
                 'SPRING_RABBITMQ_USERNAME': rabbit_user, 'SPRING_RABBITMQ_PASSWORD': rabbit_pass,
                 'SPRING_RABBITMQ_VIRTUAL_HOST': VHOST, 'SPRING_PROFILES_ACTIVE': 'dev',
-                'SERVER_PORT': str(port), 'APPOINT_OUTBOX_SCAN_DELAY': '500ms'})
+                'SERVER_PORT': str(port), 'APPOINT_OUTBOX_SCAN_DELAY': '500ms',
+                'APPOINT_EXPIRATION_ENABLED': 'false'})
     success = False
     with LOG.open('w') as log:
         app = subprocess.Popen(['./mvnw', '-o', 'spring-boot:run'], cwd=ROOT, env=env,
@@ -137,8 +138,28 @@ def main():
             result = mysql(f"USE `{DB}`; SELECT COUNT(*) FROM appointment_orders a JOIN schedules s ON s.id=a.schedule_id JOIN payment_orders p ON p.appointment_order_id=a.id JOIN payment_refunds r ON r.payment_order_id=p.id WHERE a.id={int(appointment)} AND a.status='CANCELLED' AND p.status='REFUNDED' AND s.total_capacity=s.available_capacity+s.held_capacity+s.confirmed_capacity AND NOT EXISTS (SELECT 1 FROM appointment_active_claims c WHERE c.appointment_order_id=a.id) AND EXISTS (SELECT 1 FROM payment_outbox_events o WHERE o.aggregate_id=p.id AND o.event_type='PaymentSucceeded') AND EXISTS (SELECT 1 FROM coordination_inbox_events i WHERE i.event_type='PaymentSucceeded');")
             if result != '1':
                 raise RuntimeError('数据库业务事实校验失败')
+            # 仅在本次隔离库缩短第二张订单截止，验证扫描关闭时由迟到事件释放暂占。
+            late = request(port, 'POST', '/api/v1/appointments', {
+                'doctorId': '1', 'appointmentDate': date, 'sessionType': 'MORNING_SECOND',
+                'patientId': patient}, token, {'Idempotency-Key': str(uuid.uuid4())}, 201)
+            late_appointment, late_payment = late['appointmentOrderId'], late['paymentOrderId']
+            late_attempt = request(port, 'POST', f'/api/v1/payments/{late_payment}/attempts',
+                                   {'channel': 'MOCK'}, token, expected=202)
+            mysql(f"USE `{DB}`; UPDATE appointment_orders SET payment_expires_at=DATE_SUB(NOW(),INTERVAL 1 SECOND) WHERE id={int(late_appointment)}; UPDATE payment_orders SET expires_at=DATE_SUB(NOW(),INTERVAL 1 SECOND) WHERE id={int(late_payment)};")
+            request(port, 'POST', late_attempt['checkoutUrl'] + '/complete', token=token, expected=202)
+            deadline = time.monotonic() + 30
+            while True:
+                detail = request(port, 'GET', f'/api/v1/appointments/{late_appointment}', token=token)
+                if detail['status'] == 'EXPIRED' and detail['paymentStatus'] == 'REFUNDED':
+                    break
+                if time.monotonic() >= deadline:
+                    raise RuntimeError('迟到支付关闭及退款超时')
+                time.sleep(.5)
+            result = mysql(f"USE `{DB}`; SELECT COUNT(*) FROM appointment_orders a JOIN schedules s ON s.id=a.schedule_id JOIN payment_orders p ON p.appointment_order_id=a.id WHERE a.id={int(late_appointment)} AND a.status='EXPIRED' AND p.status='REFUNDED' AND a.visit_number IS NULL AND s.available_capacity=s.total_capacity AND s.held_capacity=0 AND s.confirmed_capacity=0 AND s.next_visit_number=1 AND NOT EXISTS (SELECT 1 FROM appointment_active_claims c WHERE c.appointment_order_id=a.id) AND (SELECT COUNT(*) FROM payment_refunds r WHERE r.payment_order_id=p.id AND r.reason='APPOINTMENT_NOT_CONFIRMABLE')=1 AND (SELECT COUNT(*) FROM payment_outbox_events o WHERE o.aggregate_id=p.id AND o.event_type='RefundRequested')=1 AND EXISTS (SELECT 1 FROM payment_outbox_events o JOIN coordination_inbox_events i ON i.event_id=o.event_id WHERE o.aggregate_id=p.id AND o.event_type='PaymentSucceeded');")
+            if result != '1':
+                raise RuntimeError('迟到支付库存、Inbox及唯一退款事实校验失败')
             success = True
-            print('Compose 验收通过：预约、支付、消息确认、取消、退款和库存守恒。')
+            print('Compose 验收通过：预约、支付、消息确认、取消、退款、迟到支付释放及库存守恒。')
         finally:
             if app.poll() is None:
                 os.killpg(app.pid, signal.SIGTERM)

@@ -63,13 +63,14 @@ class PaymentSucceededProcessorIntegrationTest {
                 event.eventId())).isEqualTo(1);
     }
 
-    @Test
-    void paymentConfirmedAtExactDeadlineIsRefundedWithoutRestoringAppointment() {
+    @ParameterizedTest
+    @CsvSource({"0", "1"})
+    void paymentConfirmedAtExactDeadlineIsRefundedWithoutRestoringAppointment(int lateSeconds) {
         fixture();
         PaymentSucceededEvent event = new PaymentSucceededEvent(
                 "00000000-0000-0000-0000-000000001102", 1, LocalDateTime.of(2098, 12, 1, 8, 15),
                 11_004L, 11_003L, 11_005L, new BigDecimal("50.00"), "CNY", "MOCK",
-                LocalDateTime.of(2098, 12, 1, 8, 15));
+                LocalDateTime.of(2098, 12, 1, 8, 15).plusSeconds(lateSeconds));
 
         assertThat(processor.process(event)).isEqualTo("REFUND_REQUIRED");
         assertThat(jdbcTemplate.queryForObject(
@@ -119,6 +120,55 @@ class PaymentSucceededProcessorIntegrationTest {
             assertThat(jdbcTemplate.queryForObject(
                     "SELECT COUNT(*) FROM payment_refunds WHERE payment_order_id=11004", Integer.class)).isZero();
         } finally {
+            jdbcTemplate.update("DELETE FROM payment_attempts WHERE payment_order_id=11004");
+            jdbcTemplate.update("DELETE FROM payment_orders WHERE id=11004");
+            jdbcTemplate.update("DELETE FROM appointment_orders WHERE id=11003");
+            jdbcTemplate.update("DELETE FROM patients WHERE id=11002");
+            jdbcTemplate.update("DELETE FROM users WHERE id=11001");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"CANCELLED", "EXPIRED", "CANCELLED_BY_HOSPITAL"})
+    void lateEventForClosedAppointmentOnlyEnsuresRefund(String status) {
+        fixture();
+        jdbcTemplate.update("UPDATE appointment_orders SET status=? WHERE id=11003", status);
+        jdbcTemplate.update("UPDATE schedules SET held_capacity=0,available_capacity=2 WHERE id=4");
+        jdbcTemplate.update("DELETE FROM appointment_active_claims WHERE appointment_order_id=11003");
+        for (int i = 0; i < 2; i++) {
+            PaymentSucceededEvent event = new PaymentSucceededEvent(java.util.UUID.randomUUID().toString(), 1,
+                    LocalDateTime.of(2098, 12, 1, 8, 15), 11004L, 11003L, 11005L,
+                    new BigDecimal("50.00"), "CNY", "MOCK", LocalDateTime.of(2098, 12, 1, 8, 15));
+            assertThat(processor.process(event)).isEqualTo("REFUND_REQUIRED");
+        }
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=11003", String.class)).isEqualTo(status);
+        assertThat(jdbcTemplate.queryForObject("SELECT available_capacity FROM schedules WHERE id=4", Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT next_visit_number FROM schedules WHERE id=4", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM payment_refunds WHERE payment_order_id=11004", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM payment_outbox_events WHERE aggregate_id=11004 AND event_type='RefundRequested'", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void failedRefundCreationRollsBackCloseInventoryClaimAndInbox() {
+        fixture();
+        jdbcTemplate.update("UPDATE payment_orders SET status='UNPAID' WHERE id=11004");
+        PaymentSucceededEvent event = new PaymentSucceededEvent(
+                "00000000-0000-0000-0000-000000001107", 1, LocalDateTime.of(2098, 12, 1, 8, 15),
+                11_004L, 11_003L, 11_005L, new BigDecimal("50.00"), "CNY", "MOCK",
+                LocalDateTime.of(2098, 12, 1, 8, 15));
+        try {
+            assertThatThrownBy(() -> processor.process(event)).isInstanceOf(BusinessException.class);
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=11003", String.class))
+                    .isEqualTo("PENDING_PAYMENT");
+            assertThat(jdbcTemplate.queryForObject("SELECT held_capacity FROM schedules WHERE id=4", Integer.class)).isEqualTo(1);
+            assertThat(jdbcTemplate.queryForObject("SELECT available_capacity FROM schedules WHERE id=4", Integer.class)).isEqualTo(1);
+            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM appointment_active_claims WHERE appointment_order_id=11003", Integer.class)).isEqualTo(1);
+            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM coordination_inbox_events WHERE event_id=?", Integer.class, event.eventId())).isZero();
+            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM payment_refunds WHERE payment_order_id=11004", Integer.class)).isZero();
+            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM payment_outbox_events WHERE aggregate_id=11004", Integer.class)).isZero();
+        } finally {
+            jdbcTemplate.update("DELETE FROM appointment_active_claims WHERE appointment_order_id=11003");
             jdbcTemplate.update("DELETE FROM payment_attempts WHERE payment_order_id=11004");
             jdbcTemplate.update("DELETE FROM payment_orders WHERE id=11004");
             jdbcTemplate.update("DELETE FROM appointment_orders WHERE id=11003");
