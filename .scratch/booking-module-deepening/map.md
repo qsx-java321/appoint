@@ -47,8 +47,8 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 | 06 | [预约与支付生命周期 interface 深度化](issues/06-lifecycle-interfaces.md) | refactor | resolved | 03、04、05、11 | 已验收 | 完整预约操作封装库存/序号/占用；MANDATORY |
 | 07 | [跨模块生命周期决策与流程编排收口](issues/07-coordination-process-manager.md) | refactor | resolved | 05、06 | 已验收 | 取消/过期/确认/对账纯决策；保留入口差异 |
 | 08 | [迁移支付测试并删除 dev/test 旧模拟路径](issues/08-remove-legacy-payment-simulation.md) | cleanup | resolved | 07 | 已验收 | 正式支付测试迁移；已授权删除dev/test旧端点 |
-| 09 | [架构、并发与消息可靠性最终门禁](issues/09-architecture-and-reliability-gates.md) | test | ready-for-agent | 02、07、08、11、12 | 依赖未完成 | 架构违规反例；MySQL竞争与真实消息故障窗口 |
-| 10 | [最终 interface、流程与验证文档交付](issues/10-documentation-delivery.md) | docs | ready-for-agent | 09 | 依赖未完成 | 当前契约/流程/ADR/验证记录一致，已知限制交付 |
+| 09 | [架构、并发与消息可靠性最终门禁](issues/09-architecture-and-reliability-gates.md) | test | resolved | 02、07、08、11、12 | 已验收 | 架构违规反例；MySQL竞争与真实消息故障窗口 |
+| 10 | [最终 interface、流程与验证文档交付](issues/10-documentation-delivery.md) | docs | ready-for-agent | 09 | 可开始 | 当前契约/流程/ADR/验证记录一致，已知限制交付 |
 
 ## 推荐执行顺序
 
@@ -158,3 +158,5 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 - 2026-11-09：07独立快照聚焦92、常规223、MySQL34、可靠性14及Compose通过，零跳过，07 resolved。06提交1255737；下一阶段08正式支付测试迁移及已授权Legacy删除。
 
 - 2026-11-09：08独立快照常规225、MySQL34、可靠性14及Compose通过，零跳过，08 resolved。07提交0a983b6；下一阶段09，依赖02/07/08/11/12均已验收。
+
+- 2026-11-09：09最终独立暂存快照聚焦18、常规233、MySQL34、可靠性15及Compose全部通过，零失败/错误/跳过；源码/构建/验收文件与快照逐字节一致，09 resolved。08提交b71c89f；下一阶段10文档交付。

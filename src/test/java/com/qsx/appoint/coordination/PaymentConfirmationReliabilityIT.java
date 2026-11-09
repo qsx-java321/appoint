@@ -43,7 +43,7 @@ class PaymentConfirmationReliabilityIT {
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
             .withDatabaseName("appoint").withUsername("appoint").withPassword("appoint-test");
     @Container
-    static final RabbitMQContainer RABBIT = new RabbitMQContainer("rabbitmq:4.1-management");
+    static final RabbitMQContainer RABBIT = new RabbitMQContainer("rabbitmq:4.3.2-management");
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -203,7 +203,7 @@ class PaymentConfirmationReliabilityIT {
         var connection = connectionFactory.createConnection();
         var channel = connection.createChannel(false);
         try {
-            channel.queueDeclare(queue, false, false, false, null);
+            channel.queueDeclare(queue, true, false, false, null);
             channel.basicPublish("", queue, null, body);
             var first = channel.basicGet(queue, false);
             assertThat(first).isNotNull();
@@ -272,6 +272,88 @@ class PaymentConfirmationReliabilityIT {
             assertThat(inboxCount(eventId)).isEqualTo(1);
             assertThat(jdbcTemplate.queryForObject("SELECT next_visit_number FROM schedules WHERE id=4",Integer.class)).isEqualTo(2);
         });
+    }
+
+    @Test
+    void failureAfterBusinessWritesBeforeCommitRollsBackThenRetryConfirmsOnce() throws Exception {
+        rollbackFixture();
+        PaymentOutboxEvent event=pendingEvent();
+        var envelope=(com.fasterxml.jackson.databind.node.ObjectNode)objectMapper.readTree(event.getPayload());
+        envelope.put("aggregateId",25004L);
+        var payload=(com.fasterxml.jackson.databind.node.ObjectNode)envelope.get("payload");
+        payload.put("paymentOrderId",25004L);
+        payload.put("appointmentOrderId",25003L);
+        payload.put("paymentAttemptId",25005L);
+        event.setAggregateId(25004L);
+        event.setPayload(objectMapper.writeValueAsString(envelope));
+        var fault=applicationContext.getBean(BeforeCommitFailureProcessor.class).failOnce(event.getEventId());
+        outboxMapper.insert(event);
+        try {
+            publisher.publishDue();
+            assertThat(fault.rolledBack.await(10,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(inboxCount(event.getEventId())).isZero();
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=25003",String.class)).isEqualTo("PENDING_PAYMENT");
+            assertThat(jdbcTemplate.queryForObject("SELECT held_capacity FROM schedules WHERE id=4",Integer.class)).isEqualTo(1);
+            assertThat(jdbcTemplate.queryForObject("SELECT confirmed_capacity FROM schedules WHERE id=4",Integer.class)).isZero();
+            assertThat(jdbcTemplate.queryForObject("SELECT next_visit_number FROM schedules WHERE id=4",Integer.class)).isEqualTo(1);
+            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM appointment_active_claims WHERE appointment_order_id=25003",Integer.class)).isEqualTo(1);
+        } finally { fault.release.countDown(); }
+        await().untilAsserted(() -> {
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=25003",String.class)).isEqualTo("CONFIRMED");
+            assertThat(inboxCount(event.getEventId())).isEqualTo(1);
+            assertThat(jdbcTemplate.queryForObject("SELECT confirmed_capacity FROM schedules WHERE id=4",Integer.class)).isEqualTo(1);
+            assertThat(jdbcTemplate.queryForObject("SELECT held_capacity FROM schedules WHERE id=4",Integer.class)).isZero();
+            assertThat(jdbcTemplate.queryForObject("SELECT next_visit_number FROM schedules WHERE id=4",Integer.class)).isEqualTo(2);
+            assertThat(fault.calls.get()).isEqualTo(2);
+        });
+    }
+
+    @org.springframework.boot.test.context.TestConfiguration
+    static class FailureConfiguration {
+        @org.springframework.context.annotation.Bean
+        @org.springframework.context.annotation.Primary
+        BeforeCommitFailureProcessor beforeCommitFailureProcessor(
+                @org.springframework.beans.factory.annotation.Qualifier("defaultPaymentSucceededProcessor")
+                com.qsx.appoint.coordination.application.PaymentSucceededProcessor delegate) {
+            return new BeforeCommitFailureProcessor(delegate);
+        }
+    }
+
+    static class FailureWindow {
+        final String eventId;
+        final java.util.concurrent.atomic.AtomicBoolean armed=new java.util.concurrent.atomic.AtomicBoolean(true);
+        final java.util.concurrent.atomic.AtomicInteger calls=new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.CountDownLatch rolledBack=new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch release=new java.util.concurrent.CountDownLatch(1);
+        FailureWindow(String eventId) { this.eventId=eventId; }
+    }
+
+    static class BeforeCommitFailureProcessor implements com.qsx.appoint.coordination.application.PaymentSucceededProcessor {
+        private final com.qsx.appoint.coordination.application.PaymentSucceededProcessor delegate;
+        private volatile FailureWindow window;
+        BeforeCommitFailureProcessor(com.qsx.appoint.coordination.application.PaymentSucceededProcessor delegate) { this.delegate=delegate; }
+        public FailureWindow failOnce(String eventId) { window=new FailureWindow(eventId); return window; }
+        @Override
+        @org.springframework.transaction.annotation.Transactional
+        public String process(com.qsx.appoint.coordination.application.PaymentSucceededEvent event) {
+            FailureWindow current=window;
+            if (current != null && current.eventId.equals(event.eventId())) current.calls.incrementAndGet();
+            String result=delegate.process(event);
+            if (current != null && current.eventId.equals(event.eventId()) && current.armed.compareAndSet(true,false)) {
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override public void afterCompletion(int status) {
+                                if (status == STATUS_ROLLED_BACK) {
+                                    current.rolledBack.countDown();
+                                    try { current.release.await(10,java.util.concurrent.TimeUnit.SECONDS); }
+                                    catch (InterruptedException exception) { Thread.currentThread().interrupt(); }
+                                }
+                            }
+                        });
+                throw new IllegalStateException("测试注入：业务写入后、提交前失败");
+            }
+            return result;
+        }
     }
 
     private PaymentOutboxEvent pendingEvent() throws Exception {
@@ -365,6 +447,37 @@ class PaymentConfirmationReliabilityIT {
                   (id,payment_no,appointment_order_id,user_id,status,amount,currency,expires_at,legacy)
                 VALUES (23004,'P23004',23003,23001,'PAID',50.00,'CNY','2098-12-01 08:15:00',FALSE)
                 """);
+    }
+
+    private void rollbackFixture() {
+        jdbcTemplate.update("""
+                UPDATE schedules SET status='OPEN', session_type='MORNING', start_time='08:00:00', end_time='12:00:00',
+                  total_capacity=2, available_capacity=1, held_capacity=1, confirmed_capacity=0,
+                  next_visit_number=1, registration_fee=50.00, fee_currency='CNY' WHERE id=4
+                """);
+        jdbcTemplate.update("INSERT INTO users (id,email,password_hash) VALUES (25001,'before-commit@example.com','hash')");
+        jdbcTemplate.update("""
+                INSERT INTO patients (id,user_id,name,document_type,document_no,contact_phone,contact_email)
+                VALUES (25002,25001,'测试','RESIDENT_ID_CARD','110105199001012501','13800000000','p@example.com')
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO appointment_orders
+                  (id,appointment_no,user_id,schedule_id,patient_id,patient_name,patient_document_type,
+                   patient_document_no,patient_contact_phone,patient_contact_email,doctor_id,doctor_no,
+                   doctor_name,doctor_title,department_id,department_name,hospital_id,hospital_name,
+                   hospital_address,appointment_date,start_time,end_time,status,payment_expires_at,
+                   fee_amount,fee_currency)
+                VALUES (25003,'A25003',25001,4,25002,'测试','RESIDENT_ID_CARD','110105199001012501',
+                        '13800000000','p@example.com',1,'DOC000001','张医生','主任医师',1,'内科',1,
+                        '示例市第一人民医院','示例市健康路 1 号','2099-01-01','09:00:00','09:30:00',
+                        'PENDING_PAYMENT','2098-12-01 08:15:00',50.00,'CNY')
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO payment_orders
+                  (id,payment_no,appointment_order_id,user_id,status,amount,currency,expires_at,legacy)
+                VALUES (25004,'P25004',25003,25001,'PAID',50.00,'CNY','2098-12-01 08:15:00',FALSE)
+                """);
+        jdbcTemplate.update("INSERT INTO appointment_active_claims (schedule_id,appointment_order_id,patient_id,document_type,document_no) VALUES (4,25003,25002,'RESIDENT_ID_CARD','110105199001012501')");
     }
 
     private void callbackFixture() {

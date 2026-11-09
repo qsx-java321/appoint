@@ -46,7 +46,7 @@ class OutboxPublisherReliabilityIT {
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
             .withDatabaseName("appoint").withUsername("appoint").withPassword("appoint-test");
     @Container
-    static final RabbitMQContainer RABBIT = new RabbitMQContainer("rabbitmq:4.1-management");
+    static final RabbitMQContainer RABBIT = new RabbitMQContainer("rabbitmq:4.3.2-management");
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {

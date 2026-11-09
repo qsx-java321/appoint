@@ -2,7 +2,7 @@
 
 Type: test
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 Blocked by: 02, 07, 08, 11, 12
 
 设计依据：[spec](../spec.md)，执行位置：[map](../map.md)。初始 Status 使用 triage 标签表示待认领；开始实施改为 claimed，验收完成改为 resolved。Triage 不代表依赖已解除。
@@ -81,12 +81,16 @@ Blocked by: 02, 07, 08, 11, 12
 
 ## 完成状态清单
 
-- [ ] 架构规则及违规反例完成
-- [ ] 01覆盖对照和浅测试整理
-- [ ] MySQL全部锁竞争通过
-- [ ] 真实消息故障窗口/重试/DLQ通过
-- [ ] 三层结果及已知限制记录
+- [x] 架构规则及违规反例完成
+- [x] 01覆盖对照和浅测试整理
+- [x] MySQL全部锁竞争通过
+- [x] 真实消息故障窗口/重试/DLQ通过
+- [x] 三层结果及已知限制记录
 
 ## Comments
 
 - 2026-11-08：根据源码复核后的spec创建。仅完成任务定义，未认领、未实施；本轮基线结果见map，不等同于本issue验收结果。 依赖尚未resolved，暂不可开始实施。
+
+- 2026-11-09：08已在b71c89f验收，依赖全部resolved。新增架构规则及故意违规fixture：写implementation（含未注解公开具体类型）、公开返回Entity及泛型、Controller→Mapper、query继承写接口/写注解/伪装SELECT写语句/锁定读；生产规则和反例聚焦16项通过。补真实消费者业务写后提交前故障窗口（测试配置装饰公开Processor，回滚后暂停以核实Inbox/库存/序号/占用，再放行实际Broker重试）；保留12提交后ACK前故障窗口与05Broker停机真实回调。RabbitMQ两份IT镜像对齐Compose的4.3.2。完整快照尚待验收。
+
+- 2026-11-09：最终暂存树 `990dc71f121d17c7441621ebce9490727d3d4753` 导出 `/tmp/booking-09-snapshot-8eo2fl37`，串行执行 `./mvnw -o -Dtest=ModuleDependencyTest,BookingQueryServiceTest test`（18）、`./mvnw -o test`（233）、`./mvnw -o -Pmysql-it verify`（常规233+MySQL34）、`./mvnw -o -Preliability-it verify`（常规233+可靠性15）及 `python3 scripts/compose_acceptance.py`，全部通过、零失败/错误/跳过。按profile筛选XML核对，未把保留的MySQL报告累计为可靠性数量。RabbitMQ统一4.3.2；初次聚焦遇到非持久非独占测试队列被Broker拒绝，改为持久测试队列后通过，生产拓扑无改动。查询Clock测试已改为真实Assembler响应断言，重复只读浅检查由完整规则替代；01覆盖对照见baseline。源码/构建/验收281个文件与被测快照逐字节相同。日志 `/tmp/booking-09-final-{focused,test,mysql,reliability,compose}.log`；09 resolved，未改变生产行为或业务库数据。只读复核默认库V9、预约0、支付0、历史候选0。已知限制：真实支付未接入；保留查询与写入口权限差异及PROCESSING+CLOSED迟到补偿契约；测试不宣称证明任意负载/动态SQL。

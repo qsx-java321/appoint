@@ -91,3 +91,27 @@
 ### 08 暂存快照实际验收
 
 2026-11-09，`/tmp/booking-08-snapshot-ddye990u`：常规225、MySQL34、可靠性14及Compose全部通过，零失败/错误/跳过；日志 `/tmp/booking-08-{test,mysql,reliability,compose}.log`。六组旧测试经真实attempt/签名/Ingress/Outbox/Codec/Processor迁移，快速helper不冒充Broker传输。H2 JSON额外字符串编码只在helper按数据库类型适配，MySQL使用原v1文档；生产Codec、schema不变。删除全部已授权旧同步入口及无调用能力；三profile请求映射验收通过。
+
+## 09 覆盖保留与替换对照
+
+对照 [01 状态矩阵](state-matrix.md) 的全部入口与副作用，原有用例保留；08 只替换旧支付驱动方式，09 将查询时间的浅调用验证替换为真实响应断言。下表列最终测试表面，不以数量增长代替行为覆盖。
+
+| 01 覆盖组 | 最终保留/替代证据（相对测试包 com.qsx.appoint） |
+| --- | --- |
+| 创建幂等、日期窗口、跨零点回滚、凭证快照 | appointment/BookingMidnightIntegrationTest、OnDemandBookingHttpTest、AppointmentLifecycleMySqlIT（首次场次、最后库存、幂等键、就诊人竞争） |
+| 取消/过期/对账的错误优先级、布尔返回、原因和截止边界 | coordination/PaymentSucceededProcessorIntegrationTest、BookingLifecyclePolicyTest；appointment/AppointmentLifecycleIntegrationTest |
+| Inbox重复、已确认新事件、已关闭补偿、迟到等于/晚于截止 | PaymentSucceededProcessorIntegrationTest；coordination/LatePaymentMySqlIT（不同事件+取消+过期竞争）；Compose真实迟到收款验收 |
+| 释放/退款失败原子回滚、库存及序号单副作用 | 同上集成测试；appointment/AppointmentLifecycleInterfaceTest（事务契约）；PaymentConfirmationReliabilityIT 提交前故障和提交后ACK前断链 |
+| 通知幂等、验签、金额币种、错误顺序、迟到失败与状态组合 | payment/application/PaymentNotificationPolicyTest、PaymentNotificationBoundaryTest；payment/PaymentNotificationMySqlIT |
+| payment父锁、尝试T2/退款worker竞争和Outbox原子性 | payment/application/PaymentParentLockMySqlIT、PaymentNotificationAtomicityTest；payment/PaymentAttemptMySqlIT；具体路径见05记录 |
+| workflow合法/历史/非法组合、查询归属和权限、兼容字符串 | bookingquery/application/BookingWorkflowProjectorTest、AppointmentResponseAssemblerTest、BookingQueryServiceTest；appointment/AppointmentQueryIntegrationTest；coordination/LifecycleLanguageTest |
+| Outbox确认/return/崩溃重复/SKIP LOCKED、Broker停机 | payment/OutboxPublisherReliabilityIT；coordination/PaymentConfirmationReliabilityIT.realSignedCallbackCommitsWhileBrokerIsDownThenConfirmsAfterRecovery |
+| 两次TTL重试、耗尽DLQ、确认失败不ACK及受控重放 | common/messaging/ConfirmedMessagePublisherTest、coordination/messaging/PaymentSucceededListenerTest、OutboxPublisherReliabilityIT、PaymentConfirmationReliabilityIT |
+| 正式支付链路与旧入口删除 | FormalPaymentTestSupport组合真实attempt/签名/Ingress/Outbox/Codec/Processor；三profile映射测试；Compose承担真实Broker和HTTP全链路 |
+| 模块依赖、深interface不泄漏Entity、query只读 | architecture/ModuleDependencyTest 的生产检查与故意违规fixture，包含继承公开方法、泛型Entity、Controller→Mapper、继承写接口/写注解/锁定读 |
+
+快速helper不证明消息传输；H2不证明MySQL锁/唯一约束。架构SQL检查是现有静态Mapper的保守门禁，不宣称证明任意动态SQL语义。真实资金渠道、线上负载与历史异常自动修复不在本轮验收范围。
+
+### 09 最终暂存快照实际验收
+
+2026-11-09，暂存树 `990dc71f121d17c7441621ebce9490727d3d4753`，快照 `/tmp/booking-09-snapshot-8eo2fl37`：聚焦18、常规233、MySQL34、RabbitMQ4.3.2可靠性15全部通过，失败/错误/跳过均0；Compose正常支付、异步确认、取消退款及迟到支付释放退款通过并清理本次资源。日志 `/tmp/booking-09-final-{focused,test,mysql,reliability,compose}.log`。三层按profile分别统计，常规重复执行不重复相加。全部源码/构建/验收文件与快照相同；仅本节、issue状态和map验收结果在测试后补记。最终报告将在10交付。

@@ -16,21 +16,33 @@ import static org.mockito.Mockito.*;
 class BookingQueryServiceTest {
     private final BookingQueryMapper mapper = mock(BookingQueryMapper.class);
     private final Clock clock = mock(Clock.class);
-    private final AppointmentResponseAssembler assembler = mock(AppointmentResponseAssembler.class);
+    private final AppointmentResponseAssembler assembler = new AppointmentResponseAssembler(new BookingWorkflowProjector());
     private final DefaultBookingQueryService service = new DefaultBookingQueryService(mapper, clock, assembler);
 
     @Test
     void listUsesOneTruncatedServerTimeForAllRows() {
-        var first = new BookingQueryRecord();
-        var second = new BookingQueryRecord();
+        var first = validRecord();
+        var second = validRecord();
         when(mapper.selectByUserId(1L)).thenReturn(List.of(first, second));
         when(clock.getZone()).thenReturn(ZoneId.of("Asia/Shanghai"));
         when(clock.instant()).thenReturn(Instant.parse("2026-11-09T00:00:00.999Z"), Instant.parse("2026-11-09T00:00:01Z"));
-        service.listMine(1L);
+        var responses = service.listMine(1L);
         var now = LocalDateTime.of(2026, 11, 9, 8, 0);
-        verify(assembler).assemble(first, now);
-        verify(assembler).assemble(second, now);
+        assertThat(responses).hasSize(2).allSatisfy(response -> assertThat(response.getServerTime()).isEqualTo(now));
         verify(clock, times(1)).instant();
+    }
+
+    private BookingQueryRecord validRecord() {
+        var record = new BookingQueryRecord();
+        record.setAppointmentUserId(1L);
+        record.setPaymentUserId(1L);
+        record.setPaymentOrderId(2L);
+        record.setStatus("PENDING_PAYMENT");
+        record.setPaymentStatus("UNPAID");
+        record.setAppointmentDate(java.time.LocalDate.of(2026, 11, 10));
+        record.setStartTime(java.time.LocalTime.of(8, 0));
+        record.setPatientDocumentNo("110105199001010010");
+        return record;
     }
 
     @Test
@@ -44,6 +56,6 @@ class BookingQueryServiceTest {
         assertThatThrownBy(() -> service.getOwned(1L, 2L))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
-        verifyNoInteractions(assembler, clock);
+        verifyNoInteractions(clock);
     }
 }

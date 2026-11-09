@@ -103,11 +103,137 @@ class ModuleDependencyTest {
                 assertThat(String.join(" ", select.value())).doesNotContain("payment_orders");
             }
         }
-        for (var method : BookingQueryMapper.class.getDeclaredMethods()) {
-            assertThat(method.getAnnotation(Insert.class)).isNull();
-            assertThat(method.getAnnotation(Update.class)).isNull();
-            assertThat(method.getAnnotation(Delete.class)).isNull();
-            assertThat(method.getAnnotation(Select.class)).isNotNull();
+
+    }
+    @Test
+    void coordinationOnlyUsesWriteModuleInterfacesAndFacts() {
+        implementationRule().check(productionClasses);
+    }
+
+    @Test
+    void implementationRuleRejectsAConcreteWriteDependency() {
+        var fixture = new ClassFileImporter().importClasses(
+                com.qsx.appoint.coordination.archfixture.CoordinationToImplementationDependency.class,
+                com.qsx.appoint.payment.application.archfixture.ForbiddenPaymentImplementation.class,
+                com.qsx.appoint.payment.application.archfixture.ConcretePaymentWriter.class);
+        assertThatThrownBy(() -> implementationRule().check(fixture)).isInstanceOf(AssertionError.class)
+                .hasMessageContaining("ForbiddenPaymentImplementation").hasMessageContaining("ConcretePaymentWriter");
+    }
+
+    private ArchRule implementationRule() {
+        var implementation = new com.tngtech.archunit.base.DescribedPredicate<com.tngtech.archunit.core.domain.JavaClass>("write application implementation") {
+            @Override public boolean test(com.tngtech.archunit.core.domain.JavaClass type) {
+                String name = type.getPackageName();
+                boolean writeApplication = name.startsWith("com.qsx.appoint.appointment.application")
+                        || name.startsWith("com.qsx.appoint.payment.application");
+                if (!writeApplication) return false;
+                try {
+                    Class<?> reflected = Class.forName(type.getName(),false,getClass().getClassLoader());
+                    if (reflected.isInterface() || reflected.isRecord() || reflected.isEnum()) return false;
+                    return java.lang.reflect.Modifier.isPublic(reflected.getModifiers())
+                            || type.isAnnotatedWith(org.springframework.stereotype.Service.class)
+                            || type.isAnnotatedWith(org.springframework.stereotype.Component.class)
+                            || type.getSimpleName().endsWith("Impl") || type.getSimpleName().startsWith("Default");
+                } catch (ClassNotFoundException exception) { throw new IllegalStateException(exception); }
+            }
+        };
+        return noClasses().that().resideInAPackage("..coordination..")
+                .should().dependOnClassesThat(implementation).allowEmptyShould(true);
+    }
+
+    @Test
+    void publicApplicationReturnsDoNotExposePersistenceEntities() throws Exception {
+        for (var imported : productionClasses) {
+            if (imported.getPackageName().contains(".application")) {
+                var type = Class.forName(imported.getName(),false,getClass().getClassLoader());
+                assertPublicReturnTypes(type);
+            }
         }
     }
+
+    @Test
+    void entityReturnRuleRejectsDirectAndGenericLeaks() throws Exception {
+        var type = com.qsx.appoint.payment.application.archfixture.LeakingPaymentContract.class;
+        for (var method : type.getMethods()) {
+            assertThat(containsEntity(method.getGenericReturnType(),new java.util.HashSet<>())).as(method.toString()).isTrue();
+        }
+        assertThatThrownBy(() -> assertPublicReturnTypes(type)).isInstanceOf(AssertionError.class);
+    }
+
+    private void assertPublicReturnTypes(Class<?> type) {
+        if (!java.lang.reflect.Modifier.isPublic(type.getModifiers())) return;
+        for (var method : type.getMethods()) {
+            if (java.lang.reflect.Modifier.isPublic(method.getModifiers())) {
+                assertThat(containsEntity(method.getGenericReturnType(),new java.util.HashSet<>()))
+                        .as("application返回值不得泄漏Entity: %s",method).isFalse();
+            }
+        }
+    }
+
+    private boolean containsEntity(java.lang.reflect.Type type, java.util.Set<java.lang.reflect.Type> visited) {
+        if (!visited.add(type)) return false;
+        if (type instanceof Class<?> concrete) {
+            return concrete.getPackageName().matches("com\\.qsx\\.appoint\\.(appointment|payment)\\.entity.*")
+                    || (concrete.isArray() && containsEntity(concrete.getComponentType(),visited));
+        }
+        if (type instanceof java.lang.reflect.ParameterizedType generic) {
+            if (containsEntity(generic.getRawType(),visited)) return true;
+            for (var argument : generic.getActualTypeArguments()) if (containsEntity(argument,visited)) return true;
+        }
+        if (type instanceof java.lang.reflect.GenericArrayType array) return containsEntity(array.getGenericComponentType(),visited);
+        if (type instanceof java.lang.reflect.WildcardType wildcard) {
+            for (var bound : wildcard.getUpperBounds()) if (containsEntity(bound,visited)) return true;
+            for (var bound : wildcard.getLowerBounds()) if (containsEntity(bound,visited)) return true;
+        }
+        if (type instanceof java.lang.reflect.TypeVariable<?> variable) {
+            for (var bound : variable.getBounds()) if (containsEntity(bound,visited)) return true;
+        }
+        return false;
+    }
+
+    @Test
+    void controllersDoNotAccessMappers() { controllerRule().check(productionClasses); }
+
+    @Test
+    void controllerRuleRejectsDirectMapperAccess() {
+        var fixture = new ClassFileImporter().importClasses(
+                com.qsx.appoint.appointment.controller.archfixture.ControllerToMapperDependency.class);
+        assertThatThrownBy(() -> controllerRule().check(fixture)).isInstanceOf(AssertionError.class)
+                .hasMessageContaining("AppointmentOrderMapper");
+    }
+
+    private ArchRule controllerRule() {
+        return noClasses().that().areAnnotatedWith(org.springframework.web.bind.annotation.RestController.class)
+                .should().dependOnClassesThat().resideInAnyPackage("..mapper..", "..persistence..")
+                .allowEmptyShould(true);
+    }
+
+    @Test
+    void queryMapperHasOnlyNonLockingStaticReadMethodsIncludingInheritedSurface() {
+        assertReadOnly(BookingQueryMapper.class);
+    }
+
+    @Test
+    void queryRuleRejectsInheritedAnnotatedDisguisedAndLockingWrites() {
+        for (Class<?> fixture : com.qsx.appoint.architecture.fixture.WritableQueryFixtures.class.getDeclaredClasses()) {
+            assertThatThrownBy(() -> assertReadOnly(fixture)).as(fixture.getName()).isInstanceOf(AssertionError.class);
+        }
+    }
+
+    private void assertReadOnly(Class<?> mapper) {
+        assertThat(com.baomidou.mybatisplus.core.mapper.BaseMapper.class.isAssignableFrom(mapper)).isFalse();
+        for (var method : mapper.getMethods()) {
+            var select = method.getAnnotation(Select.class);
+            assertThat(select).as("只读Mapper所有公开方法必须声明静态SELECT: %s",method).isNotNull();
+            for (Class<? extends java.lang.annotation.Annotation> write : java.util.List.of(Insert.class,Update.class,Delete.class,
+                    org.apache.ibatis.annotations.InsertProvider.class,org.apache.ibatis.annotations.UpdateProvider.class,
+                    org.apache.ibatis.annotations.DeleteProvider.class)) {
+                assertThat(method.getAnnotation(write)).isNull();
+            }
+            String sql = String.join(" ",select.value()).toUpperCase(java.util.Locale.ROOT);
+            assertThat(sql).doesNotMatch("(?s).*\\b(INSERT|UPDATE|DELETE|REPLACE|MERGE|CALL)\\b.*");
+            assertThat(sql).doesNotMatch("(?s).*\\b(FOR\\s+SHARE|LOCK\\s+IN\\s+SHARE\\s+MODE)\\b.*");
+        }
+    }
+
 }
