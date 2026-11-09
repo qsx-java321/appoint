@@ -83,3 +83,7 @@
 独立快照 `/tmp/booking-06-snapshot-m2251go_` 已通过聚焦72、常规181、MySQL34，均零失败/错误/跳过，消息14项及Compose验收全部通过。当前事务同步器保存身份Map/Set，拒绝find/复制/跨事务Case；REQUIRES_NEW挂起恢复、库存/序号及关闭回滚有接口集成测试。coordination已无场次锁、分步库存操作及nextVisitNumber；Legacy markPaid保留至08。全部门禁通过，06 resolved。
 
 06最终日志 `/tmp/booking-06-{focused,test,mysql,reliability,compose}.log`，代码与独立快照一致；Legacy专用markPaid及端点将在08整体删除。
+
+### 07 暂存快照实际验收
+
+2026-11-09，`/tmp/booking-07-snapshot-syfyevyo`：聚焦92、常规223、MySQL34、可靠性14及Compose全部通过，零失败/错误/跳过。新增42项纯Policy决策矩阵；日志 `/tmp/booking-07-{focused,test,mysql,reliability,compose}.log`。保留原短路、取时、退款原因、布尔及事件结果字符串；Legacy同步入口仅待08删除。

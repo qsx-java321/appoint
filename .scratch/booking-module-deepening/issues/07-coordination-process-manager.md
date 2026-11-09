@@ -2,7 +2,7 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 Blocked by: 05, 06
 
 设计依据：[spec](../spec.md)，执行位置：[map](../map.md)。初始 Status 使用 triage 标签表示待认领；开始实施改为 claimed，验收完成改为 resolved。Triage 不代表依赖已解除。
@@ -80,12 +80,16 @@ Blocked by: 05, 06
 
 ## 完成状态清单
 
-- [ ] 生命周期Policy及有数据决策完成
-- [ ] 取消/过期/对账/消费编排迁移
-- [ ] 短路、错误顺序与退款原因回归
-- [ ] Inbox原子性及三层测试通过
-- [ ] 既有缺口独立记录与Comments更新
+- [x] 生命周期Policy及有数据决策完成
+- [x] 取消/过期/对账/消费编排迁移
+- [x] 短路、错误顺序与退款原因回归
+- [x] Inbox原子性及三层测试通过
+- [x] 既有缺口独立记录与Comments更新
 
 ## Comments
 
 - 2026-11-08：根据源码复核后的spec创建。仅完成任务定义，未认领、未实施；本轮基线结果见map，不等同于本issue验收结果。 依赖尚未resolved，暂不可开始实施。
+
+- 2026-11-09：06已在1255737验收。新增package-private纯BookingLifecyclePolicy及具名取消/过期/确认决策，取消决策分别携带closeReason/refundReason/refundPending。协调用例保持原锁/归属/完整性与提前返回时机；未到期过期入口不锁支付，未到期已付对账仍处理，关闭取消仍不取新时钟，活跃决策原位置取一次now。事件仍validate→Inbox→锁预约→Policy→完整操作，不重读支付；11释放及12重试行为保留。首轮现有聚焦通过，纯矩阵及最终快照继续验收。
+
+- 2026-11-09：独立暂存快照 `/tmp/booking-07-snapshot-syfyevyo` 聚焦92、常规223、MySQL34、可靠性14及Compose全部通过，零失败/错误/跳过。纯Policy无Spring/Mapper/Clock/Gateway依赖，取消布尔/原因、paidAt缺失及截止边界、事件终态、入口短路和Inbox原子性回归通过。07 resolved。

@@ -1,7 +1,6 @@
 package com.qsx.appoint.coordination.application;
 
 import com.qsx.appoint.appointment.domain.AppointmentCloseReason;
-import com.qsx.appoint.appointment.domain.AppointmentStatus;
 import com.qsx.appoint.payment.domain.RefundReason;
 import com.qsx.appoint.appointment.application.AppointmentLifecycle;
 import com.qsx.appoint.appointment.application.AppointmentLifecycleCase;
@@ -23,6 +22,7 @@ import java.util.UUID;
 class DefaultPaymentSucceededProcessor implements PaymentSucceededProcessor {
     private static final String CONSUMER = "appointment-payment-succeeded-v1";
 
+    private final BookingLifecyclePolicy policy = new BookingLifecyclePolicy();
     private final CoordinationInboxEventMapper inboxMapper;
     private final AppointmentLifecycle appointments;
     private final PaymentRefundOperations refunds;
@@ -40,19 +40,22 @@ class DefaultPaymentSucceededProcessor implements PaymentSucceededProcessor {
         if (appointment == null || !appointment.id().equals(event.appointmentOrderId())) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         }
-        if (appointment.status() == AppointmentStatus.CONFIRMED) return "ALREADY_CONFIRMED";
-        if (appointment.status() != AppointmentStatus.PENDING_PAYMENT) {
-            refunds.requestFullRefund(event.paymentOrderId(), RefundReason.APPOINTMENT_NOT_CONFIRMABLE);
-            return "REFUND_REQUIRED";
-        }
-        if (!event.paidAt().isBefore(appointment.paymentExpiresAt())) {
-            appointments.closePending(appointment, AppointmentCloseReason.PAYMENT_EXPIRED, now());
-            refunds.requestFullRefund(event.paymentOrderId(), RefundReason.APPOINTMENT_NOT_CONFIRMABLE);
-            return "REFUND_REQUIRED";
-        }
-
-        appointments.confirm(appointment);
-        return "CONFIRMED";
+        return switch (policy.decidePaymentConfirmation(appointment,event)) {
+            case ALREADY_CONFIRMED -> "ALREADY_CONFIRMED";
+            case REFUND_CLOSED -> {
+                refunds.requestFullRefund(event.paymentOrderId(),RefundReason.APPOINTMENT_NOT_CONFIRMABLE);
+                yield "REFUND_REQUIRED";
+            }
+            case EXPIRE_AND_REFUND -> {
+                appointments.closePending(appointment,AppointmentCloseReason.PAYMENT_EXPIRED,now());
+                refunds.requestFullRefund(event.paymentOrderId(),RefundReason.APPOINTMENT_NOT_CONFIRMABLE);
+                yield "REFUND_REQUIRED";
+            }
+            case CONFIRM -> {
+                appointments.confirm(appointment);
+                yield "CONFIRMED";
+            }
+        };
     }
 
     private void validate(PaymentSucceededEvent event) {
