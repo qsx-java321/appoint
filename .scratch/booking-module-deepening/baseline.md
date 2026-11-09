@@ -69,3 +69,7 @@
 本阶段增加AppointmentStatus、AppointmentCloseReason和RefundReason，并类型化两个生命周期快照、协调用例、回调Policy、查询内部状态判断及本轮attempt/退款请求判断。Entity/Mapper字段、Flyway、HTTP DTO和事件JSON保持原字符串；AppointmentHold/PaymentOrderResult作为创建响应事实继续使用稳定字符串，通用退款worker和发布器未因类型化重写。未知存储值通过fromStored映射INTERNAL_ERROR。聚焦74项通过；独立快照门禁运行中。
 
 03最终快照常规170、MySQL25、可靠性13及Compose全部通过，零失败/错误/跳过；日志 `/tmp/booking-03-{test,mysql,reliability,compose}.log`。源码与最终暂存快照一致，仅补充验证记录。
+
+### 04 暂存快照实际验收
+
+2026-11-09，`/tmp/booking-04-snapshot-cc6ytsf8`：聚焦22、常规170、MySQL25及Compose全部通过，零失败/错误/跳过；日志 `/tmp/booking-04-{focused,test,mysql,compose}.log`。本阶段仅创建内部private步骤提取，不改消息路径；可靠性代码与03通过的13项基线相同。

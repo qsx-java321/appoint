@@ -2,7 +2,7 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: claimed
+Status: resolved
 Blocked by: 03
 
 设计依据：[spec](../spec.md)，执行位置：[map](../map.md)。初始 Status 使用 triage 标签表示待认领；开始实施改为 claimed，验收完成改为 resolved。Triage 不代表依赖已解除。
@@ -74,14 +74,18 @@ Blocked by: 03
 
 ## 完成状态清单
 
-- [ ] 主方法及必要内部职责拆分
-- [ ] 最终日期与锁序保留
-- [ ] 快照/幂等/冲突/回滚回归
-- [ ] H2 与 MySQL 竞争通过
-- [ ] Comments/地图更新
+- [x] 主方法及必要内部职责拆分
+- [x] 最终日期与锁序保留
+- [x] 快照/幂等/冲突/回滚回归
+- [x] H2 与 MySQL 竞争通过
+- [x] Comments/地图更新
 
 ## Comments
 
 - 2026-11-08：根据源码复核后的spec创建。仅完成任务定义，未认领、未实施；本轮基线结果见map，不等同于本issue验收结果。 依赖尚未resolved，暂不可开始实施。
 
 - 2026-11-08：已提取就诊人校验和预约快照构造；其余整理及最新代码回归尚待完成。
+
+- 2026-11-09：03已验收，提取private lockOrCreateSchedule、holdOne和claimActiveAppointment；保留现有就诊人校验与快照Factory。主方法表达校验、场次锁定、就诊人/目录资料、最终占号、快照和占用保存。设置→场次→就诊人锁序及最终占号前Clock重读次数/错误优先级不变；只删除已明确非空doctor的冗余别名和空检查，不引入单实现interface或新框架。快照验收待执行。
+
+- 2026-11-09：独立快照 `/tmp/booking-04-snapshot-cc6ytsf8` 聚焦22、常规170、MySQL25及Compose正常/迟到支付真实链路全部通过，零失败/错误/跳过。无条件SQL、公开interface或schema变更，MANDATORY与外层同库创建事务保持。03提交fd6e446。04 resolved。

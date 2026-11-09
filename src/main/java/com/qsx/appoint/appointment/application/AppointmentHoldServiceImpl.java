@@ -54,8 +54,31 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
         LocalDateTime now = command.createdAt();
         AppointmentSession session = AppointmentSession.require(command.sessionType());
         validateBookingDate(command.appointmentDate());
-        Doctor selectedDoctor = doctorMapper.selectById(command.doctorId());
-        if (selectedDoctor == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        Doctor doctor = doctorMapper.selectById(command.doctorId());
+        if (doctor == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        Schedule schedule = lockOrCreateSchedule(command, session);
+
+        Patient patient = requireOwnedPatient(command.patientId(), command.userId());
+
+        Department department = departmentMapper.selectById(doctor.getDepartmentId());
+        Hospital hospital = department == null ? null : hospitalMapper.selectById(department.getHospitalId());
+        if (department == null || hospital == null) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        }
+        holdOne(schedule, command.appointmentDate());
+
+        AppointmentOrder appointment = createAppointmentSnapshot(
+                command, schedule, patient, doctor, department, hospital, now);
+        appointmentOrderMapper.insert(appointment);
+
+        claimActiveAppointment(schedule, appointment, patient, now);
+
+        return new AppointmentHold(appointment.getId(), appointment.getAppointmentNo(), command.userId(),
+                appointment.getStatus(), appointment.getFeeAmount(), appointment.getFeeCurrency(),
+                appointment.getPaymentExpiresAt(), now);
+    }
+
+    private Schedule lockOrCreateSchedule(CreateAppointmentHoldCommand command, AppointmentSession session) {
         BookingSettings settings = bookingSettingsMapper.selectForUpdate();
         if (settings == null) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         scheduleMapper.insertGenerated(command.doctorId(), command.appointmentDate(),
@@ -65,26 +88,21 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
                 command.doctorId(), command.appointmentDate(), session.name());
         validateBookingDate(command.appointmentDate());
         validateBookable(schedule);
+        return schedule;
+    }
 
-        Patient patient = requireOwnedPatient(command.patientId(), command.userId());
-
-        Doctor doctor = selectedDoctor;
-        Department department = doctor == null ? null : departmentMapper.selectById(doctor.getDepartmentId());
-        Hospital hospital = department == null ? null : hospitalMapper.selectById(department.getHospitalId());
-        if (doctor == null || department == null || hospital == null) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        }
-        validateBookingDate(command.appointmentDate());
+    /** 等待设置、场次、就诊人锁后重新读日期；SQL条件校验仍使用最终日期。 */
+    private void holdOne(Schedule schedule, LocalDate appointmentDate) {
+        validateBookingDate(appointmentDate);
         LocalDate finalAcceptanceDate = LocalDate.now(appointmentClock);
-        validateBookingDate(command.appointmentDate(), finalAcceptanceDate);
+        validateBookingDate(appointmentDate, finalAcceptanceDate);
         if (scheduleMapper.holdOneFutureSession(schedule.getId(), finalAcceptanceDate) != 1) {
             throw new BusinessException(ErrorCode.SCHEDULE_UNAVAILABLE);
         }
+    }
 
-        AppointmentOrder appointment = createAppointmentSnapshot(
-                command, schedule, patient, doctor, department, hospital, now);
-        appointmentOrderMapper.insert(appointment);
-
+    private void claimActiveAppointment(Schedule schedule, AppointmentOrder appointment, Patient patient,
+                                        LocalDateTime now) {
         AppointmentActiveClaim claim = new AppointmentActiveClaim();
         claim.setScheduleId(schedule.getId());
         claim.setAppointmentOrderId(appointment.getId());
@@ -97,10 +115,6 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
         } catch (DuplicateKeyException exception) {
             throw new BusinessException(ErrorCode.DUPLICATE_ACTIVE_APPOINTMENT);
         }
-
-        return new AppointmentHold(appointment.getId(), appointment.getAppointmentNo(), command.userId(),
-                appointment.getStatus(), appointment.getFeeAmount(), appointment.getFeeCurrency(),
-                appointment.getPaymentExpiresAt(), now);
     }
 
     private Patient requireOwnedPatient(Long patientId, Long userId) {
