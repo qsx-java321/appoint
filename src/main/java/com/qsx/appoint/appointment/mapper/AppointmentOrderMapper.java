@@ -9,17 +9,45 @@ import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
+/**
+ * 预约写模型持久化入口，包含条件迁移、普通定位、行锁及扫描候选读取。
+ * <p>Mapper不自行开启事务；FOR UPDATE须在外层事务生效，生命周期按场次→预约顺序使用。
+ * 更新返回影响行数，完整用例负责检查并回滚，不能把0行当成已完成全部业务。
+ */
 @Mapper
 public interface AppointmentOrderMapper extends BaseMapper<AppointmentOrder> {
+    /**
+     * 条件迁移PENDING_PAYMENT→CONFIRMED并保存场次内序号。
+     * @param id 预约单ID
+     * @param visitNumber 预约模块在已锁场次内分配的序号
+     * @return 命中行数，完整确认操作要求1，并与库存确认同事务
+     */
     @Update("UPDATE appointment_orders SET status = 'CONFIRMED', visit_number = #{visitNumber}, updated_at = CURRENT_TIMESTAMP WHERE id = #{id} AND status = 'PENDING_PAYMENT'")
     int confirmIfPending(@Param("id") Long id, @Param("visitNumber") Integer visitNumber);
 
+    /**
+     * 普通读取预约供定位场次或查询事实，不持有行锁。
+     * @param id 预约单ID
+     * @return 预约Entity，不存在为null；不能用此结果代替锁后复验
+     */
     @Select("SELECT * FROM appointment_orders WHERE id = #{id}")
     AppointmentOrder selectByIdForLookup(@Param("id") Long id);
 
+    /**
+     * 锁定预约行，调用前必须已按协议锁定场次。
+     * @param id 预约单ID
+     * @return 锁后预约，不存在为null
+     */
     @Select("SELECT * FROM appointment_orders WHERE id = #{id} FOR UPDATE")
     AppointmentOrder selectByIdForUpdate(@Param("id") Long id);
 
+    /**
+     * 按给定终态条件关闭待支付预约，库存释放和占用删除由完整生命周期操作负责。
+     * @param id 预约单ID
+     * @param status 可信关闭原因映射出的CANCELLED或EXPIRED，非客户端任意状态
+     * @param closedAt 本次业务关闭时间
+     * @return 命中行数，调用方要求1
+     */
     @Update("""
             UPDATE appointment_orders
             SET status = #{status}, closed_at = #{closedAt}, updated_at = CURRENT_TIMESTAMP
@@ -28,6 +56,10 @@ public interface AppointmentOrderMapper extends BaseMapper<AppointmentOrder> {
     int closeIfPending(@Param("id") Long id, @Param("status") String status,
                        @Param("closedAt") java.time.LocalDateTime closedAt);
 
+    /**
+     * 仅取消CONFIRMED预约，保留visit_number；与释放confirmed库存和删占用同事务。
+     * @return 命中行数，调用方要求1，0表示状态已不满足
+     */
     @Update("""
             UPDATE appointment_orders
             SET status = 'CANCELLED', closed_at = #{closedAt}, updated_at = CURRENT_TIMESTAMP
@@ -36,9 +68,22 @@ public interface AppointmentOrderMapper extends BaseMapper<AppointmentOrder> {
     int cancelIfConfirmed(@Param("id") Long id,
                           @Param("closedAt") java.time.LocalDateTime closedAt);
 
+    /**
+     * 按预约ID顺序锁定指定场次内待支付预约，保留既有持久化能力。
+     * <p>不是新停诊写入口；调用者应先持有场次锁。
+     * @return 锁后待支付列表，无记录为空
+     */
     @Select("SELECT * FROM appointment_orders WHERE schedule_id = #{scheduleId} AND status = 'PENDING_PAYMENT' ORDER BY id FOR UPDATE")
     List<AppointmentOrder> selectPendingByScheduleForUpdate(@Param("scheduleId") Long scheduleId);
 
+    /**
+     * 以固定扫描时间和截止+ID游标分批读取待支付到期候选，不加锁。
+     * @param scanTime 本轮固定上界，等于截止也列入
+     * @param cursorExpiresAt 上批最后截止，首批为null
+     * @param cursorId 同截止下的最后ID，与cursorExpiresAt配套
+     * @param limit 批大小上限
+     * @return 按截止、ID升序的候选；业务处理必须另开逐单锁定事务
+     */
     @Select("""
             <script>
             SELECT id, payment_expires_at

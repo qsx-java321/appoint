@@ -13,12 +13,21 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+/**
+ * 以创建请求表维护幂等事实，不在本类开启独立创建事务。
+ * <p>登记、预约和完成回执跟随BookingCreationTransaction一起提交；重放只返回预约标识，
+ * 不把已保存的首次响应当作最新支付/预约状态。
+ */
 @Service
 @RequiredArgsConstructor
 class AppointmentCreationRequestServiceImpl implements AppointmentCreationRequestService {
     private final AppointmentCreateRequestMapper mapper;
     private final AppointmentOrderMapper appointmentOrderMapper;
 
+    /**
+     * {@inheritDoc}
+     * <p>数据库唯一键负责并发同键争用；冲突直接交给外层事务回滚。
+     */
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public Long register(Long userId, String idempotencyKey, String requestHash, LocalDateTime createdAt) {
@@ -31,6 +40,10 @@ class AppointmentCreationRequestServiceImpl implements AppointmentCreationReques
         return request.getId();
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>保存回执也属于创建事务，写入失败不能留下已占名额但没有完成回执的订单。
+     */
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public void complete(Long requestId, Long appointmentOrderId, String responseJson) {
@@ -39,6 +52,10 @@ class AppointmentCreationRequestServiceImpl implements AppointmentCreationReques
         }
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>同时检查回执与预约是否存在，避免把未完成登记当作可重放的成功请求。
+     */
     @Override
     public AppointmentCreationReplay find(Long userId, String idempotencyKey) {
         AppointmentCreateRequest request = mapper.selectByUserAndKey(userId, idempotencyKey);

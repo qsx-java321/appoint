@@ -18,9 +18,15 @@ import java.util.HexFormat;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 仅dev/test的内存模拟支付渠道，实现下单、查询、验签和按编号幂等退款。
+ * <p>以attemptNo/refundNo判断重复，同号异内容拒绝；synchronized串行化复合状态变更。
+ * 内存渠道事实随进程重启丢失，不能当作生产支付存储或持久化恢复保证。
+ */
 @Component
 @Profile({"dev", "test"})
 public class MockPaymentGateway implements PaymentGateway {
+    /** 仅模拟渠道使用的HMAC密钥字节，禁止写入日志、响应或审计记录。 */
     private final byte[] signingKey;
     private final Map<String, MockPayment> byAttemptNo = new ConcurrentHashMap<>();
     private final Map<String, MockPayment> byProviderOrderNo = new ConcurrentHashMap<>();
@@ -29,12 +35,12 @@ public class MockPaymentGateway implements PaymentGateway {
     public MockPaymentGateway(@Value("${appoint.mock-pay.signing-key:local-test-signing-key}") String signingKey) {
         this.signingKey = signingKey.getBytes(StandardCharsets.UTF_8);
     }
-
+    /** {@inheritDoc} */
     @Override
     public PaymentChannel channel() {
         return PaymentChannel.MOCK;
     }
-
+    /** {@inheritDoc} */
     @Override
     public synchronized GatewayPaymentSession createPayment(GatewayPaymentRequest request) {
         validatePaymentRequest(request);
@@ -51,7 +57,7 @@ public class MockPaymentGateway implements PaymentGateway {
         byProviderOrderNo.put(providerOrderNo, payment);
         return session;
     }
-
+    /** {@inheritDoc} */
     @Override
     public synchronized void closePayment(GatewayCloseRequest request) {
         MockPayment payment = requirePayment(request.providerOrderNo());
@@ -64,7 +70,7 @@ public class MockPaymentGateway implements PaymentGateway {
         }
         replace(payment, GatewayPaymentStatus.CLOSED, payment.providerTransactionNo());
     }
-
+    /** {@inheritDoc} */
     @Override
     public synchronized GatewayRefundSubmission refund(GatewayRefundRequest request) {
         validateRefundRequest(request);
@@ -86,14 +92,14 @@ public class MockPaymentGateway implements PaymentGateway {
         refunds.put(request.refundNo(), new MockRefund(request, submission));
         return submission;
     }
-
+    /** {@inheritDoc} */
     @Override
     public GatewayPaymentSnapshot queryPayment(String providerOrderNo) {
         MockPayment payment = requirePayment(providerOrderNo);
         return new GatewayPaymentSnapshot(providerOrderNo, payment.providerTransactionNo(),
                 payment.session().status(), payment.request().amount(), payment.request().currency());
     }
-
+    /** {@inheritDoc} */
     @Override
     public VerifiedPaymentNotification verifyNotification(RawPaymentNotification notification) {
         if (notification == null || notification.signature() == null
@@ -106,6 +112,13 @@ public class MockPaymentGateway implements PaymentGateway {
                 notification.currency(), notification.occurredAt());
     }
 
+    /**
+     * 在模拟渠道内记录成功并生成签名通知，不直接写本地支付表。
+     * @param providerOrderNo 渠道订单号
+     * @param notificationId 指定通知幂等ID，测试可据此模拟重复/冲突
+     * @param occurredAt 模拟渠道时间，不替代通知事务的paidAt
+     * @return 成功签名通知，重复成功沿用原交易流水
+     */
     public synchronized RawPaymentNotification complete(String providerOrderNo, String notificationId,
                                                          LocalDateTime occurredAt) {
         MockPayment payment = requirePayment(providerOrderNo);
@@ -119,12 +132,23 @@ public class MockPaymentGateway implements PaymentGateway {
                 GatewayPaymentStatus.SUCCEEDED, payment.request().amount(), payment.request().currency(), occurredAt);
     }
 
+    /**
+     * 根据本地attemptNo定位模拟会话并产生固定通知ID的成功通知。
+     * @return 签名通知；未知尝试报RESOURCE_NOT_FOUND，渠道已关闭则拒绝
+     */
     public RawPaymentNotification completeAttempt(String attemptNo) {
         MockPayment payment = byAttemptNo.get(attemptNo);
         if (payment == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         return complete(payment.session().providerOrderNo(), "mock-notify-" + attemptNo, LocalDateTime.now());
     }
 
+    /**
+     * 模拟渠道失败；已SUCCEEDED不能被失败覆盖。
+     * @param providerOrderNo 渠道订单号
+     * @param notificationId 测试/模拟指定的通知ID
+     * @param occurredAt 模拟渠道时间
+     * @return 失败签名通知，不包含成功交易流水
+     */
     public synchronized RawPaymentNotification fail(String providerOrderNo, String notificationId,
                                                      LocalDateTime occurredAt) {
         MockPayment payment = requirePayment(providerOrderNo);
@@ -136,21 +160,38 @@ public class MockPaymentGateway implements PaymentGateway {
                 GatewayPaymentStatus.FAILED, payment.request().amount(), payment.request().currency(), occurredAt);
     }
 
+    /**
+     * 按attemptNo定位模拟会话，产生固定通知ID的失败通知。
+     * @return 失败签名报文，交Dispatcher/Ingress继续处理
+     */
     public RawPaymentNotification failAttempt(String attemptNo) {
         MockPayment payment = byAttemptNo.get(attemptNo);
         if (payment == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         return fail(payment.session().providerOrderNo(), "mock-notify-" + attemptNo, LocalDateTime.now());
     }
 
+    /**
+     * 根据给定字段生成HMAC签名原始通知，用于模拟渠道和验签测试。
+     * <p>仅构造报文，不保证对应本地业务存在或金额合法，业务层仍须校验。
+     * @return 带签名通知；调用者不应把签名密钥或完整敏感报文写日志
+     */
     public RawPaymentNotification signedNotification(String notificationId, String providerOrderNo,
                                                       String providerTransactionNo, GatewayPaymentStatus status,
                                                       BigDecimal amount, String currency, LocalDateTime occurredAt) {
         RawPaymentNotification unsigned = new RawPaymentNotification(notificationId, providerOrderNo,
                 providerTransactionNo, status, amount, currency, occurredAt, "");
-        return new RawPaymentNotification(notificationId, providerOrderNo, providerTransactionNo,
+                /**
+                 * 按固定字段顺序和换行规范化报文，使用HmacSHA256生成十六进制签名。
+                 * <p>金额使用toPlainString，签名与验签必须采用同一文本规则；不能记录密钥。
+                 */
+                return new RawPaymentNotification(notificationId, providerOrderNo, providerTransactionNo,
                 status, amount, currency, occurredAt, sign(unsigned));
     }
 
+    /**
+     * 以新不可变模拟会话同时更新attemptNo和providerOrderNo两个索引。
+     * <p>调用方复合状态变更持有实例monitor，避免两份索引指向不同状态。
+     */
     private void replace(MockPayment payment, GatewayPaymentStatus status, String transactionNo) {
         GatewayPaymentSession session = new GatewayPaymentSession(payment.session().providerOrderNo(), status,
                 payment.session().checkoutUrl());
@@ -158,13 +199,13 @@ public class MockPaymentGateway implements PaymentGateway {
         byAttemptNo.put(payment.request().attemptNo(), updated);
         byProviderOrderNo.put(session.providerOrderNo(), updated);
     }
-
+    /** 按渠道订单号查找内存会话，未知订单抛RESOURCE_NOT_FOUND，不创建占位订单。 */
     private MockPayment requirePayment(String providerOrderNo) {
         MockPayment payment = byProviderOrderNo.get(providerOrderNo);
         if (payment == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         return payment;
     }
-
+    /** 验证模拟下单标识、正金额、CNY及截止非空；不是预约资格或截止前支付判断。 */
     private void validatePaymentRequest(GatewayPaymentRequest request) {
         if (request == null || blank(request.paymentNo()) || blank(request.attemptNo())
                 || request.amount() == null || request.amount().signum() <= 0
@@ -172,14 +213,14 @@ public class MockPaymentGateway implements PaymentGateway {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
     }
-
+    /** 验证模拟退款标识、原交易流水、正金额和CNY；原交易及全额匹配在refund继续检查。 */
     private void validateRefundRequest(GatewayRefundRequest request) {
         if (request == null || blank(request.refundNo()) || blank(request.providerTransactionNo())
                 || request.amount() == null || request.amount().signum() <= 0 || !"CNY".equals(request.currency())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
     }
-
+    /** 将null或仅空白的渠道标识视为缺失。 */
     private boolean blank(String value) {
         return value == null || value.isBlank();
     }
@@ -198,7 +239,7 @@ public class MockPaymentGateway implements PaymentGateway {
             throw new IllegalStateException("无法生成 MockPay 签名", exception);
         }
     }
-
+    /** 签名规范化时把null转为空字符串，其他值使用原文本表示。 */
     private String value(Object value) {
         return value == null ? "" : value.toString();
     }

@@ -27,6 +27,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 退款分段执行器：短事务claim→事务外Gateway.refund→短事务complete或fail。
+ * <p>每段都先锁payment再锁refund/attempt；锁后复验，慢失败不得覆盖其他调用已写入的成功。
+ * 进程或ACK故障可引起重复渠道请求，渠道须按refundNo幂等。
+ */
 @Service
 @RequiredArgsConstructor
 class DefaultRefundWorker implements RefundWorker {
@@ -38,13 +43,14 @@ class DefaultRefundWorker implements RefundWorker {
     private final ObjectMapper objectMapper;
     private final Clock appointmentClock;
     private final TransactionTemplate transactionTemplate;
-
+    /** {@inheritDoc} */
     @Override
     public String process(RefundRequestedEvent event) {
         validate(event);
         RefundWork work = transactionTemplate.execute(status -> claim(event));
         if (work == null) return "ALREADY_SUCCEEDED";
         try {
+            // claim事务已结束；渠道退款不能持有数据库行锁，重试沿用同一refundNo。
             GatewayRefundSubmission submission = gatewayRegistry.require(PaymentChannel.valueOf(work.channel()))
                     .refund(new GatewayRefundRequest(work.refundNo(), work.providerTransactionNo(),
                             work.amount(), work.currency(), work.reason()));
@@ -59,6 +65,10 @@ class DefaultRefundWorker implements RefundWorker {
         }
     }
 
+    /**
+     * 领取一次退款执行工作：定位父支付→加锁→复验退款→增加执行计数→读取成功attempt。
+     * @return 供事务外调用的工作快照；本地退款已SUCCEEDED返回null避免再次调用渠道
+     */
     private RefundWork claim(RefundRequestedEvent event) {
         PaymentRefund lookup = refundMapper.selectById(event.refundId());
         if (lookup == null || !lookup.getRefundNo().equals(event.refundNo())) {
@@ -84,6 +94,10 @@ class DefaultRefundWorker implements RefundWorker {
                 attempt.getProviderTransactionNo());
     }
 
+    /**
+     * 渠道确认成功后重新锁payment→refund，原子记录退款成功、资金REFUNDED和结果Outbox。
+     * <p>若其他执行已经成功则幂等返回；本段失败不代表渠道未退款，重试必须沿用refundNo。
+     */
     private void complete(RefundWork work, String providerRefundNo) {
         LocalDateTime now = now();
         lockPayment(work.paymentOrderId());
@@ -97,6 +111,10 @@ class DefaultRefundWorker implements RefundWorker {
         insertResultEvent("RefundSucceeded", work, providerRefundNo, null, now);
     }
 
+    /**
+     * 记录未成功的退款执行失败及RefundFailed事件，随后由process向上传播原异常。
+     * <p>锁后发现已经SUCCEEDED立即返回，避免较慢失败覆盖并发成功。
+     */
     private void fail(RefundWork work, RuntimeException exception) {
         LocalDateTime now = now();
         lockPayment(work.paymentOrderId());
@@ -112,6 +130,11 @@ class DefaultRefundWorker implements RefundWorker {
         insertResultEvent("RefundFailed", work, null, message, now);
     }
 
+    /**
+     * 在当前结果事务保存RefundSucceeded/RefundFailed v1，保留支付聚合与退款编号。
+     * @param providerRefundNo 成功时渠道退款号，失败时可为null
+     * @param failureMessage 失败摘要，成功时为null
+     */
     private void insertResultEvent(String type, RefundWork work, String providerRefundNo,
                                    String failureMessage, LocalDateTime now) {
         String eventId = UUID.randomUUID().toString();
@@ -145,7 +168,7 @@ class DefaultRefundWorker implements RefundWorker {
         outbox.setNextAttemptAt(now);
         outboxMapper.insert(outbox);
     }
-
+    /** 校验v1、UUID及退款ID/非空编号；永久无效契约在执行渠道前拒绝。 */
     private void validate(RefundRequestedEvent event) {
         try {
             if (event == null || event.eventVersion() != 1 || event.eventId() == null
@@ -157,17 +180,17 @@ class DefaultRefundWorker implements RefundWorker {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
     }
-
+    /** 按父支付ID锁定资金记录，不存在时作为完整性错误阻止子记录写入。 */
     private void lockPayment(Long paymentOrderId) {
         if (paymentOrderMapper.selectByIdForUpdate(paymentOrderId) == null) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         }
     }
-
+    /** 状态迁移未命中一行时抛可重试并发错误，避免只保存部分退款结果。 */
     private void requireOne(int count) {
         if (count != 1) throw new BusinessException(ErrorCode.RETRYABLE_CONCURRENCY_ERROR);
     }
-
+    /** 采样本段事务的秒精度服务端时间；不把渠道网络等待包含在数据库锁持有期间。 */
     private LocalDateTime now() {
         return LocalDateTime.now(appointmentClock).truncatedTo(ChronoUnit.SECONDS);
     }

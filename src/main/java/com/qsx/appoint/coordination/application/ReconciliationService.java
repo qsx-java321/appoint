@@ -13,6 +13,11 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
+/**
+ * 支付最终一致性的补偿扫描：恢复已付待确认，补齐已关闭已付的漏退款，并报告人工项。
+ * <p>只读扫描候选不代表仍满足条件；每单交给生命周期事务重新加锁判断。
+ * 长期Outbox/退款/尝试及关联异常仅计数告警，不猜测渠道结果或直接修改资金/库存。
+ */
 @Service
 @RequiredArgsConstructor
 public class ReconciliationService {
@@ -26,6 +31,11 @@ public class ReconciliationService {
     @Value("${appoint.reconciliation.batch-size:100}")
     private int batchSize;
 
+    /**
+     * 执行一轮有批量上限的对账，单笔修复失败不阻断其他候选。
+     * <p>截止以当前时间减staleAfter计算；普通扫描不包住整批写事务。
+     * @return 本轮发现、实际处理及人工项统计；分类可能重叠，manualItems不是去重订单数
+     */
     public ReconciliationReport runOnce() {
         LocalDateTime cutoff = LocalDateTime.now(appointmentClock)
                 .minus(staleAfter).truncatedTo(ChronoUnit.SECONDS);

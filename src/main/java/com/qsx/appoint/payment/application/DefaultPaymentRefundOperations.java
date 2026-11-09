@@ -25,6 +25,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 退款申请事务：payment→refund→成功attempt加锁，创建唯一全额退款及请求事件。
+ * <p>已有退款直接幂等返回；新退款的资金状态、退款单和Outbox必须一起提交。
+ */
 @Service
 @RequiredArgsConstructor
 class DefaultPaymentRefundOperations implements PaymentRefundOperations {
@@ -34,13 +38,14 @@ class DefaultPaymentRefundOperations implements PaymentRefundOperations {
     private final PaymentOutboxEventMapper outboxMapper;
     private final ObjectMapper objectMapper;
     private final Clock appointmentClock;
-
+    /** {@inheritDoc} */
     @Override
     @Transactional
     public void requestFullRefund(Long paymentOrderId, RefundReason reason) {
         PaymentOrder payment = paymentOrderMapper.selectByIdForUpdate(paymentOrderId);
         if (payment == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         PaymentRefund existing = refundMapper.selectByPaymentOrderIdForUpdate(paymentOrderId);
+        // 退款单按payment唯一；已有申请保持原原因与原事件，不能因重投再建一张退款。
         if (existing != null) return;
         if (PaymentOrderStatus.fromStored(payment.getStatus()) != PaymentOrderStatus.PAID) {
             throw new BusinessException(ErrorCode.ORDER_STATE_ERROR);
@@ -70,6 +75,10 @@ class DefaultPaymentRefundOperations implements PaymentRefundOperations {
         insertRequestedEvent(refund, attempt, now);
     }
 
+    /**
+     * 保存RefundRequested v1 Outbox，沿用支付聚合ID与已成功attempt的渠道流水。
+     * <p>必须与退款单及REFUND_PENDING同事务；序列化失败不能留下无法投递的退款。
+     */
     private void insertRequestedEvent(PaymentRefund refund, PaymentAttempt attempt, LocalDateTime now) {
         String eventId = UUID.randomUUID().toString();
         Map<String, Object> envelope = new LinkedHashMap<>();
@@ -107,7 +116,7 @@ class DefaultPaymentRefundOperations implements PaymentRefundOperations {
         event.setNextAttemptAt(now);
         outboxMapper.insert(event);
     }
-
+    /** 采样秒精度服务端时间用于退款申请及请求事件。 */
     private LocalDateTime now() {
         return LocalDateTime.now(appointmentClock).truncatedTo(ChronoUnit.SECONDS);
     }

@@ -20,6 +20,12 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
+/**
+ * 取消、过期和对账的事务编排实现，按预约内部锁序→支付父锁连接两个写模块。
+ * <p>完整性、归属和入口短路保留在用例中，组合决策委托BookingLifecyclePolicy。
+ * 副作用通过完整interface执行；退款与预约释放同事务提交，不直接调用外部支付渠道。
+ * @see BookingLifecyclePolicy
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -30,6 +36,10 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
     private final PaymentRefundOperations refunds;
     private final Clock appointmentClock;
 
+    /**
+     * {@inheritDoc}
+     * <p>每次调用由Spring事务代理处理，预约锁和支付锁随同一事务释放。
+     */
     @Override
     @Transactional
     public boolean cancelOwned(Long userId, Long appointmentOrderId) {
@@ -39,6 +49,7 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         PaymentLifecycleCase payment = payments.lockByAppointment(appointmentOrderId);
         validateIntegrity(appointment, payment, payment == null ? null : payment.id());
 
+        // 已关闭的重复取消不依赖当前时间；返回值由现有退款状态决定。
         LocalDateTime now = policy.inactive(appointment.status()) ? null : now();
         var decision = policy.decideCancellation(appointment,payment,now);
         return switch (decision.action()) {
@@ -61,6 +72,10 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         };
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>每次调用由Spring事务代理处理，预约锁和支付锁随同一事务释放。
+     */
     @Override
     @Transactional
     public boolean expireIfDue(Long appointmentOrderId) {
@@ -68,12 +83,17 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         if (appointment == null) return false;
         if (appointment.status() != AppointmentStatus.PENDING_PAYMENT) return false;
         LocalDateTime now = now();
+        // 未到期直接短路，不提前要求支付完整性；扫描候选不等于一定应关闭。
         if (now.isBefore(appointment.paymentExpiresAt())) return false;
         PaymentLifecycleCase payment = payments.lockByAppointment(appointmentOrderId);
         validateIntegrity(appointment, payment, payment == null ? null : payment.id());
         return applyResolution(policy.decideExpiration(appointment,payment,now),appointment,payment,now);
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>每次调用由Spring事务代理处理，预约锁和支付锁随同一事务释放。
+     */
     @Override
     @Transactional
     public boolean reconcilePaidPending(Long appointmentOrderId) {
@@ -87,6 +107,10 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         return applyResolution(policy.decidePaidPending(appointment,payment),appointment,payment,now);
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>每次调用由Spring事务代理处理，预约锁和支付锁随同一事务释放。
+     */
     @Override
     @Transactional
     public boolean ensureRefundForClosedPaid(Long appointmentOrderId) {
@@ -100,6 +124,10 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         return true;
     }
 
+    /**
+     * 执行未收款关闭：预约释放/终态/占用删除后，关闭UNPAID或PAYING支付单。
+     * <p>两步同事务，支付侧失败会回滚预约释放；不关闭PROCESSING渠道尝试。
+     */
     private void closePending(AppointmentLifecycleCase appointment,
                               PaymentLifecycleCase payment, AppointmentCloseReason status, LocalDateTime now) {
         appointments.closePending(appointment, status, now);
@@ -108,6 +136,10 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
                 appointment.id(), payment.id(), status.status().name());
     }
 
+    /**
+     * 执行待确认已收款的关闭退款，使用Policy给出的关闭原因和退款原因。
+     * <p>退款请求与预约关闭参加同一事务，失败不会留下单边资金或库存结果。
+     */
     private void closePaidPending(AppointmentLifecycleCase appointment,
                                   PaymentLifecycleCase payment, AppointmentCloseReason status, RefundReason reason,
                                   LocalDateTime now) {
@@ -117,6 +149,10 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
                 appointment.id(), payment.id(), status.status().name());
     }
 
+    /**
+     * 把过期/已付对账决策映射为完整业务动作，保持入口的boolean语义。
+     * @return NO_ACTION为false；确认、未付关闭、迟到退款处理为true，非法组合抛完整性错误
+     */
     private boolean applyResolution(BookingLifecyclePolicy.ExpirationDecision decision,
                                     AppointmentLifecycleCase appointment, PaymentLifecycleCase payment,
                                     LocalDateTime now) {
@@ -140,6 +176,11 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         };
     }
 
+    /**
+     * 检查支付存在且关联预约、账号一致，拒绝在错误资金关联上执行补偿。
+     * @param expectedPaymentId 期望的支付ID；为null时不额外检查ID等值
+     * @throws com.qsx.appoint.common.BusinessException 完整性错误，错误码INTERNAL_ERROR
+     */
     private void validateIntegrity(AppointmentLifecycleCase appointment, PaymentLifecycleCase payment,
                                    Long expectedPaymentId) {
         if (payment == null) throw integrityFailure("预约关联的支付单不存在", appointment.id(), expectedPaymentId);
@@ -150,11 +191,11 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
             throw integrityFailure("预约与支付单归属不一致", appointment.id(), payment.id());
         }
     }
-
+    /** 采样服务端业务时间并截断到秒；一次决策复用该时间，避免不同分支跨边界。 */
     private LocalDateTime now() {
         return LocalDateTime.now(appointmentClock).truncatedTo(ChronoUnit.SECONDS);
     }
-
+    /** 统一构造关联完整性错误并记录业务标识，供调用者抛出以触发事务回滚。 */
     private BusinessException integrityFailure(String message, Long appointmentId, Long paymentId) {
         log.error("{}，appointmentOrderId={}, paymentOrderId={}", message, appointmentId, paymentId);
         return new BusinessException(ErrorCode.INTERNAL_ERROR);

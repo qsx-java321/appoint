@@ -4,6 +4,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
 
+/**
+ * 预约过期扫描配置，扫描延迟不改变数据库支付截止资格。
+ * @param enabled 是否启用定时扫描
+ * @param scanDelay 扫描间隔，默认30秒且必须为正
+ * @param batchSize 每批候选上限，非正值回退为100
+ */
 @ConfigurationProperties(prefix = "appoint.expiration")
 public record ExpirationProperties(boolean enabled, Duration scanDelay, int batchSize) {
     public ExpirationProperties {

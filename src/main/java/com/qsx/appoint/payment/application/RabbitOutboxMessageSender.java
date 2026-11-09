@@ -13,6 +13,10 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+/**
+ * 将支付事件映射到固定v1路由并发布持久化JSON消息的Rabbit Adapter。
+ * <p>消息ID沿用eventId，通过ConfirmedMessagePublisher检查confirm/return，不创建新事件正文。
+ */
 @Component
 @RequiredArgsConstructor
 class RabbitOutboxMessageSender implements OutboxMessagePublisher {
@@ -24,7 +28,7 @@ class RabbitOutboxMessageSender implements OutboxMessagePublisher {
 
     private final ConfirmedMessagePublisher publisher;
     private final OutboxProperties properties;
-
+    /** {@inheritDoc} */
     @Override
     public void publish(PaymentOutboxEvent event) throws Exception {
         String routingKey = ROUTING_KEYS.get(event.getEventType());

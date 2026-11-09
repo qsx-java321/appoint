@@ -13,6 +13,11 @@ import org.springframework.context.annotation.Configuration;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 声明支付/退款的持久化业务交换机、业务队列、重试队列及DLQ。
+ * <p>业务队列拒绝消息经DLX进入DLQ；重试队列通过消息TTL到期回投业务路由。
+ * 所有名称与v1路由保持兼容，修改已有队列参数前须评估Broker声明冲突。
+ */
 @Configuration
 public class RabbitEventTopology {
     public static final String DOMAIN_EXCHANGE = "appoint.domain-events";
@@ -28,6 +33,10 @@ public class RabbitEventTopology {
     public static final String REFUND_WORKER_QUEUE = "payment.refund-worker.v1";
     public static final String REFUND_RESULT_QUEUE = "notification.refund-result.v1";
 
+    /**
+     * 声明本应用全部持久化事件拓扑，业务/重试/死信交换机共同注册。
+     * @return Spring AMQP启动时声明的交换机、队列及绑定集合
+     */
     @Bean
     Declarables domainEventTopology() {
         TopicExchange domain = new TopicExchange(DOMAIN_EXCHANGE, true, false);
@@ -43,6 +52,12 @@ public class RabbitEventTopology {
         return new Declarables(declarables);
     }
 
+    /**
+     * 为一个业务队列添加DLQ及每个路由独立的TTL重试队列。
+     * <p>重试队列不设队列级TTL，由监听器设置每条消息expiration；到期按原业务路由回投。
+     * @param declarables 累积声明集合
+     * @param routingKeys 此业务队列接收的v1事件路由
+     */
     private void addQueue(List<Declarable> declarables, TopicExchange domain, TopicExchange retry,
                           TopicExchange dlx, String queueName, String... routingKeys) {
         Queue queue = QueueBuilder.durable(queueName)

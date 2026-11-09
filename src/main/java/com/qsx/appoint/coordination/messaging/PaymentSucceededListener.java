@@ -18,7 +18,10 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.time.Duration;
 
-/** RabbitMQ 传输边界；业务事务成功返回后才 ACK。 */
+/**
+ * 支付成功消息的传输入口，负责解码、手动ACK、失败分类及有界重试。
+ * <p>业务交给带事务代理的Processor；先提交业务再ACK，确认不确定允许重投并由Inbox去重。
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -29,6 +32,12 @@ public class PaymentSucceededListener {
     private final PaymentSucceededEventCodec codec;
     private final PaymentSucceededProcessor processor;
 
+    /**
+     * 消费业务消息：永久无效直接拒绝进DLQ，其余失败走有界重试，成功再ACK。
+     * @param message 含正文和投递标签的原始Rabbit消息
+     * @param channel 当前投递所属channel，ACK/NACK必须使用它的deliveryTag
+     * @throws IOException ACK/NACK等传输操作失败，Broker可能重投；预约确认事务不因此撤销
+     */
     @RabbitListener(queues = RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE, ackMode = "MANUAL")
     public void consume(Message message, Channel channel) throws IOException {
         long deliveryTag = message.getMessageProperties().getDeliveryTag();
@@ -55,9 +64,19 @@ public class PaymentSucceededListener {
             retryOrDeadLetter(message, channel, deliveryTag, event.eventId(), exception);
             return;
         }
+        // 业务处理已成功返回；提交后ACK前崩溃允许重投，由业务幂等保护。
         channel.basicAck(deliveryTag, false);
     }
 
+    /**
+     * 累计当前业务处理次数，首次加两次一秒TTL重试，耗尽拒绝进DLQ。
+     * <p>新重试转发必须confirm成功且无return后才ACK原消息；确认失败NACK/requeue保留原消息。
+     * Broker不确定性可能造成额外投递，三次是业务重试策略，不是绝对物理投递上限。
+     * @param original 原正文/消息属性，复制后保留eventId
+     * @param eventId 日志关联事件ID，不生成新业务事件
+     * @param exception 本次处理异常，用于记录失败原因
+     * @throws IOException 原消息确认或拒绝失败
+     */
     private void retryOrDeadLetter(Message original, Channel channel, long tag,
                                    String eventId, RuntimeException exception) throws IOException {
         Integer current = original.getMessageProperties().getHeader(ATTEMPT_HEADER);

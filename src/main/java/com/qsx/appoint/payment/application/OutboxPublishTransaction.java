@@ -14,6 +14,11 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
+/**
+ * 在一段本地事务中SKIP LOCKED领取到期Outbox，等待Broker确认后记录发布状态。
+ * <p>与支付业务事务分离；持锁发布用于避免并发领取。Broker和MySQL不能原子提交，
+ * 确认后数据库提交前故障允许产生重复，消费者必须Inbox幂等。
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -23,6 +28,11 @@ class OutboxPublishTransaction {
     private final OutboxProperties properties;
     private final Clock appointmentClock;
 
+    /**
+     * 锁定一批到期PENDING事件，逐条发布并记录成功或失败。
+     * <p>SKIP LOCKED允许多个发布器领取不同事件；已发Broker但数据库提交不确定时可能重发。
+     * @return 本批记录为PUBLISHED的数量，失败记录不计入
+     */
     @Transactional
     public int publishDue() {
         LocalDateTime now = now();
@@ -31,6 +41,7 @@ class OutboxPublishTransaction {
         for (PaymentOutboxEvent event : events) {
             try {
                 publisher.publish(event);
+                // 只有Broker确认且未return后才标已发布；此后崩溃仍可能重发，依赖消费者幂等。
                 requireOne(outboxMapper.markPublished(event.getEventId(), now()));
                 published++;
             } catch (Exception exception) {
@@ -40,6 +51,10 @@ class OutboxPublishTransaction {
         return published;
     }
 
+    /**
+     * 累计发布失败并计算下次退避；达到配置上限置FAILED等待运维处理。
+     * <p>这是Outbox发布重试，与消费者三次一秒重试是独立计数。
+     */
     private void recordFailure(PaymentOutboxEvent event, Exception exception) {
         int attempts = event.getPublishAttempts() + 1;
         boolean exhausted = attempts >= properties.maxAttempts();
@@ -56,21 +71,26 @@ class OutboxPublishTransaction {
         }
     }
 
+    /**
+     * 以初始退避乘2的幂计算延迟，指数和最大时长均封顶，避免溢出或无限增长。
+     * @param attempts 已累计发布失败次数，从1开始
+     * @return 下一次发布等待时长
+     */
     private Duration backoff(int attempts) {
         int shift = Math.min(Math.max(attempts - 1, 0), 20);
         Duration candidate = properties.initialBackoff().multipliedBy(1L << shift);
         return candidate.compareTo(properties.maxBackoff()) > 0 ? properties.maxBackoff() : candidate;
     }
-
+    /** 将发布异常摘要限制在500字符，避免错误记录本身因字段超长而失败。 */
     private String truncate(String value) {
         if (value == null) return "unknown publish failure";
         return value.length() <= 500 ? value : value.substring(0, 500);
     }
-
+    /** 发布状态写入必须命中一行；失败抛异常，不能静默丢失发布进度。 */
     private void requireOne(int updated) {
         if (updated != 1) throw new IllegalStateException("Outbox 状态并发更新失败");
     }
-
+    /** 采样毫秒精度时间，与Outbox投递时间字段保持一致。 */
     private LocalDateTime now() {
         return LocalDateTime.now(appointmentClock).truncatedTo(ChronoUnit.MILLIS);
     }

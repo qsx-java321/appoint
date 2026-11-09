@@ -9,11 +9,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+/**
+ * 从预约暂占快照创建唯一对应的非历史UNPAID支付单。
+ * <p>MANDATORY保证支付建单与预约/库存同库原子提交，不在本类查询或写入预约表。
+ */
 @Service
 @RequiredArgsConstructor
 class PaymentOrderCreationServiceImpl implements PaymentOrderCreationService {
     private final PaymentOrderMapper mapper;
-
+    /** {@inheritDoc} */
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public PaymentOrderResult createOrder(CreatePaymentOrderCommand command) {
