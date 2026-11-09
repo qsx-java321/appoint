@@ -59,3 +59,7 @@
 ### 12 暂存快照实际验收
 
 2026-11-09，`/tmp/booking-12-snapshot-5zpor6w1`：常规166、MySQL25、双容器可靠性13，均零失败/错误/跳过；Maven串行离线执行，Compose正常及迟到支付链路通过并清理本次资源。日志 `/tmp/booking-12-{test,mysql,reliability,compose}.log`。Broker停机故障仅在Testcontainers中注入；共享Compose未停止。
+
+### 02 暂存快照实际验收
+
+2026-11-09，`/tmp/booking-02-snapshot-g9lqzgi7`：查询聚焦通过、常规168项全通过且零失败/错误/跳过；Compose正常及迟到支付链路通过并清理本次资源。SQL、DTO、锁和消息无变更，按02规格未重复MySQL和可靠性全量（相同生产代码在12快照已通过25/13项）。日志 `/tmp/booking-02-{focused,test,compose}.log`。

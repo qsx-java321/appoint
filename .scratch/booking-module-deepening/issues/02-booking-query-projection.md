@@ -2,7 +2,7 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: claimed
+Status: resolved
 Blocked by: 01
 
 设计依据：[spec](../spec.md)，执行位置：[map](../map.md)。初始 Status 使用 triage 标签表示待认领；开始实施改为 claimed，验收完成改为 resolved。Triage 不代表依赖已解除。
@@ -74,14 +74,18 @@ PENDING_PAYMENT 搭配 UNPAID/PAYING/PAID 分别投影等待、处理中、确�
 
 ## 完成状态清单
 
-- [ ] Projector 与全部组合测试完成
-- [ ] Assembler 完成并保持 DTO/权限一致
-- [ ] 查询主方法简化且 SQL 无改动
-- [ ] 聚焦及常规测试通过
-- [ ] Comments/地图更新
+- [x] Projector 与全部组合测试完成
+- [x] Assembler 完成并保持 DTO/权限一致
+- [x] 查询主方法简化且 SQL 无改动
+- [x] 聚焦及常规测试通过
+- [x] Comments/地图更新
 
 ## Comments
 
 - 2026-11-08：根据源码复核后的spec创建。仅完成任务定义，未认领、未实施；本轮基线结果见map，不等同于本issue验收结果。 依赖尚未resolved，暂不可开始实施。
 
 - 2026-11-08：已拆分 Projector 和 Assembler，并添加状态决策表；尚待最终全量验收。
+
+- 2026-11-09：查询拆分已随ea5bbeb实现；01/11/12分别在c4f1dc0、cb6931e、937e717验收。核对Mapper SQL与公开DTO相对9d20e30无差异；Projector覆盖全部合法/历史组合及其余持久化组合拒绝，Assembler保留权限差异/脱敏/摘要。新增BookingQueryServiceTest验证列表只读取一次Clock并截断秒，以及不存在/非本人优先于支付完整性与取时间。查询聚焦通过，独立快照 `/tmp/booking-02-snapshot-g9lqzgi7` 运行聚焦、常规及Compose；本阶段无锁/SQL/消息变更，按本issue规格不重复容器全量。
+
+- 2026-11-09：独立快照查询聚焦、常规168项及Compose正常/迟到支付真实链路通过，零失败/错误/跳过；SQL和DTO无差异。02 resolved。
