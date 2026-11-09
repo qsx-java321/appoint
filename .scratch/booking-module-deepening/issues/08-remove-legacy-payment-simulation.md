@@ -2,7 +2,7 @@
 
 Type: cleanup
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 Blocked by: 07
 
 设计依据：[spec](../spec.md)，执行位置：[map](../map.md)。初始 Status 使用 triage 标签表示待认领；开始实施改为 claimed，验收完成改为 resolved。Triage 不代表依赖已解除。
@@ -78,12 +78,16 @@ Blocked by: 07
 
 ## 完成状态清单
 
-- [ ] 两组旧调用清单和正式测试helper完成
-- [ ] 测试迁移且端到端传输不被helper替代
-- [ ] Controller/预检/同步能力与死代码删除
-- [ ] 三profile旧路由不存在及正式链路验证
-- [ ] 当前用法文档与Comments更新
+- [x] 两组旧调用清单和正式测试helper完成
+- [x] 测试迁移且端到端传输不被helper替代
+- [x] Controller/预检/同步能力与死代码删除
+- [x] 三profile旧路由不存在及正式链路验证
+- [x] 当前用法文档与Comments更新
 
 ## Comments
 
 - 2026-11-08：根据源码复核后的spec创建。仅完成任务定义，未认领、未实施；本轮基线结果见map，不等同于本issue验收结果。 依赖尚未resolved，暂不可开始实施。
+
+- 2026-11-09：07已在0a983b6验收。迁移六组旧HTTP/同步调用到FormalPaymentTestSupport：真实attempt→MockPay签名→Ingress验签→读取真实Outbox→v1 Codec→公开Processor；H2仅解开JSON列额外字符串编码，不承担RabbitMQ传输保证。实际HTTP+MySQL/RabbitMQ由PatientJourney和Compose保留。删除旧Controller/预检/同步方法/markPaid及compat构造、无调用payIfUnpaid和PaymentResponse。dev/test新增请求映射不存在断言，prod沿用映射与Mock禁用断言。干净构建常规225项通过；MySQL竞争增加REFUND_PENDING唯一退款事实及重复支付单Inbox/库存/序号断言，待独立快照验收。
+
+- 2026-11-09：独立全新快照 `/tmp/booking-08-snapshot-ddye990u` 常规225、MySQL34、可靠性14及Compose全部通过，零失败/错误/跳过。正式尝试拒绝场景同时设置预约与支付截止fixture；重复支付先创建同一正式attempt，再并发签名回调，断言一个Outbox/Inbox、一次库存转换和序号。支付/取消竞争允许且验证REFUND_PENDING唯一退款事实。生产源码和测试无旧同步/compat业务残留；dev/test/prod映射均无旧路由，当前操作文档原已使用正式attempt/complete，无旧用法。08 resolved。

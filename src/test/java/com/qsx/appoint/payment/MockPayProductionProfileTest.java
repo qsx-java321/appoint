@@ -2,7 +2,6 @@ package com.qsx.appoint.payment;
 
 import com.qsx.appoint.payment.adapter.mock.MockPayController;
 import com.qsx.appoint.payment.adapter.mock.MockPaymentGateway;
-import com.qsx.appoint.payment.controller.LegacySimulatePaymentController;
 import com.qsx.appoint.payment.domain.PaymentChannel;
 import com.qsx.appoint.payment.port.PaymentGatewayRegistry;
 import org.junit.jupiter.api.Test;
@@ -30,7 +29,6 @@ class MockPayProductionProfileTest {
     void productionDoesNotRegisterMockAdapterOrController() {
         assertThat(context.getBeansOfType(MockPaymentGateway.class)).isEmpty();
         assertThat(context.getBeansOfType(MockPayController.class)).isEmpty();
-        assertThat(context.getBeansOfType(LegacySimulatePaymentController.class)).isEmpty();
         assertThatThrownBy(() -> registry.require(PaymentChannel.MOCK)).isInstanceOf(RuntimeException.class);
         assertThat(handlerMapping.getHandlerMethods().keySet())
                 .noneMatch(mapping -> mapping.toString().contains("simulate-success")

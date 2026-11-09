@@ -11,7 +11,6 @@ import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.payment.application.PaymentLifecycle;
 import com.qsx.appoint.payment.application.PaymentLifecycleCase;
 import com.qsx.appoint.payment.application.PaymentRefundOperations;
-import com.qsx.appoint.payment.dto.PaymentResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,32 +29,6 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
     private final PaymentLifecycle payments;
     private final PaymentRefundOperations refunds;
     private final Clock appointmentClock;
-
-    @Override
-    @Transactional
-    public PaymentResponse simulatePaymentSuccess(Long userId, Long paymentId) {
-        PaymentLifecycleCase lookupPayment = payments.find(paymentId);
-        if (lookupPayment == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
-        AppointmentLifecycleCase appointment = appointments.lock(lookupPayment.appointmentOrderId());
-        if (appointment == null) throw integrityFailure("支付单关联的预约不存在", null, paymentId);
-        PaymentLifecycleCase payment = payments.lockByAppointment(appointment.id());
-        validateIntegrity(appointment, payment, paymentId);
-        if (!appointment.userId().equals(userId)) throw new BusinessException(ErrorCode.FORBIDDEN);
-
-        if (appointment.status() == AppointmentStatus.CONFIRMED && payment.status() == PaymentOrderStatus.PAID) {
-            return response(payment, appointment);
-        }
-        if (appointment.status() == AppointmentStatus.EXPIRED) throw new BusinessException(ErrorCode.PAYMENT_EXPIRED);
-        if (policy.inactive(appointment.status())) throw new BusinessException(ErrorCode.ORDER_STATE_ERROR);
-        requirePendingUnpaid(appointment, payment, paymentId);
-
-        LocalDateTime now = now();
-        if (!now.isBefore(appointment.paymentExpiresAt())) throw new BusinessException(ErrorCode.PAYMENT_EXPIRED);
-        var confirmation = appointments.confirm(appointment);
-        payments.markPaid(payment.id());
-        return new PaymentResponse(payment.id(), payment.paymentNo(), "PAID",
-                appointment.id(), "CONFIRMED", confirmation.visitNumber());
-    }
 
     @Override
     @Transactional
@@ -144,13 +117,6 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
                 appointment.id(), payment.id(), status.status().name());
     }
 
-    private void requirePendingUnpaid(AppointmentLifecycleCase appointment, PaymentLifecycleCase payment, Long paymentId) {
-        if (appointment.status() != AppointmentStatus.PENDING_PAYMENT
-                || !(payment.status() == PaymentOrderStatus.UNPAID || payment.status() == PaymentOrderStatus.PAYING)) {
-            throw integrityFailure("预约与支付状态组合不一致", appointment.id(), paymentId);
-        }
-    }
-
     private boolean applyResolution(BookingLifecyclePolicy.ExpirationDecision decision,
                                     AppointmentLifecycleCase appointment, PaymentLifecycleCase payment,
                                     LocalDateTime now) {
@@ -187,11 +153,6 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
 
     private LocalDateTime now() {
         return LocalDateTime.now(appointmentClock).truncatedTo(ChronoUnit.SECONDS);
-    }
-
-    private PaymentResponse response(PaymentLifecycleCase payment, AppointmentLifecycleCase appointment) {
-        return new PaymentResponse(payment.id(), payment.paymentNo(), payment.status().name(),
-                appointment.id(), appointment.status().name(), appointment.visitNumber());
     }
 
     private BusinessException integrityFailure(String message, Long appointmentId, Long paymentId) {

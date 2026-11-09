@@ -46,8 +46,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "appoint.expiration.enabled=false"
 })
 @AutoConfigureMockMvc
-@Import(ScheduleInventoryIntegrationTest.ClockConfiguration.class)
+@Import({ScheduleInventoryIntegrationTest.ClockConfiguration.class, com.qsx.appoint.support.FormalPaymentTestSupport.class})
+@org.springframework.test.context.ActiveProfiles("test")
 class ScheduleInventoryIntegrationTest {
+    @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private static final Instant RELEASE_INSTANT = ZonedDateTime.of(
             2026, 11, 1, 8, 0, 0, 0, SHANGHAI).toInstant();
@@ -102,12 +104,12 @@ class ScheduleInventoryIntegrationTest {
                 createPatient(user, "序号甲", "110105199001010010"), schedule.getId());
         CreateAppointmentResponse second = createAppointment(user,
                 createPatient(user, "序号乙", "110105199002020026"), schedule.getId());
-        lifecycleCoordinator.simulatePaymentSuccess(user, first.getPaymentOrderId());
-        lifecycleCoordinator.simulatePaymentSuccess(user, second.getPaymentOrderId());
+        formalPayments.pay(user, first.getPaymentOrderId());
+        formalPayments.pay(user, second.getPaymentOrderId());
         lifecycleCoordinator.cancelOwned(user, first.getAppointmentOrderId());
         CreateAppointmentResponse third = createAppointment(user,
                 createPatient(user, "序号丙", "110105199003030031"), schedule.getId());
-        lifecycleCoordinator.simulatePaymentSuccess(user, third.getPaymentOrderId());
+        formalPayments.pay(user, third.getPaymentOrderId());
 
         assertThat(appointmentOrderMapper.selectById(first.getAppointmentOrderId()).getVisitNumber()).isEqualTo(1);
         assertThat(appointmentOrderMapper.selectById(second.getAppointmentOrderId()).getVisitNumber()).isEqualTo(2);
@@ -125,7 +127,7 @@ class ScheduleInventoryIntegrationTest {
         Long user = createUser("refund-boundary-user");
         CreateAppointmentResponse created = createAppointment(user,
                 createPatient(user, "退款边界", "110105199001010010"), schedule.getId());
-        lifecycleCoordinator.simulatePaymentSuccess(user, created.getPaymentOrderId());
+        formalPayments.pay(user, created.getPaymentOrderId());
 
         assertThatThrownBy(() -> lifecycleCoordinator.cancelOwned(user, created.getAppointmentOrderId()))
                 .isInstanceOfSatisfying(BusinessException.class,
@@ -147,7 +149,7 @@ class ScheduleInventoryIntegrationTest {
                 createPatient(user, "支付边界", "110105199001010010"), schedule.getId());
         clock.setInstant(created.getPaymentExpiresAt().atZone(SHANGHAI).toInstant());
 
-        assertThatThrownBy(() -> lifecycleCoordinator.simulatePaymentSuccess(user, created.getPaymentOrderId()))
+        assertThatThrownBy(() -> formalPayments.pay(user, created.getPaymentOrderId()))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PAYMENT_EXPIRED));
 
@@ -167,7 +169,7 @@ class ScheduleInventoryIntegrationTest {
         Long user = createUser("refund-idempotency-user");
         CreateAppointmentResponse created = createAppointment(user,
                 createPatient(user, "重复退款", "110105199001010010"), schedule.getId());
-        lifecycleCoordinator.simulatePaymentSuccess(user, created.getPaymentOrderId());
+        formalPayments.pay(user, created.getPaymentOrderId());
 
         lifecycleCoordinator.cancelOwned(user, created.getAppointmentOrderId());
         AppointmentResponse first = appointmentService.getOwned(user, created.getAppointmentOrderId());

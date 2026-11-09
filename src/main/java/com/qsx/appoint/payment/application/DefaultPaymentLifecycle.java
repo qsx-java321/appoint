@@ -11,23 +11,15 @@ import com.qsx.appoint.payment.domain.PaymentOrderStatus;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.payment.entity.PaymentOrder;
-import com.qsx.appoint.payment.entity.PaymentAttempt;
-import com.qsx.appoint.payment.mapper.PaymentAttemptMapper;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 class DefaultPaymentLifecycle implements PaymentLifecycle {
     private final PaymentOrderMapper paymentOrderMapper;
-    private final PaymentAttemptMapper paymentAttemptMapper;
-    private final Clock appointmentClock;
 
     @Override
     public PaymentLifecycleCase find(Long id) {
@@ -40,29 +32,6 @@ class DefaultPaymentLifecycle implements PaymentLifecycle {
         PaymentLifecycleCase payment = view(paymentOrderMapper.selectByAppointmentOrderIdForUpdate(appointmentOrderId));
         if (payment != null) context(true).locked.add(payment);
         return payment;
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void markPaid(Long id) {
-        requireOne(paymentOrderMapper.payIfUnpaid(id));
-        // 仅供 dev/test 的旧模拟成功协调路径保留可退款的渠道事实；新流程由真实 attempt 回调写入。
-        if (paymentAttemptMapper.selectByPaymentOrderIdForUpdate(id).isEmpty()) {
-            LocalDateTime now = LocalDateTime.now(appointmentClock).truncatedTo(ChronoUnit.SECONDS);
-            String token = UUID.randomUUID().toString().replace("-", "");
-            PaymentAttempt attempt = new PaymentAttempt();
-            attempt.setAttemptNo("compat-" + token);
-            attempt.setPaymentOrderId(id);
-            attempt.setChannel("MOCK");
-            attempt.setProviderOrderNo("compat-order-" + token);
-            attempt.setProviderTransactionNo("compat-txn-" + token);
-            attempt.setStatus("SUCCEEDED");
-            attempt.setCreatedAt(now);
-            attempt.setProcessingAt(now);
-            attempt.setCompletedAt(now);
-            attempt.setUpdatedAt(now);
-            paymentAttemptMapper.insert(attempt);
-        }
     }
 
     @Override

@@ -39,7 +39,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 @ActiveProfiles("test")
+@org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class AppointmentQueryIntegrationTest {
+    @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private ScheduleMapper scheduleMapper;
@@ -58,10 +60,10 @@ class AppointmentQueryIntegrationTest {
         assertAppointmentDetail(user, appointment, "PENDING_PAYMENT", "UNPAID");
         assertAppointmentList(user, appointment, "PENDING_PAYMENT", "UNPAID");
 
-        mockMvc.perform(post("/api/v1/payments/{id}/simulate-success", appointment.paymentOrderId())
-                        .header("Authorization", bearer(user)))
-                .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.data.paymentStatus").value("PAID"));
+        assertThat(formalPayments.payWithToken(user.token(), appointment.paymentOrderId())).satisfies(paid -> {
+            assertThat(paid.getStatus()).isEqualTo("CONFIRMED");
+            assertThat(paid.getPaymentStatus()).isEqualTo("PAID");
+        });
 
         assertAppointmentDetail(user, appointment, "CONFIRMED", "PAID");
         assertAppointmentList(user, appointment, "CONFIRMED", "PAID");
@@ -110,9 +112,10 @@ class AppointmentQueryIntegrationTest {
     void queryShowsRefundingAndRefundedSummaries() throws Exception {
         AuthenticatedUser user = registerAndLogin();
         CreatedAppointment appointment = createAppointment(user, createAvailableSchedule().getId());
-        mockMvc.perform(post("/api/v1/payments/{id}/simulate-success", appointment.paymentOrderId())
-                        .header("Authorization", bearer(user)))
-                .andExpect(status().isAccepted());
+        assertThat(formalPayments.payWithToken(user.token(), appointment.paymentOrderId())).satisfies(paid -> {
+            assertThat(paid.getStatus()).isEqualTo("CONFIRMED");
+            assertThat(paid.getPaymentStatus()).isEqualTo("PAID");
+        });
         mockMvc.perform(post("/api/v1/appointments/{id}/cancel", appointment.appointmentOrderId())
                         .header("Authorization", bearer(user)))
                 .andExpect(status().isAccepted())

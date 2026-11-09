@@ -30,7 +30,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class AppointmentIdempotencyIntegrationTest {
+    @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;
     private static final AtomicInteger SCHEDULE_SEQUENCE = new AtomicInteger();
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
@@ -166,10 +168,10 @@ class AppointmentIdempotencyIntegrationTest {
         String paidAppointmentId = objectMapper.readTree(paidFirst).at("/data/appointmentOrderId").asText();
         String paidAppointmentNo = appointmentOrderMapper.selectById(Long.valueOf(paidAppointmentId)).getAppointmentNo();
         String paymentId = objectMapper.readTree(paidFirst).at("/data/paymentOrderId").asText();
-        mockMvc.perform(post("/api/v1/payments/" + paymentId + "/simulate-success")
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.data.appointmentStatus").value("CONFIRMED"));
+        assertThat(formalPayments.payWithToken(token, paymentId)).satisfies(paid -> {
+            assertThat(paid.getStatus()).isEqualTo("CONFIRMED");
+            assertThat(paid.getPaymentStatus()).isEqualTo("PAID");
+        });
         assertReplayReceipt(replayAppointment(token, paidKey, paidBody), paidAppointmentId, paidAppointmentNo);
 
         Long expiredScheduleId = createSchedule(LocalDate.of(2099, 8, 7), LocalTime.of(14, 0));

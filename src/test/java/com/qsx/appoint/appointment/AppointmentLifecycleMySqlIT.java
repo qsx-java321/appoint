@@ -56,7 +56,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Testcontainers
 @SpringBootTest(properties = "appoint.expiration.enabled=false")
 @ActiveProfiles("test")
+@org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class AppointmentLifecycleMySqlIT {
+    @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private static final AtomicInteger SCHEDULE_SEQUENCE = new AtomicInteger();
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
@@ -93,10 +96,12 @@ class AppointmentLifecycleMySqlIT {
         CreateAppointmentResponse created = createAppointment(userId, scheduleId);
 
         List<Object> outcomes = race(
-                () -> lifecycleService.simulatePaymentSuccess(userId, created.getPaymentOrderId()),
+                () -> formalPayments.pay(userId, created.getPaymentOrderId()),
                 () -> cancel(userId, created.getAppointmentOrderId()));
 
         assertThat(outcomes).hasSize(2);
+        outcomes.stream().filter(BusinessException.class::isInstance).map(BusinessException.class::cast)
+                .forEach(error -> assertThat(error.getErrorCode()).isEqualTo(com.qsx.appoint.common.ErrorCode.ORDER_STATE_ERROR));
         AppointmentOrder appointment = appointmentOrderMapper.selectById(created.getAppointmentOrderId());
         PaymentOrder payment = paymentOrderMapper.selectById(created.getPaymentOrderId());
         Schedule schedule = scheduleMapper.selectById(scheduleId);
@@ -105,8 +110,12 @@ class AppointmentLifecycleMySqlIT {
             assertInventory(schedule, 1, 0, 0, 1);
         } else {
             assertThat(appointment.getStatus()).isEqualTo("CANCELLED");
-            assertThat(payment.getStatus()).isIn("CLOSED", "REFUNDED");
+            assertThat(payment.getStatus()).isIn("CLOSED", "REFUND_PENDING", "REFUNDED");
             assertInventory(schedule, 1, 1, 0, 0);
+            if ("REFUND_PENDING".equals(payment.getStatus())) {
+                assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM payment_refunds WHERE payment_order_id=?",Integer.class,payment.getId())).isEqualTo(1);
+                assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM payment_outbox_events WHERE aggregate_id=? AND event_type='RefundRequested'",Integer.class,payment.getId())).isEqualTo(1);
+            }
         }
     }
 
@@ -115,13 +124,20 @@ class AppointmentLifecycleMySqlIT {
         Long userId = createUser();
         CreateAppointmentResponse created = createAppointment(userId, createSchedule());
 
+        paymentAttemptService.startAttempt(userId,created.getPaymentOrderId(),PaymentChannel.MOCK);
         List<Object> outcomes = race(
-                () -> lifecycleService.simulatePaymentSuccess(userId, created.getPaymentOrderId()),
-                () -> lifecycleService.simulatePaymentSuccess(userId, created.getPaymentOrderId()));
+                () -> formalPayments.pay(userId, created.getPaymentOrderId()),
+                () -> formalPayments.pay(userId, created.getPaymentOrderId()));
 
         assertThat(outcomes).noneMatch(BusinessException.class::isInstance);
         assertThat(appointmentOrderMapper.selectById(created.getAppointmentOrderId()).getStatus()).isEqualTo("CONFIRMED");
         assertThat(paymentOrderMapper.selectById(created.getPaymentOrderId()).getStatus()).isEqualTo("PAID");
+        AppointmentOrder confirmed=appointmentOrderMapper.selectById(created.getAppointmentOrderId());
+        assertThat(confirmed.getVisitNumber()).isEqualTo(1);
+        assertThat(scheduleMapper.selectById(confirmed.getScheduleId()).getNextVisitNumber()).isEqualTo(2);
+        assertInventory(scheduleMapper.selectById(confirmed.getScheduleId()),1,0,0,1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM payment_outbox_events WHERE aggregate_id=? AND event_type='PaymentSucceeded'",Integer.class,created.getPaymentOrderId())).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM coordination_inbox_events i JOIN payment_outbox_events o ON o.event_id=i.event_id WHERE o.aggregate_id=? AND o.event_type='PaymentSucceeded'",Integer.class,created.getPaymentOrderId())).isEqualTo(1);
     }
 
     @Test
@@ -202,9 +218,12 @@ class AppointmentLifecycleMySqlIT {
         AppointmentOrder appointment = appointmentOrderMapper.selectById(created.getAppointmentOrderId());
         appointment.setPaymentExpiresAt(LocalDateTime.of(2000, 1, 1, 0, 0));
         appointmentOrderMapper.updateById(appointment);
+        PaymentOrder expiredPayment = paymentOrderMapper.selectById(created.getPaymentOrderId());
+        expiredPayment.setExpiresAt(appointment.getPaymentExpiresAt());
+        paymentOrderMapper.updateById(expiredPayment);
 
         List<Object> outcomes = race(
-                () -> lifecycleService.simulatePaymentSuccess(userId, created.getPaymentOrderId()),
+                () -> formalPayments.pay(userId, created.getPaymentOrderId()),
                 () -> lifecycleService.expireIfDue(created.getAppointmentOrderId()));
 
         assertThat(outcomes).anyMatch(value -> Boolean.TRUE.equals(value));
@@ -253,7 +272,7 @@ class AppointmentLifecycleMySqlIT {
         Long userId = createUser();
         Long scheduleId = createSchedule();
         CreateAppointmentResponse created = createAppointment(userId, scheduleId);
-        lifecycleService.simulatePaymentSuccess(userId, created.getPaymentOrderId());
+        formalPayments.pay(userId, created.getPaymentOrderId());
 
         List<Object> outcomes = race(
                 () -> cancel(userId, created.getAppointmentOrderId()),

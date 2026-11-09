@@ -50,7 +50,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class AppointmentLifecycleIntegrationTest {
+    @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;
     private static final AtomicInteger SCHEDULE_SEQUENCE = new AtomicInteger();
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
@@ -93,8 +95,8 @@ class AppointmentLifecycleIntegrationTest {
                         .header("Authorization", bearer(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.closedAt").value(closedAt));
-        mockMvc.perform(post("/api/v1/payments/{id}/simulate-success", first.paymentId())
-                        .header("Authorization", bearer(owner)))
+        mockMvc.perform(post("/api/v1/payments/{id}/attempts", first.paymentId())
+                        .header("Authorization", bearer(owner)).contentType(MediaType.APPLICATION_JSON).content("{\"channel\":\"MOCK\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(4003));
 
@@ -117,9 +119,12 @@ class AppointmentLifecycleIntegrationTest {
         AppointmentOrder appointment = appointmentOrderMapper.selectById(created.appointmentId());
         appointment.setPaymentExpiresAt(LocalDateTime.now(appointmentClock).minusSeconds(1));
         appointmentOrderMapper.updateById(appointment);
+        PaymentOrder expiredPayment = paymentOrderMapper.selectById(created.paymentId());
+        expiredPayment.setExpiresAt(appointment.getPaymentExpiresAt());
+        paymentOrderMapper.updateById(expiredPayment);
 
-        mockMvc.perform(post("/api/v1/payments/{id}/simulate-success", created.paymentId())
-                        .header("Authorization", bearer(user)))
+        mockMvc.perform(post("/api/v1/payments/{id}/attempts", created.paymentId())
+                        .header("Authorization", bearer(user)).contentType(MediaType.APPLICATION_JSON).content("{\"channel\":\"MOCK\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(4004));
         mockMvc.perform(get("/api/v1/appointments/{id}", created.appointmentId())
@@ -191,9 +196,10 @@ class AppointmentLifecycleIntegrationTest {
         AuthenticatedUser user = registerAndLogin();
         Schedule schedule = createSchedule(LocalDate.of(2099, 3, 10), LocalTime.of(11, 0));
         CreatedAppointment created = createAppointment(user, schedule.getId());
-        mockMvc.perform(post("/api/v1/payments/{id}/simulate-success", created.paymentId())
-                        .header("Authorization", bearer(user)))
-                .andExpect(status().isAccepted());
+        assertThat(formalPayments.payWithToken(user.token(), created.paymentId())).satisfies(paid -> {
+            assertThat(paid.getStatus()).isEqualTo("CONFIRMED");
+            assertThat(paid.getPaymentStatus()).isEqualTo("PAID");
+        });
         mockMvc.perform(post("/api/v1/appointments/{id}/cancel", created.appointmentId())
                         .header("Authorization", bearer(user)))
                 .andExpect(status().isAccepted());
@@ -258,9 +264,10 @@ class AppointmentLifecycleIntegrationTest {
         AuthenticatedUser user = registerAndLogin();
         CreatedAppointment created = createAppointment(user,
                 createSchedule(LocalDate.of(2099, 3, 4), LocalTime.of(12, 0)).getId());
-        mockMvc.perform(post("/api/v1/payments/{id}/simulate-success", created.paymentId())
-                        .header("Authorization", bearer(user)))
-                .andExpect(status().isAccepted());
+        assertThat(formalPayments.payWithToken(user.token(), created.paymentId())).satisfies(paid -> {
+            assertThat(paid.getStatus()).isEqualTo("CONFIRMED");
+            assertThat(paid.getPaymentStatus()).isEqualTo("PAID");
+        });
 
         mockMvc.perform(post("/api/v1/appointments/{id}/cancel", created.appointmentId())
                         .header("Authorization", bearer(user)))
@@ -331,8 +338,8 @@ class AppointmentLifecycleIntegrationTest {
                         .header("Authorization", bearer(other)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(2002));
-        mockMvc.perform(post("/api/v1/payments/{id}/simulate-success", created.paymentId())
-                        .header("Authorization", bearer(other)))
+        mockMvc.perform(post("/api/v1/payments/{id}/attempts", created.paymentId())
+                        .header("Authorization", bearer(other)).contentType(MediaType.APPLICATION_JSON).content("{\"channel\":\"MOCK\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(2002));
         mockMvc.perform(post("/api/v1/appointments/{id}/cancel", Long.MAX_VALUE)

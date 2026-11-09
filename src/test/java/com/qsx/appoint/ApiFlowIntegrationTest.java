@@ -36,7 +36,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.url=jdbc:h2:mem:api-flow;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class ApiFlowIntegrationTest {
+    @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private ScheduleMapper scheduleMapper;
@@ -152,11 +154,14 @@ class ApiFlowIntegrationTest {
         JsonNode data = objectMapper.readTree(appointmentResult).get("data");
         long paymentId = data.get("paymentOrderId").asLong();
 
-        mockMvc.perform(post("/api/v1/payments/{id}/simulate-success", paymentId).header("Authorization", "Bearer " + token))
-                .andExpect(status().isAccepted()).andExpect(jsonPath("$.data.paymentStatus").value("PAID"))
-                .andExpect(jsonPath("$.data.appointmentStatus").value("CONFIRMED"));
-        mockMvc.perform(post("/api/v1/payments/{id}/simulate-success", paymentId).header("Authorization", "Bearer " + token))
-                .andExpect(status().isAccepted()).andExpect(jsonPath("$.data.paymentStatus").value("PAID"));
+        assertThat(formalPayments.payWithToken(token, paymentId)).satisfies(paid -> {
+            assertThat(paid.getStatus()).isEqualTo("CONFIRMED");
+            assertThat(paid.getPaymentStatus()).isEqualTo("PAID");
+        });
+        assertThat(formalPayments.payWithToken(token, paymentId)).satisfies(paid -> {
+            assertThat(paid.getStatus()).isEqualTo("CONFIRMED");
+            assertThat(paid.getPaymentStatus()).isEqualTo("PAID");
+        });
 
         mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
                         .header("Idempotency-Key", UUID.randomUUID().toString())

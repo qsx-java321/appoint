@@ -87,3 +87,7 @@
 ### 07 暂存快照实际验收
 
 2026-11-09，`/tmp/booking-07-snapshot-syfyevyo`：聚焦92、常规223、MySQL34、可靠性14及Compose全部通过，零失败/错误/跳过。新增42项纯Policy决策矩阵；日志 `/tmp/booking-07-{focused,test,mysql,reliability,compose}.log`。保留原短路、取时、退款原因、布尔及事件结果字符串；Legacy同步入口仅待08删除。
+
+### 08 暂存快照实际验收
+
+2026-11-09，`/tmp/booking-08-snapshot-ddye990u`：常规225、MySQL34、可靠性14及Compose全部通过，零失败/错误/跳过；日志 `/tmp/booking-08-{test,mysql,reliability,compose}.log`。六组旧测试经真实attempt/签名/Ingress/Outbox/Codec/Processor迁移，快速helper不冒充Broker传输。H2 JSON额外字符串编码只在helper按数据库类型适配，MySQL使用原v1文档；生产Codec、schema不变。删除全部已授权旧同步入口及无调用能力；三profile请求映射验收通过。
