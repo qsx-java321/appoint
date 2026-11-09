@@ -54,15 +54,10 @@ class PaymentNotificationServiceImpl implements PaymentNotificationService {
                     null, null, true, null);
         }
 
-        PaymentAttempt lookup = attemptMapper.selectByProviderOrderNo(channel.name(), verified.providerOrderNo());
-        if (lookup == null) return auditRejected(channel, verified, payloadHash, "REJECTED_UNKNOWN_ORDER");
-        PaymentOrder payment = paymentOrderMapper.selectByIdForUpdate(lookup.getPaymentOrderId());
-        if (payment == null) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        PaymentAttempt attempt = attemptMapper.selectByProviderOrderNoForUpdate(channel.name(), verified.providerOrderNo());
-        if (attempt == null || !attempt.getId().equals(lookup.getId())
-                || !attempt.getPaymentOrderId().equals(payment.getId())) {
-            throw new BusinessException(ErrorCode.RETRYABLE_CONCURRENCY_ERROR);
-        }
+        NotificationContext context = lockContext(channel, verified);
+        if (context == null) return execute(channel, verified, payloadHash, null, policy.decide(verified, null));
+        PaymentOrder payment = context.payment();
+        PaymentAttempt attempt = context.attempt();
         existing = notificationMapper.selectByChannelAndNotificationIdForUpdate(
                 channel.name(), verified.notificationId());
         if (existing != null) {
@@ -70,19 +65,40 @@ class PaymentNotificationServiceImpl implements PaymentNotificationService {
             return new PaymentNotificationResponse(verified.notificationId(), existing.getProcessingResult(),
                     attempt.getPaymentOrderId(), null, true, null);
         }
-        if (payment.getAmount().compareTo(verified.amount()) != 0
-                || !payment.getCurrency().equals(verified.currency())) {
-            return audit(channel, verified, payloadHash, "REJECTED_AMOUNT_OR_CURRENCY",
-                    payment.getId(), payment.getStatus(), false);
-        }
+        var decision = policy.decide(verified, new PaymentNotificationPolicy.Facts(
+                payment.getAmount(), payment.getCurrency(), PaymentAttemptStatus.fromStored(attempt.getStatus()),
+                PaymentOrderStatus.fromStored(payment.getStatus())));
+        return execute(channel, verified, payloadHash, context, decision);
+    }
 
-        LocalDateTime now = now();
-        var decision = policy.decide(
-                verified.status(), PaymentAttemptStatus.fromStored(attempt.getStatus()), PaymentOrderStatus.fromStored(payment.getStatus()));
+    private NotificationContext lockContext(PaymentChannel channel, VerifiedPaymentNotification verified) {
+        PaymentAttempt lookup = attemptMapper.selectByProviderOrderNo(channel.name(), verified.providerOrderNo());
+        if (lookup == null) return null;
+        PaymentOrder payment = paymentOrderMapper.selectByIdForUpdate(lookup.getPaymentOrderId());
+        if (payment == null) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        PaymentAttempt attempt = attemptMapper.selectByProviderOrderNoForUpdate(channel.name(), verified.providerOrderNo());
+        if (attempt == null || !attempt.getId().equals(lookup.getId())
+                || !attempt.getPaymentOrderId().equals(payment.getId())) {
+            throw new BusinessException(ErrorCode.RETRYABLE_CONCURRENCY_ERROR);
+        }
+        return new NotificationContext(payment, attempt);
+    }
+
+    private PaymentNotificationResponse execute(PaymentChannel channel, VerifiedPaymentNotification verified,
+                                                String payloadHash, NotificationContext context,
+                                                PaymentNotificationPolicy.Decision decision) {
+        PaymentOrder payment = context == null ? null : context.payment();
+        PaymentAttempt attempt = context == null ? null : context.attempt();
+        // 拒绝未知订单/金额时沿用原审计取时，不读取资金成功时间。
+        LocalDateTime now = decision == PaymentNotificationPolicy.Decision.REJECT_UNKNOWN_ORDER
+                || decision == PaymentNotificationPolicy.Decision.REJECT_AMOUNT_OR_CURRENCY ? null : now();
         return switch (decision) {
             case ALREADY_SUCCEEDED -> audit(channel, verified, payloadHash, "ALREADY_SUCCEEDED",
                     payment.getId(), payment.getStatus(), false);
             case IGNORE_LATE_FAILURE -> audit(channel, verified, payloadHash, "IGNORED_LATE_FAILURE",
+                    payment.getId(), payment.getStatus(), false);
+            case REJECT_UNKNOWN_ORDER -> auditRejected(channel, verified, payloadHash, "REJECTED_UNKNOWN_ORDER");
+            case REJECT_AMOUNT_OR_CURRENCY -> audit(channel, verified, payloadHash, "REJECTED_AMOUNT_OR_CURRENCY",
                     payment.getId(), payment.getStatus(), false);
             case REJECT_STATE -> audit(channel, verified, payloadHash, "REJECTED_STATE",
                     payment.getId(), payment.getStatus(), false);
@@ -107,6 +123,8 @@ class PaymentNotificationServiceImpl implements PaymentNotificationService {
             }
         };
     }
+
+    private record NotificationContext(PaymentOrder payment, PaymentAttempt attempt) { }
 
     private PaymentNotificationResponse auditRejected(PaymentChannel channel, VerifiedPaymentNotification verified,
                                                       String hash, String result) {

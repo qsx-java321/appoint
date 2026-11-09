@@ -2,7 +2,7 @@
 
 Type: refactor/fix
 Triage: ready-for-agent
-Status: claimed
+Status: resolved
 Blocked by: 03
 
 设计依据：[spec](../spec.md)，执行位置：[map](../map.md)。初始 Status 使用 triage 标签表示待认领；开始实施改为 claimed，验收完成改为 resolved。Triage 不代表依赖已解除。
@@ -23,7 +23,7 @@ Blocked by: 03
 
 - 不更改 Gateway/HTTP、paidAt 来源、支付状态合法集合、尝试生命周期、事件 v1、Outbox 发布器或退款重试策略。
 - 不因 CLOSED payment 自动把 attempt 关闭，不接收当前不接受的 CLOSED/FAILED attempt 成功通知。
-- 不修复迟到事件的预约暂占缺口，不新增预约模块依赖。
+- 保留11已验收的迟到事件释放行为，不新增预约模块依赖。
 
 ## 前置依赖
 
@@ -81,14 +81,18 @@ handle：幂等快速返回→上下文定位和 payment 父锁→attempt 锁及
 
 ## 完成状态清单
 
-- [ ] 回调 Policy/Executor 与幂等复验完成
-- [ ] 回调/T2/worker 全部 payment 父锁在先
-- [ ] 资金/审计/Outbox 回滚与 v1 契约验证
-- [ ] 真实 MySQL 竞争与 Broker 故障验证
-- [ ] 无事务外调用回归且 Comments 更新
+- [x] 回调 Policy/Executor 与幂等复验完成
+- [x] 回调/T2/worker 全部 payment 父锁在先
+- [x] 资金/审计/Outbox 回滚与 v1 契约验证
+- [x] 真实 MySQL 竞争与 Broker 故障验证
+- [x] 无事务外调用回归且 Comments 更新
 
 ## Comments
 
 - 2026-11-08：根据源码复核后的spec创建。仅完成任务定义，未认领、未实施；本轮基线结果见map，不等同于本issue验收结果。 依赖尚未resolved，暂不可开始实施。
 
 - 2026-11-08：已调整回调、支付尝试 T2 和退款 worker 父记录先锁；回调 Policy 拆分和真实竞争回归尚待完成。
+
+- 2026-11-09：04已在199c90a验收。回调提取private NotificationContext加载、纯Policy和execute步骤，未知订单/金额币种纳入纯决策；保留两次幂等复验、锁后服务端paidAt、独立审计取时及原v1构造。PaymentParentLockMySqlIT用真实InnoDB子锁及NOWAIT父锁探针确定性覆盖callback、T2成功/失败、refund claim/complete/fail和退款请求，另覆盖worker重投/请求及callback/退款竞争；Gateway port检查渠道调用无活跃事务。首轮worker测试屏障误占MockPay synchronized monitor导致超时，改由port注入后7项通过，非业务死锁。新增最后2项与完整快照仍须验收。PaymentNotificationAtomicityTest的audit/Outbox故障回滚和重试通过，Broker停机期间真实签名回调提交并恢复确认聚焦通过。
+
+- 2026-11-09：独立暂存快照 `/tmp/booking-05-snapshot-sgwopa8o` 常规173、MySQL34（含9项新增支付父锁/交错测试）、可靠性14及Compose全部通过，零失败/错误/跳过。回调资金/审计/Outbox失败回滚与可重试、真实Broker停机回调提交恢复确认、全部相关支付父锁路径已覆盖；条件SQL、schema和v1构造无修改。05 resolved。

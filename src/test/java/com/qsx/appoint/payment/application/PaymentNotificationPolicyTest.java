@@ -24,4 +24,22 @@ class PaymentNotificationPolicyTest {
                                         PaymentNotificationPolicy.Decision expected) {
         assertThat(policy.decide(result, attempt, payment)).isEqualTo(expected);
     }
+    @org.junit.jupiter.api.Test
+    void unknownAndAmountDecisionsPrecedeStateRulesAndIgnoreDecimalScale() {
+        var notice = new com.qsx.appoint.payment.port.VerifiedPaymentNotification("notice", "order", "txn",
+                GatewayPaymentStatus.SUCCEEDED, new java.math.BigDecimal("10.0"), "CNY", java.time.LocalDateTime.now());
+        assertThat(policy.decide(notice, null)).isEqualTo(PaymentNotificationPolicy.Decision.REJECT_UNKNOWN_ORDER);
+        var mismatch = new PaymentNotificationPolicy.Facts(new java.math.BigDecimal("11.00"), "CNY",
+                com.qsx.appoint.payment.domain.PaymentAttemptStatus.FAILED,
+                com.qsx.appoint.payment.domain.PaymentOrderStatus.REFUNDED);
+        assertThat(policy.decide(notice, mismatch)).isEqualTo(PaymentNotificationPolicy.Decision.REJECT_AMOUNT_OR_CURRENCY);
+        var matching = new PaymentNotificationPolicy.Facts(new java.math.BigDecimal("10.00"), "CNY",
+                com.qsx.appoint.payment.domain.PaymentAttemptStatus.PROCESSING,
+                com.qsx.appoint.payment.domain.PaymentOrderStatus.PAYING);
+        assertThat(policy.decide(notice, matching)).isEqualTo(PaymentNotificationPolicy.Decision.SUCCEED);
+        var foreignCurrency = new PaymentNotificationPolicy.Facts(new java.math.BigDecimal("10.00"), "USD",
+                matching.attempt(), matching.payment());
+        assertThat(policy.decide(notice, foreignCurrency)).isEqualTo(PaymentNotificationPolicy.Decision.REJECT_AMOUNT_OR_CURRENCY);
+    }
+
 }

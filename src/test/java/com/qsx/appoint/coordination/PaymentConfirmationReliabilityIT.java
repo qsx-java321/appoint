@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 @Testcontainers
+@org.springframework.test.context.ActiveProfiles("test")
 @SpringBootTest(properties = {
         "appoint.expiration.enabled=false",
         "appoint.messaging.enabled=true",
@@ -240,6 +241,39 @@ class PaymentConfirmationReliabilityIT {
         }
     }
 
+    @Test
+    void realSignedCallbackCommitsWhileBrokerIsDownThenConfirmsAfterRecovery() throws Exception {
+        callbackFixture();
+        var attempts=applicationContext.getBean(com.qsx.appoint.payment.application.PaymentAttemptService.class);
+        var gateway=applicationContext.getBean(com.qsx.appoint.payment.adapter.mock.MockPaymentGateway.class);
+        var ingress=applicationContext.getBean(com.qsx.appoint.payment.application.PaymentNotificationIngress.class);
+        var attempt=attempts.startAttempt(24001L,24004L,com.qsx.appoint.payment.domain.PaymentChannel.MOCK);
+        var raw=gateway.complete(attempt.providerOrderNo(),UUID.randomUUID().toString(),LocalDateTime.now());
+        String eventId;
+        RABBIT.execInContainer("rabbitmqctl","stop_app");
+        try {
+            var response=ingress.handle(com.qsx.appoint.payment.domain.PaymentChannel.MOCK,raw);
+            assertThat(response.processingResult()).isEqualTo("SUCCEEDED");
+            eventId=response.eventId();
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM payment_orders WHERE id=24004",String.class)).isEqualTo("PAID");
+            assertThat(outboxMapper.selectById(eventId).getStatus()).isEqualTo("PENDING");
+            assertThat(inboxCount(eventId)).isZero();
+        } finally {
+            RABBIT.execInContainer("rabbitmqctl","start_app");
+            RABBIT.execInContainer("rabbitmqctl","await_startup");
+            connectionFactory.resetConnection();
+        }
+        await().untilAsserted(() -> {
+            publisher.publishDue();
+            assertThat(outboxMapper.selectById(eventId).getStatus()).isEqualTo("PUBLISHED");
+        });
+        await().untilAsserted(() -> {
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=24003",String.class)).isEqualTo("CONFIRMED");
+            assertThat(inboxCount(eventId)).isEqualTo(1);
+            assertThat(jdbcTemplate.queryForObject("SELECT next_visit_number FROM schedules WHERE id=4",Integer.class)).isEqualTo(2);
+        });
+    }
+
     private PaymentOutboxEvent pendingEvent() throws Exception {
         String eventId = UUID.randomUUID().toString();
         LocalDateTime paidAt = LocalDateTime.of(2098, 12, 1, 8, 0);
@@ -330,6 +364,36 @@ class PaymentConfirmationReliabilityIT {
                 INSERT INTO payment_orders
                   (id,payment_no,appointment_order_id,user_id,status,amount,currency,expires_at,legacy)
                 VALUES (23004,'P23004',23003,23001,'PAID',50.00,'CNY','2098-12-01 08:15:00',FALSE)
+                """);
+    }
+
+    private void callbackFixture() {
+        jdbcTemplate.update("""
+                UPDATE schedules SET status='OPEN', session_type='MORNING', start_time='08:00:00', end_time='12:00:00',
+                  total_capacity=2, available_capacity=1, held_capacity=1, confirmed_capacity=0,
+                  next_visit_number=1, registration_fee=50.00, fee_currency='CNY' WHERE id=4
+                """);
+        jdbcTemplate.update("INSERT INTO users (id,email,password_hash) VALUES (24001,'callback-outage@example.com','hash')");
+        jdbcTemplate.update("""
+                INSERT INTO patients (id,user_id,name,document_type,document_no,contact_phone,contact_email)
+                VALUES (24002,24001,'测试','RESIDENT_ID_CARD','110105199001012101','13800000000','p@example.com')
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO appointment_orders
+                  (id,appointment_no,user_id,schedule_id,patient_id,patient_name,patient_document_type,
+                   patient_document_no,patient_contact_phone,patient_contact_email,doctor_id,doctor_no,
+                   doctor_name,doctor_title,department_id,department_name,hospital_id,hospital_name,
+                   hospital_address,appointment_date,start_time,end_time,status,payment_expires_at,
+                   fee_amount,fee_currency)
+                VALUES (24003,'A24003',24001,4,24002,'测试','RESIDENT_ID_CARD','110105199001012101',
+                        '13800000000','p@example.com',1,'DOC000001','张医生','主任医师',1,'内科',1,
+                        '示例市第一人民医院','示例市健康路 1 号','2099-01-01','09:00:00','09:30:00',
+                        'PENDING_PAYMENT','2098-12-01 08:15:00',50.00,'CNY')
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO payment_orders
+                  (id,payment_no,appointment_order_id,user_id,status,amount,currency,expires_at,legacy)
+                VALUES (24004,'P24004',24003,24001,'UNPAID',50.00,'CNY','2098-12-01 08:15:00',FALSE)
                 """);
     }
 
