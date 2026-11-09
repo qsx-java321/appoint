@@ -28,7 +28,7 @@ Blocked by: 03
 ## 前置依赖
 
 [03 类型化状态、关闭原因与退款原因](03-typed-lifecycle-language.md)。
-只有全部前置任务 Status 为 resolved 才能开始；当前仅01可开始。推荐按map串行顺序执行，避免共享快照和调用点冲突。
+只有全部前置任务 Status 为 resolved 才能开始；最终实施状态见本文 Status 和最新 Comments。推荐按map串行顺序执行，避免共享快照和调用点冲突。
 
 ## 需要修改的模块和主要文件
 
@@ -96,3 +96,5 @@ handle：幂等快速返回→上下文定位和 payment 父锁→attempt 锁及
 - 2026-11-09：04已在199c90a验收。回调提取private NotificationContext加载、纯Policy和execute步骤，未知订单/金额币种纳入纯决策；保留两次幂等复验、锁后服务端paidAt、独立审计取时及原v1构造。PaymentParentLockMySqlIT用真实InnoDB子锁及NOWAIT父锁探针确定性覆盖callback、T2成功/失败、refund claim/complete/fail和退款请求，另覆盖worker重投/请求及callback/退款竞争；Gateway port检查渠道调用无活跃事务。首轮worker测试屏障误占MockPay synchronized monitor导致超时，改由port注入后7项通过，非业务死锁。新增最后2项与完整快照仍须验收。PaymentNotificationAtomicityTest的audit/Outbox故障回滚和重试通过，Broker停机期间真实签名回调提交并恢复确认聚焦通过。
 
 - 2026-11-09：独立暂存快照 `/tmp/booking-05-snapshot-sgwopa8o` 常规173、MySQL34（含9项新增支付父锁/交错测试）、可靠性14及Compose全部通过，零失败/错误/跳过。回调资金/审计/Outbox失败回滚与可重试、真实Broker停机回调提交恢复确认、全部相关支付父锁路径已覆盖；条件SQL、schema和v1构造无修改。05 resolved。
+
+- 2026-11-09：10文档收口核对：本issue原阶段独立验收证据保留；最终集成代码a61b808的常规233/MySQL34/可靠性15及Compose全部通过，零失败/错误/跳过，详见 [最终验证报告](../../../docs/verification-report.md)。09覆盖对照未遗漏本issue保证；此处不以最终数量改写原阶段结果。

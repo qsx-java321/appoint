@@ -29,7 +29,7 @@ Blocked by: 05, 06
 ## 前置依赖
 
 [05 支付回调决策分离与支付锁序收敛](05-payment-notification-policy.md)；[06 预约与支付生命周期 interface 深度化](06-lifecycle-interfaces.md)。
-只有全部前置任务 Status 为 resolved 才能开始；当前仅01可开始。推荐按map串行顺序执行，避免共享快照和调用点冲突。
+只有全部前置任务 Status 为 resolved 才能开始；最终实施状态见本文 Status 和最新 Comments。推荐按map串行顺序执行，避免共享快照和调用点冲突。
 
 ## 需要修改的模块和主要文件
 
@@ -93,3 +93,5 @@ Blocked by: 05, 06
 - 2026-11-09：06已在1255737验收。新增package-private纯BookingLifecyclePolicy及具名取消/过期/确认决策，取消决策分别携带closeReason/refundReason/refundPending。协调用例保持原锁/归属/完整性与提前返回时机；未到期过期入口不锁支付，未到期已付对账仍处理，关闭取消仍不取新时钟，活跃决策原位置取一次now。事件仍validate→Inbox→锁预约→Policy→完整操作，不重读支付；11释放及12重试行为保留。首轮现有聚焦通过，纯矩阵及最终快照继续验收。
 
 - 2026-11-09：独立暂存快照 `/tmp/booking-07-snapshot-syfyevyo` 聚焦92、常规223、MySQL34、可靠性14及Compose全部通过，零失败/错误/跳过。纯Policy无Spring/Mapper/Clock/Gateway依赖，取消布尔/原因、paidAt缺失及截止边界、事件终态、入口短路和Inbox原子性回归通过。07 resolved。
+
+- 2026-11-09：10文档收口核对：本issue原阶段独立验收证据保留；最终集成代码a61b808的常规233/MySQL34/可靠性15及Compose全部通过，零失败/错误/跳过，详见 [最终验证报告](../../../docs/verification-report.md)。09覆盖对照未遗漏本issue保证；此处不以最终数量改写原阶段结果。

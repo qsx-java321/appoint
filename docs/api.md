@@ -23,7 +23,7 @@
 {
   "doctorId": "1",
   "doctorNo": "DOC000001",
-  "appointmentDate": "2026-11-06",
+  "appointmentDate": "2026-11-11",
   "sessionType": "MORNING_FIRST",
   "startTime": "08:00:00",
   "endTime": "10:00:00",
@@ -75,7 +75,7 @@
 ```json
 {
   "doctorId": "1",
-  "appointmentDate": "2026-11-06",
+  "appointmentDate": "2026-11-11",
   "sessionType": "MORNING_FIRST",
   "patientId": "201"
 }
@@ -87,13 +87,15 @@
 
 首次下单会按需生成场次并复制统一设置。并发首次下单依靠 `(doctor_id, appointment_date, session_type)` 唯一约束收敛到同一场次，条件更新防止超卖。失败事务不保留新场次、暂占或幂等键。
 
-成功响应包含预约单、支付单、金额、币种和 `paymentExpiresAt`。详情仍可返回内部 `scheduleId` 以关联历史记录。
+首次创建返回 **201**，data 字段为 `appointmentOrderId`、`paymentOrderId`、`appointmentStatus`、`paymentStatus`、`amount`、`currency`、`paymentExpiresAt`、`serverTime`。幂等重放返回 **200**，data 仅含 `appointmentOrderId`、`appointmentNo`、`replayed=true`；需查询详情获取最新支付状态，不能将重放回执当首次创建响应。详情仍可返回内部 `scheduleId` 以关联历史记录。
+
+示例日期只用于说明；实际请求必须改为服务端明天至第 7 天。
 
 ## 支付时间边界
 
-`paymentExpiresAt = orderCreatedAt + 15 分钟`，不再与开诊时间取较早值。订单在 23:59:59 创建时可跨零点支付到次日 00:14:59；恰好到截止时刻即不能发起或确认新支付。
+`paymentExpiresAt = orderCreatedAt + 15 分钟`，不再与开诊时间取较早值。订单在 23:59:59 创建时可跨零点支付到次日 00:14:59；恰好到截止时刻即不能发起有效新支付；已经发生的渠道成功回调仍记录收款事实并按迟到支付退款。
 
-截止前渠道已经确认的支付，即使消息稍后消费，仍可确认预约。截止时刻或之后才确认的实际收款不得恢复预约，进入原路全额退款。过期扫描延迟只影响状态落库时间，不延长支付资格。
+截止前渠道已经确认的支付，即使消息稍后消费，仍可确认预约。若预约仍待支付，截止时刻或之后才确认的实际收款会使预约 EXPIRED、释放暂占、删除有效占用并进入原路全额退款；已关闭预约保持终态，只确保退款。paidAt 使用本系统确认收款的服务端时间。过期扫描延迟只影响状态落库时间，不延长支付资格。
 
 ## 预约查询和生命周期
 
@@ -104,7 +106,32 @@
 | `POST /api/v1/appointments/{id}/cancel` | 主动取消 |
 | `POST /api/v1/payments/{id}/attempts` | 发起支付尝试 |
 
-待支付订单可在截止前支付或主动取消；截止后由扫描释放暂占。已确认预约只允许在开诊前严格超过 24 小时取消，并进入退款流程。支付回调、过期、取消和退款均保持幂等与库存守恒。
+查询返回 **200**。取消在无需退款时返回 **200**；进入或仍处于异步退款流程时返回 **202**，message 为“退款申请已受理”，data 仍是预约详情。202 不代表渠道已经退款。重复已关闭订单的取消不重复释放，退款已经完成时返回200。
+
+详情字段保持原契约：`id`、`appointmentNo`、`scheduleId`、`appointmentDate`、`startTime`、`endTime`、`status`、`visitNumber`、`createdAt`、`paymentOrderId`、`paymentStatus`、`workflowStatus`、`amount`、`currency`、`paymentAttemptCount`、`latestPaymentAttempt`、`refund`、`paymentExpiresAt`、`closedAt`、`serverTime`、`paymentExpired`、`canPay`、`canCancel`、`patient`、`doctor`。尝试/退款摘要可为 null；退款状态用于摘要，不决定 workflow。列表各项共享截断到秒的 serverTime。
+
+| status + paymentStatus | workflowStatus |
+| --- | --- |
+| PENDING_PAYMENT + UNPAID | WAITING_FOR_PAYMENT |
+| PENDING_PAYMENT + PAYING | PAYMENT_PROCESSING |
+| PENDING_PAYMENT + PAID | CONFIRMING_APPOINTMENT |
+| CONFIRMED + PAID | CONFIRMED |
+| CANCELLED / CANCELLED_BY_HOSPITAL / EXPIRED + REFUND_PENDING | CANCELLED_REFUNDING |
+| 同上 + REFUNDED | CANCELLED_REFUNDED |
+| EXPIRED + CLOSED | EXPIRED |
+| CANCELLED / CANCELLED_BY_HOSPITAL + CLOSED | null（历史兼容） |
+
+其他组合或缺失/归属不符的支付单按 INTERNAL_ERROR 处理；详情先判断预约不存在/非本人，再检查支付完整性。canPay 只在未到期 PENDING_PAYMENT+UNPAID 为 true。保留既有差异：待支付 UNPAID/PAYING 即使到期仍 canCancel=true，取消入口按时刻关闭为 EXPIRED；待确认已付的 canCancel=false，但取消写入口仍可申请退款。已确认预约必须严格早于开诊前24小时才可取消。
+
+## 支付尝试与通知
+
+`POST /api/v1/payments/{id}/attempts` 需要本人 Token，body 为 `{"channel":"MOCK"}`，成功返回 **202**。data 为 `paymentOrderId`、`paymentAttemptId`、`channel`、`paymentStatus`、`attemptStatus`、`providerOrderNo`、`checkoutUrl`、`expiresAt`。此时一般为 PAYING/PROCESSING；调用 checkoutUrl 并不等于预约已经确认。
+
+仅 dev/test 注册 MockPay：`POST /api/v1/mock-pay/attempts/{attemptNo}/complete` 或 `/fail`，需要登录，返回 **202** 并异步分发签名通知。使用尝试响应中的 checkoutUrl 加 `/complete`；不直接构造同步成功请求。旧 `/api/v1/payments/{id}/simulate-success` 已删除，dev/test/prod 均无该请求映射。
+
+渠道通知 `POST /api/v1/payment-notifications/{channel}` 不要求 Bearer Token，依靠渠道验签；body 为 `notificationId`、`providerOrderNo`、`providerTransactionNo`、`status`、`amount`、`currency`、`occurredAt`、`signature`。现有 MockPay 签名由 Adapter 生成，真实支付渠道尚未接入。响应 **200** 的 data 为 `notificationId`、`processingResult`、`paymentOrderId`、`paymentStatus`、`duplicate`、`eventId`；重复通知部分字段可为 null。未知订单、金额币种或状态拒绝会记录审计并通过 processingResult 表达，不能仅凭HTTP200认为已收款。
+
+客户端轮询预约详情：支付成功可先见 CONFIRMING_APPOINTMENT，再见 CONFIRMED；取消或迟到支付可先见 CANCELLED_REFUNDING，再见 CANCELLED_REFUNDED。轮询不延长支付截止，业务状态和库存以数据库事务为准。
 
 新响应不包含 `scheduleClosed` 或 `hospitalClosureNotice`，新流程也不会产生停诊取消。历史 `CLOSED`、`CANCELLED_BY_HOSPITAL` 数据仍可查询。
 
@@ -122,6 +149,11 @@
 | 幂等键同键不同内容 | `409 / 4103` |
 | 支付已到截止时刻 | `409 / 4004` |
 | 支付通知签名无效 | `400 / 4302` |
+| 当前订单状态不允许操作 | `409 / 4003` |
+| 已确认取消已到24小时边界 | `409 / 4205` |
+| 支付渠道不可用 | `503 / 4301` |
+| 需要沿原键重试的并发冲突 | `503 / 5001` |
+| 查询状态组合或关联完整性异常 | `500 / 1002` |
 
 ## 历史兼容
 

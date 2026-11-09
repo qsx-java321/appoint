@@ -1,126 +1,96 @@
 # 四模块深度化改造任务地图
 
-Status: active
+Status: resolved
 
-设计依据：[复核后的 spec](spec.md)。源码复核日期：2026-11-08（Asia/Shanghai）；Git 基线：`9d20e301db5896c08896730a91a09f4a1b8cb058`。本轮正在实施改造；issue 状态及验证记录见各 issue 和本地图 Comments。
+改造前源码基线：`9d20e301db5896c08896730a91a09f4a1b8cb058`（2026-11-08复核）。最终代码检查点：`a61b808`（2026-11-09）；01–12均已完成独立阶段验收和交付。完整规格见 [spec](spec.md)，当前设计见 [模块设计](../../docs/module-design.md)，最终结果见 [验证报告](../../docs/verification-report.md)。下方Comments按日期保留历史进度。
 
-## 当前实现与目标差距
+## 最终实现
 
-| 领域 | 当前源码事实 | 目标及约束 | Issue |
-| --- | --- | --- | --- |
-| 预约暂占创建 | MANDATORY参加外层事务，方法内混合设置锁、按需场次、就诊人、库存和快照；实际占号前多次日期复验 | 保持设置→场次→就诊人→最终日期验收的顺序，提取必要内部职责；禁止只用请求开始日期 | 01、04 |
-| 预约生命周期 | 暴露lockSchedule/lockAppointment、confirmInventory/confirmAppointment和分步释放；coordination传nextVisitNumber | appointment完整操作内封装锁序、库存、序号和占用；锁和写操作MANDATORY，不跨事务传Case | 03、06 |
-| 支付回调 | attempt→notification复验→payment；状态/审计/Outbox/退款混合，资金事实原子提交 | payment先锁、attempt和通知锁下复验；纯Policy + 原子Executor，事件v1不变 | 01、05 |
-| 支付其他锁路径 | T1为payment→attempt；T2失败attempt→payment；退款请求payment→refund→attempt；worker完成refund→payment | 05覆盖全部相关支付写路径，父payment锁串行化其子记录，不扩大成支付重写 | 05 |
-| 跨模块协调 | 已有同库创建、取消/过期/对账和Inbox消费；复杂分支与细粒度库存操作交织 | 深interface后提取跨模块纯Policy，保留各入口校验/短路/布尔返回/退款原因 | 06、07 |
-| 查询 | Mapper只读联查；toResponse承担workflow、权限、脱敏和组装 | Projector/Assembler；不改SQL/DTO和既有canCancel差异；refund状态只做摘要 | 02、03 |
-| 类型语言 | 已有支付状态enum，application仍大量字符串；appointment无统一enum | Java层显式映射，边缘仍原字符串，无schema/TypeHandler迁移 | 03 |
-| 旧模拟路径 | 仅dev/test；HTTP包装正式attempt/回调、直接消费并调用同步兜底；测试另直接调用同步协调 | 迁移两组测试调用再删路径。用户已授权08删除dev/test端点，正式HTTP不变 | 08 |
-| 架构门禁 | 已阻止写模块互依赖和协调访问Mapper/Entity，query Mapper无写注解 | 补implementation/返回Entity/Controller访问Mapper的规则及违规反例；保留合法入口依赖 | 09 |
-| 已确认业务修复 | 原迟到事件保留暂占，原消费者对多数错误无限重投 | 11 同事务释放并退款；12 三次处理后进入 DLQ，确认可靠转发 | 11、12 |
+| 领域 | 已落实的行为/设计 | Issue |
+| --- | --- | --- |
+| 预约暂占创建 | MANDATORY同库事务；设置→场次→就诊人，实际占号前日期复验，private步骤封装快照/占用 | 01、04 |
+| 预约生命周期 | AppointmentLifecycle完整confirm/closePending/cancelConfirmed，内部锁/库存/序号/占用；Case仅本事务使用 | 03、06 |
+| 支付回调与锁 | 纯PaymentNotificationPolicy、锁上下文和private execute；callback/T2/refund先payment父锁，资金/审计/Outbox原子提交 | 05 |
+| 跨模块协调 | 完整interface加纯BookingLifecyclePolicy；保留归属/完整性/入口短路、退款原因和返回值 | 06、07 |
+| 查询 | Projector/Assembler、SQL只读、列表一次serverTime；保留权限差异和DTO | 02、03 |
+| 类型语言 | 状态、关闭/退款原因类型化，存储和HTTP/事件字符串不变 | 03 |
+| 旧模拟路径 | 测试走正式attempt/签名通知/Outbox/Inbox；已删除旧端点与compat专用能力 | 08 |
+| 迟到支付 | 待支付时同事务EXPIRED/释放/删占用/退款/Inbox；已关闭只确保退款，截止前收款可晚确认 | 11 |
+| 消息可靠性 | 三次业务处理、两次一秒重试、耗尽DLQ、确认转发后ACK及保留eventId受控重放 | 12 |
+| 最终门禁 | 架构违规反例、全部MySQL竞争及真实提交前/ACK前故障窗口，三层及Compose全通过 | 09 |
 
-旧 [支付改造 map](../payment-module-refactor/map.md) 的“当前实现”表是历史基线；其16项已resolved，不是本轮待做事项。ADR0005现已覆盖旧半日场次、开诊截止最小值及停诊写流程；本轮保留历史只读，不恢复停诊接口。
-
-## 实施原则与测试表面
-
-- 业务主方法保留步骤、事务和简单分支；复杂组合下沉到拥有规则的Policy/值对象/内部implementation。
-- 优先private方法和package-private具体类；不为单实现Factory/Assembler/Policy增加interface，也不为对称搬目录。
-- 写模块互不引用对方Mapper/Entity/implementation；coordination经application interface/稳定事实和事件协作；bookingquery只读。
-- 创建预约和支付仍单库原子事务；资金回调审计/Outbox原子提交；消费Inbox和确认/退款原子提交。
-- 条件更新、唯一约束、FOR UPDATE、固定锁序、迟到退款、过期保护、对账和DLQ保留。潜在锁序偏差须核验并收敛，不能写成已经不存在风险。
-- interface测试覆盖外部可观察结果；Policy决策表纯测试；锁/约束用MySQL，传输/故障窗口用真实RabbitMQ。快速测试可驱动公开Processor，但不冒充传输验收。
-- 无数据库迁移，正式HTTP/错误码/事件v1不变；唯一已授权例外为08删除dev/test旧端点。
+保持模块化单体、同库创建、Outbox/Inbox、条件更新、唯一约束和固定锁序；没有新增schema、事件版本、Redis缓存、微服务或Saga。只有旧dev/test同步模拟端点删除为已授权HTTP例外。旧支付改造map是历史资料，其16项不属于本轮12项；ADR0005覆盖旧半日/停诊写流程。
 
 ## Issue与依赖
 
-Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=ready-for-agent（未认领），实施时claimed，验收后resolved。只有全部Blocked by任务为resolved才unblocked；依赖状态和实际进度以各 issue 的 Status 与 Comments 为准。后续Comments必须填实际命令、结果和遗留事项，不能把本次基线当作改造验收。
+Triage表示清晰度；Status独立表示claimed/resolved。只有所有Blocked by已resolved才能开始。实际执行顺序为 **01→11→12→02→03→04→05→06→07→08→09→10**，不是依赖图的唯一拓扑顺序。
 
-| 顺序 | Issue | Type | 初始Status/Triage | Blocked by | 当前可执行性 | 独立验收重点 |
-| ---: | --- | --- | --- | --- | --- | --- |
-| 01 | [基线行为、状态决策表与风险证据](issues/01-baseline-state-matrix.md) | test | resolved | 无 | 已验收 | 状态/错误/副作用矩阵、最终日期复验与风险证据 |
-| 11 | [迟到支付释放暂占](issues/11-late-payment-release.md) | fix | resolved | 01 | 已验收 | 过期、释放、退款与 Inbox 原子提交 |
-| 12 | [消费有界重试与可靠转发](issues/12-bounded-consumer-retries.md) | fix | resolved | 01 | 已验收 | 三次处理、确认后 ACK、受控重放 |
-| 02 | [查询流程投影与响应组装分离](issues/02-booking-query-projection.md) | refactor | resolved | 01 | 已验收 | Projector/Assembler；SQL、JSON、权限完全兼容 |
-| 03 | [类型化状态、关闭原因与退款原因](issues/03-typed-lifecycle-language.md) | refactor | resolved | 01 | 已验收 | 状态/原因类型化；持久化与事件稳定字符串不变 |
-| 04 | [预约暂占创建内部深度化](issues/04-appointment-hold-deepening.md) | refactor | resolved | 03 | 已验收 | 设置/场次/就诊人/占号/快照顺序及跨零点回滚 |
-| 05 | [支付回调决策分离与支付锁序收敛](issues/05-payment-notification-policy.md) | refactor/fix | resolved | 03 | 已验收 | 回调纯决策；payment父锁先行；原子Outbox/审计/退款 |
-| 06 | [预约与支付生命周期 interface 深度化](issues/06-lifecycle-interfaces.md) | refactor | resolved | 03、04、05、11 | 已验收 | 完整预约操作封装库存/序号/占用；MANDATORY |
-| 07 | [跨模块生命周期决策与流程编排收口](issues/07-coordination-process-manager.md) | refactor | resolved | 05、06 | 已验收 | 取消/过期/确认/对账纯决策；保留入口差异 |
-| 08 | [迁移支付测试并删除 dev/test 旧模拟路径](issues/08-remove-legacy-payment-simulation.md) | cleanup | resolved | 07 | 已验收 | 正式支付测试迁移；已授权删除dev/test旧端点 |
-| 09 | [架构、并发与消息可靠性最终门禁](issues/09-architecture-and-reliability-gates.md) | test | resolved | 02、07、08、11、12 | 已验收 | 架构违规反例；MySQL竞争与真实消息故障窗口 |
-| 10 | [最终 interface、流程与验证文档交付](issues/10-documentation-delivery.md) | docs | ready-for-agent | 09 | 可开始 | 当前契约/流程/ADR/验证记录一致，已知限制交付 |
+| 顺序 | Issue | Type | Status | Blocked by |
+| --- | --- | --- | --- | --- |
+| 01 | [基线行为、状态决策表与风险证据](issues/01-baseline-state-matrix.md) | test | resolved | none |
+| 11 | [迟到支付释放暂占](issues/11-late-payment-release.md) | fix | resolved | 01 |
+| 12 | [消费有界重试与可靠转发](issues/12-bounded-consumer-retries.md) | fix | resolved | 01 |
+| 02 | [查询流程投影与响应组装分离](issues/02-booking-query-projection.md) | refactor | resolved | 01 |
+| 03 | [类型化状态、关闭原因与退款原因](issues/03-typed-lifecycle-language.md) | refactor | resolved | 01 |
+| 04 | [预约暂占创建内部深度化](issues/04-appointment-hold-deepening.md) | refactor | resolved | 03 |
+| 05 | [支付回调决策分离与支付锁序收敛](issues/05-payment-notification-policy.md) | refactor/fix | resolved | 03 |
+| 06 | [预约与支付生命周期 interface 深度化](issues/06-lifecycle-interfaces.md) | refactor | resolved | 03, 04, 05, 11 |
+| 07 | [跨模块生命周期决策与流程编排收口](issues/07-coordination-process-manager.md) | refactor | resolved | 05, 06 |
+| 08 | [迁移支付测试并删除 dev/test 旧模拟路径](issues/08-remove-legacy-payment-simulation.md) | cleanup | resolved | 07 |
+| 09 | [架构、并发与消息可靠性最终门禁](issues/09-architecture-and-reliability-gates.md) | test | resolved | 02, 07, 08, 11, 12 |
+| 10 | [最终 interface、流程与验证文档交付](issues/10-documentation-delivery.md) | docs | resolved | 09 |
 
-## 推荐执行顺序
+依赖图与每个issue的Blocked by一致（06含11，09含11/12）：
 
-默认串行：**01 → 11 → 12 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10**。
-
-建议的实施顺序如下；具体前置依赖以各 issue 的 Blocked by 为准：
-
-```text
-01 → 11 → 12 → 02 ────────────────────┐
- └→ 03 → 04 ────────┐                 │
-       └→ 05 ───────┴→ 06 → 07 → 08 → 09 → 10
-                         └───────→ 09
+```mermaid
+flowchart LR
+    I01[01] --> I02[02]
+    I01 --> I03[03]
+    I01 --> I11[11]
+    I01 --> I12[12]
+    I03 --> I04[04]
+    I03 --> I05[05]
+    I03 --> I06[06]
+    I04 --> I06
+    I05 --> I06
+    I11 --> I06
+    I05 --> I07[07]
+    I06 --> I07
+    I07 --> I08[08]
+    I02 --> I09[09]
+    I07 --> I09
+    I08 --> I09
+    I11 --> I09
+    I12 --> I09
+    I09 --> I10[10]
 ```
 
-- 02依赖01；03依赖01。推荐02先做，在03统一类型；若03先做，02直接复用类型，避免临时重复enum。
-- 04、05仅在03完成后可分别实施；04的创建与05的支付逻辑相对独立，默认串行降低调用点冲突。
-- 06显式依赖03、04、05、11，先稳定支付锁图，再将完整预约操作接入全部调用者；一个可构建issue内完成整个interface家族切换。
-- 07依赖05、06，抽取既有决策而非补写业务。
-- 08依赖07，迁移测试后删除Legacy；09依赖02、07、08、11、12，查询验收不可遗漏；10依赖09。
+## 独立验收与提交
 
-第一项可开始实施的是 [01 基线行为、状态决策表与风险证据](issues/01-baseline-state-matrix.md)。实现已经开始；01 基线矩阵、已开始的 11/12 和结构改造仍需完成各自验收。
+每阶段明确暂存文件、审阅cached diff、导出git暂存树独立快照并串行验收，记录实际结果后检查再提交；不推送。不能以工作区成功代替暂存快照成功，不能以测试数增长代替覆盖等价。
 
-## 各阶段测试门禁
-
-| Issue | 聚焦验证 | 阶段门禁 |
+| Issue | 提交 | 独立快照验收（全部零失败/错误/跳过） |
 | --- | --- | --- |
-| 01 | 状态/副作用矩阵、日期/截止边界、已有锁图与故障证据 | 常规 + mysql-it + reliability-it |
-| 02 | Projector表、AppointmentQueryIntegrationTest、API/ArchUnit | 常规；SQL不变通常不需重复全部容器 |
-| 03 | enum/映射/原因契约、HTTP/事件兼容 | 常规 + mysql-it |
-| 04 | OnDemandBookingHttpTest、幂等、跨零点、库存/就诊人竞争 | 常规 + 相关MySQL IT |
-| 05 | 回调决策、T2/退款父锁竞争、资金/审计/Outbox回滚、真实回调Broker停机 | 常规 + mysql-it + reliability-it |
-| 06 | module interface、MANDATORY/回滚、序号/占用、全调用者 | 常规 + mysql-it + reliability-it |
-| 07 | lifecycle Policy、取消/过期/对账、Inbox原子性 | 常规 + mysql-it + reliability-it |
-| 08 | 两组旧调用迁移、dev/test/prod路由映射、正式端到端 | 常规 + mysql-it + reliability-it |
-| 09 | 架构负例、原覆盖对照、消息提交/ACK故障窗口 | 三层全量，零跳过 |
-| 10 | 当前契约与实现核对、链接与任务字段/依赖 | 复用09同代码基线报告；文档变化不重复全部测试 |
+| 01 | c4f1dc0 | 常规154/MySQL24/可靠性10 + Compose |
+| 11 | cb6931e | 常规159/MySQL25/可靠性10 + Compose |
+| 12 | 937e717 | 常规166/MySQL25/可靠性13 + Compose |
+| 02 | b6a12da | 常规168 + Compose（查询聚焦通过） |
+| 03 | fd6e446 | 常规170/MySQL25/可靠性13 + Compose |
+| 04 | 199c90a | 常规170/MySQL25 + Compose |
+| 05 | ea89132 | 常规173/MySQL34/可靠性14 + Compose |
+| 06 | 1255737 | 常规181/MySQL34/可靠性14 + Compose |
+| 07 | 0a983b6 | 常规223/MySQL34/可靠性14 + Compose |
+| 08 | b71c89f | 常规225/MySQL34/可靠性14 + Compose |
+| 09 | a61b808 | 聚焦18、常规233/MySQL34/可靠性15 + Compose |
+| 10 | 文档交付提交见Git日志 | 复用09同代码基线；文档/链接/字段/依赖检查及独立快照Compose通过 |
 
-确切命令：`./mvnw test`、`./mvnw -Pmysql-it verify`、`./mvnw -Preliability-it verify`。两个集成profile分别执行，均同时运行常规测试；不能把总数重复相加。缓存可用时可加`-o`；新增依赖需要按环境重新获取，不以跳过测试应付离线失败。
+命令为 `./mvnw -o test`、`./mvnw -o -Pmysql-it verify`、`./mvnw -o -Preliability-it verify`，各profile独立执行且重复包含常规；Compose入口为 `python3 scripts/compose_acceptance.py`。详情见各issue Comments与 [baseline](baseline.md)，01→最终覆盖对照也在baseline。
 
-## 本轮只读复核的实际测试
+## 数据、限制与回退
 
-执行日期2026-11-08，以下针对未修改的生产代码基线；测试只产生构建产物和隔离容器数据，不修改本地业务库。本轮没有为尚未实施的目标类型编写或运行新测试。
+默认库2026-11-09只读复核V9、预约0、支付0，完整历史候选0；未迁移或自动修复。旧失败现场保留。最终保留查询与写入口权限差异、PROCESSING+CLOSED迟到回调契约，真实渠道未接入；若变更这些行为需另行确认，不属于本轮遗漏。
 
-| 命令 | 结果 | 说明 |
-| --- | --- | --- |
-| `./mvnw -o test` | 98通过，0失败，0错误，0跳过 | H2/application/HTTP/契约与ArchUnit常规测试，不能全部称作H2测试 |
-| `./mvnw -o -Pmysql-it verify` | 常规98 + MySQL24通过，均无失败/跳过 | 包括真实回调/取消/过期、库存和迁移约束；部分用例仍驱动旧同步路径 |
-| `./mvnw -o -Preliability-it verify` | 常规98 + 双容器9通过，均无失败/跳过 | 6项Outbox + 3项确认/退款可靠性；不是所有故障窗口的证明 |
-
-98项与当前四场次验证报告一致；旧支付交付报告83项为历史结果。日志含Broker停机注入产生的预期重连错误，最终构建均成功。潜在支付锁环仅有静态证据，本轮没有添加确定性死锁复现；迟到残留暂占由原 H2 测试记录为历史基线，现已按已确认决定修改对应断言。
-
-## 独立交付与回退
-
-- 每项issue作为一个可构建、可验收的提交单元；可包含同一interface家族所需的全部调用者，禁止留下半迁移或永久双轨。
-- 05锁序修正和回调提取一起验收；不能只回退一个锁方法使其余路径采用不同父子次序。
-- 06完成时清除旧低层锁/库存interface；Legacy专用markPaid明确限期保留至08，不算第二套正式生命周期入口。
-- 本轮任务均无schema变化；回退代码不删除资金、Outbox/Inbox或退款数据。下游已依赖时按逆拓扑顺序回退或做编译兼容调整，不承诺任意抽掉上游仍能构建。
-- 已有业务缺口与重构回归分开登记，不通过改弱测试/增加隐藏兼容分支掩盖失败。
-
-## 已确认的业务修订
-
-迟到成功事件须同事务过期、释放暂占并确保退款；成功事件消费采用三次处理、每次重试间隔一秒及 DLQ，重试转发确认成功后 ACK。历史数据只读盘点，另行决定修复。新增 issue 11、12；推荐顺序为 01→11→12→02→03→04→05→06→07→08→09→10。任务尚需逐项验收，旧表中“待决”描述以本节为准。
-
-## 完成状态
-
-- [x] 完整读取指定规范、spec、ADR与支付历史资料
-- [x] 核对重点源码、SQL、H2/MySQL/RabbitMQ和ArchUnit测试
-- [x] 修订spec中的不准确描述及可实施性/事务/锁序风险
-- [x] 创建map及01–10完整issue，核对依赖与回退
-- [x] 运行现有三层基线并记录真实结果
-- [x] 实施01（状态矩阵、边界用例及独立快照门禁通过）
-- [ ] 后续实施02–10及各自验收
+每issue可整体回退；已有下游依赖时按逆拓扑回退或做兼容调整，不保证任意抽掉上游仍可构建。无schema变更，代码回退不得删除已提交资金、Outbox/Inbox或退款，也不得直接调整库存。05父子锁变更必须整体评估，不能仅退一条路径形成不同锁序。
 
 ## Comments
 
@@ -160,3 +130,5 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 - 2026-11-09：08独立快照常规225、MySQL34、可靠性14及Compose通过，零跳过，08 resolved。07提交0a983b6；下一阶段09，依赖02/07/08/11/12均已验收。
 
 - 2026-11-09：09最终独立暂存快照聚焦18、常规233、MySQL34、可靠性15及Compose全部通过，零失败/错误/跳过；源码/构建/验收文件与快照逐字节一致，09 resolved。08提交b71c89f；下一阶段10文档交付。
+
+- 2026-11-09：10独立暂存快照文档/字段/12项状态依赖及Compose全部通过，生产/测试代码与09保持一致；本轮01–12全部resolved，最终文档交付提交见Git日志，未推送。

@@ -31,7 +31,7 @@ Blocked by: 02, 07, 08, 11, 12
 
 [02 查询流程投影与响应组装分离](02-booking-query-projection.md)；[07 跨模块生命周期决策与流程编排收口](07-coordination-process-manager.md)；[08 迁移支付测试并删除 dev/test 旧模拟路径](08-remove-legacy-payment-simulation.md)。
 [11 迟到支付释放暂占](11-late-payment-release.md)；[12 消费有界重试与可靠转发](12-bounded-consumer-retries.md)。
-只有全部前置任务 Status 为 resolved 才能开始；当前仅01可开始。推荐按map串行顺序执行，避免共享快照和调用点冲突。
+只有全部前置任务 Status 为 resolved 才能开始；最终实施状态见本文 Status 和最新 Comments。推荐按map串行顺序执行，避免共享快照和调用点冲突。
 
 ## 需要修改的模块和主要文件
 
@@ -94,3 +94,5 @@ Blocked by: 02, 07, 08, 11, 12
 - 2026-11-09：08已在b71c89f验收，依赖全部resolved。新增架构规则及故意违规fixture：写implementation（含未注解公开具体类型）、公开返回Entity及泛型、Controller→Mapper、query继承写接口/写注解/伪装SELECT写语句/锁定读；生产规则和反例聚焦16项通过。补真实消费者业务写后提交前故障窗口（测试配置装饰公开Processor，回滚后暂停以核实Inbox/库存/序号/占用，再放行实际Broker重试）；保留12提交后ACK前故障窗口与05Broker停机真实回调。RabbitMQ两份IT镜像对齐Compose的4.3.2。完整快照尚待验收。
 
 - 2026-11-09：最终暂存树 `990dc71f121d17c7441621ebce9490727d3d4753` 导出 `/tmp/booking-09-snapshot-8eo2fl37`，串行执行 `./mvnw -o -Dtest=ModuleDependencyTest,BookingQueryServiceTest test`（18）、`./mvnw -o test`（233）、`./mvnw -o -Pmysql-it verify`（常规233+MySQL34）、`./mvnw -o -Preliability-it verify`（常规233+可靠性15）及 `python3 scripts/compose_acceptance.py`，全部通过、零失败/错误/跳过。按profile筛选XML核对，未把保留的MySQL报告累计为可靠性数量。RabbitMQ统一4.3.2；初次聚焦遇到非持久非独占测试队列被Broker拒绝，改为持久测试队列后通过，生产拓扑无改动。查询Clock测试已改为真实Assembler响应断言，重复只读浅检查由完整规则替代；01覆盖对照见baseline。源码/构建/验收281个文件与被测快照逐字节相同。日志 `/tmp/booking-09-final-{focused,test,mysql,reliability,compose}.log`；09 resolved，未改变生产行为或业务库数据。只读复核默认库V9、预约0、支付0、历史候选0。已知限制：真实支付未接入；保留查询与写入口权限差异及PROCESSING+CLOSED迟到补偿契约；测试不宣称证明任意负载/动态SQL。
+
+- 2026-11-09：10文档收口核对：本issue原阶段独立验收证据保留；最终集成代码a61b808的常规233/MySQL34/可靠性15及Compose全部通过，零失败/错误/跳过，详见 [最终验证报告](../../../docs/verification-report.md)。09覆盖对照未遗漏本issue保证；此处不以最终数量改写原阶段结果。

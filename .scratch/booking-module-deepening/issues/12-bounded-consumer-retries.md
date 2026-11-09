@@ -63,3 +63,5 @@ Blocked by: 01
 - 2026-11-09：01已在c4f1dc0验收；11已在cb6931e验收。现有生产实现来自ea5bbeb。本阶段补充ConfirmedMessagePublisher的ACK/NACK/mandatory return/超时/连接失败单测；真实RabbitMQ逐次收取重试，检查两次间隔均至少900ms（配置1000ms）且总共调用三次；真实mandatory return重放失败保留DLQ原消息，恢复路由后保留eventId并清除两类计数/TTL。真实MySQL提交后注入ACK前IOException，再物理关闭channel触发Broker重投，验证Inbox、库存及序号单副作用。两个可靠性类聚焦运行均通过；完整快照 `/tmp/booking-12-snapshot-5zpor6w1` 三层与Compose门禁运行中，保持claimed。
 
 - 2026-11-09：独立快照常规166、MySQL25、可靠性13及Compose全链路全部通过，零失败/错误/跳过。三次有界处理、两次TTL延迟、确认后ACK、DLQ重放和提交后ACK故障窗口已验证；先前生产实现随ea5bbeb提交，本阶段提交验收证据。
+
+- 2026-11-09：10文档收口核对：本issue原阶段独立验收证据保留；最终集成代码a61b808的常规233/MySQL34/可靠性15及Compose全部通过，零失败/错误/跳过，详见 [最终验证报告](../../../docs/verification-report.md)。09覆盖对照未遗漏本issue保证；此处不以最终数量改写原阶段结果。

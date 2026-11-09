@@ -27,7 +27,7 @@ Blocked by: 03
 ## 前置依赖
 
 [03 类型化状态、关闭原因与退款原因](03-typed-lifecycle-language.md)。
-只有全部前置任务 Status 为 resolved 才能开始；当前仅01可开始。推荐按map串行顺序执行，避免共享快照和调用点冲突。
+只有全部前置任务 Status 为 resolved 才能开始；最终实施状态见本文 Status 和最新 Comments。推荐按map串行顺序执行，避免共享快照和调用点冲突。
 
 ## 需要修改的模块和主要文件
 
@@ -89,3 +89,5 @@ Blocked by: 03
 - 2026-11-09：03已验收，提取private lockOrCreateSchedule、holdOne和claimActiveAppointment；保留现有就诊人校验与快照Factory。主方法表达校验、场次锁定、就诊人/目录资料、最终占号、快照和占用保存。设置→场次→就诊人锁序及最终占号前Clock重读次数/错误优先级不变；只删除已明确非空doctor的冗余别名和空检查，不引入单实现interface或新框架。快照验收待执行。
 
 - 2026-11-09：独立快照 `/tmp/booking-04-snapshot-cc6ytsf8` 聚焦22、常规170、MySQL25及Compose正常/迟到支付真实链路全部通过，零失败/错误/跳过。无条件SQL、公开interface或schema变更，MANDATORY与外层同库创建事务保持。03提交fd6e446。04 resolved。
+
+- 2026-11-09：10文档收口核对：本issue原阶段独立验收证据保留；最终集成代码a61b808的常规233/MySQL34/可靠性15及Compose全部通过，零失败/错误/跳过，详见 [最终验证报告](../../../docs/verification-report.md)。09覆盖对照未遗漏本issue保证；此处不以最终数量改写原阶段结果。

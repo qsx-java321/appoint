@@ -28,7 +28,7 @@ Blocked by: 01
 ## 前置依赖
 
 [01 基线行为、状态决策表与风险证据](01-baseline-state-matrix.md)。
-只有全部前置任务 Status 为 resolved 才能开始；当前仅01可开始。推荐按map串行顺序执行，避免共享快照和调用点冲突。
+只有全部前置任务 Status 为 resolved 才能开始；最终实施状态见本文 Status 和最新 Comments。推荐按map串行顺序执行，避免共享快照和调用点冲突。
 
 ## 需要修改的模块和主要文件
 
@@ -88,3 +88,5 @@ Entity 字符串 → 单一显式转换方法 → 类型化 View/上下文 → e
 - 2026-11-09：01/11/12/02已分别验收。开始类型化生命周期快照、关闭及退款原因；持久化Entity/Mapper、公开HTTP DTO及事件v1保留字符串；回调Policy、attempt与query本轮状态判断迁移到enum。未知/null存储状态统一映射INTERNAL_ERROR。初轮常规168通过，新增契约测试后须独立快照重新验收。
 
 - 2026-11-09：独立快照 `/tmp/booking-03-snapshot-_y2bra_r` 常规170、MySQL25、可靠性13及Compose真实正常/迟到支付链路全部通过，零失败/错误/跳过，Maven串行执行。退款四种原因、数据库/HTTP/事件稳定字面值、未知存储状态内部错误和架构约束均保留。03 resolved。
+
+- 2026-11-09：10文档收口核对：本issue原阶段独立验收证据保留；最终集成代码a61b808的常规233/MySQL34/可靠性15及Compose全部通过，零失败/错误/跳过，详见 [最终验证报告](../../../docs/verification-report.md)。09覆盖对照未遗漏本issue保证；此处不以最终数量改写原阶段结果。

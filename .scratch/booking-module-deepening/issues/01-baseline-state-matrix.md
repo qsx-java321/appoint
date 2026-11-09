@@ -28,7 +28,7 @@ Blocked by: none
 ## 前置依赖
 
 无。
-只有全部前置任务 Status 为 resolved 才能开始；当前仅01可开始。推荐按map串行顺序执行，避免共享快照和调用点冲突。
+只有全部前置任务 Status 为 resolved 才能开始；最终实施状态见本文 Status 和最新 Comments。推荐按map串行顺序执行，避免共享快照和调用点冲突。
 
 ## 需要修改的模块和主要文件
 
@@ -91,3 +91,5 @@ Blocked by: none
 - 2026-11-08：新增真实事务跨零点最终占号回滚与跨日幂等重放测试；在当前工作区及原生产代码暂存快照均通过。状态矩阵及其余验证仍需逐项核对。
 
 - 2026-11-09：基于 ea5bbeb 补全 [状态矩阵](../state-matrix.md)，新增30项边界/优先级/权限断言（总常规154）。独立暂存快照 `/tmp/booking-01-snapshot-cr7kbp14`：`./mvnw -o test` 154通过；`./mvnw -o -Pmysql-it verify` 常规154及MySQL24通过；`./mvnw -o -Preliability-it verify` 常规154及双容器10通过，均零失败/错误/跳过；`python3 scripts/compose_acceptance.py` 通过且清理本次隔离资源。生产代码无改动。11/05/12/09仍须按矩阵补齐各自故障/竞争保证，不以本次通过提前关闭。默认库只读盘点 V9、预约/支付0条，历史候选0条。
+
+- 2026-11-09：10文档收口核对：本issue原阶段独立验收证据保留；最终集成代码a61b808的常规233/MySQL34/可靠性15及Compose全部通过，零失败/错误/跳过，详见 [最终验证报告](../../../docs/verification-report.md)。09覆盖对照未遗漏本issue保证；此处不以最终数量改写原阶段结果。

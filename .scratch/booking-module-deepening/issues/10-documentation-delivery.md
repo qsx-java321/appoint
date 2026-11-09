@@ -2,7 +2,7 @@
 
 Type: docs
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 Blocked by: 09
 
 设计依据：[spec](../spec.md)，执行位置：[map](../map.md)。初始 Status 使用 triage 标签表示待认领；开始实施改为 claimed，验收完成改为 resolved。Triage 不代表依赖已解除。
@@ -28,7 +28,7 @@ Blocked by: 09
 ## 前置依赖
 
 [09 架构、并发与消息可靠性最终门禁](09-architecture-and-reliability-gates.md)。
-只有全部前置任务 Status 为 resolved 才能开始；当前仅01可开始。推荐按map串行顺序执行，避免共享快照和调用点冲突。
+只有全部前置任务 Status 为 resolved 才能开始；依赖09已于a61b808验收；本阶段现已完成。推荐按map串行顺序执行，避免共享快照和调用点冲突。
 
 ## 需要修改的模块和主要文件
 
@@ -75,12 +75,16 @@ Blocked by: 09
 
 ## 完成状态清单
 
-- [ ] 当前文档与正式链路一致
-- [ ] ADR/术语按实际决策更新
-- [ ] 最终三层验证报告与限制完成
-- [ ] map和10个issue证据/状态核对
-- [ ] 链接/字段/范围检查及交付说明
+- [x] 当前文档与正式链路一致
+- [x] ADR/术语按实际决策更新
+- [x] 最终三层验证报告与限制完成
+- [x] map和12个issue证据/状态核对
+- [x] 链接/字段/范围检查及交付说明
 
 ## Comments
 
 - 2026-11-08：根据源码复核后的spec创建。仅完成任务定义，未认领、未实施；本轮基线结果见map，不等同于本issue验收结果。 依赖尚未resolved，暂不可开始实施。
+
+- 2026-11-09：09在a61b808完成最终独立快照门禁，开始文档交付；本阶段仅修改文档/HTTP示例及本地issue记录，生产与测试基线复用09。
+
+- 2026-11-09：明确暂存24个文档/HTTP示例/issue文件，导出树 `e6b226bd73fb291a0b88b4de9254188921234459` 到 `/tmp/booking-10-snapshot-s8n0x13n`。快照内核对32份Markdown及124个本地链接、围栏、12项issue字段、两份依赖表与图、正式DTO字段及HTTP示例均通过；`python3 scripts/compose_acceptance.py` 真实支付确认、取消退款、迟到支付释放退款及库存事实验收通过，成功清理本次隔离资源，日志 `/tmp/booking-10-final-compose.log`。源码/测试/构建/脚本与09已测快照逐字节一致，按本issue约定复用233/34/15三层零失败/错误/跳过结果，无需重复全容器矩阵。随后只补记验收状态、报告及交接，重新导出最终文档快照检查。ADR0004补实现落实而不重写已接受决定；GLOSSARY无新增业务术语，保持不变。无待决业务修复被隐藏，历史数据及兼容差异见最终报告。10 resolved，01–12全部交付，不推送。

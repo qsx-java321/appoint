@@ -30,7 +30,7 @@ Blocked by: 03, 04, 05, 11
 
 [03 类型化状态、关闭原因与退款原因](03-typed-lifecycle-language.md)；[04 预约暂占创建内部深度化](04-appointment-hold-deepening.md)；[05 支付回调决策分离与支付锁序收敛](05-payment-notification-policy.md)。
 [11 迟到支付释放暂占](11-late-payment-release.md)。
-只有全部前置任务 Status 为 resolved 才能开始；当前仅01可开始。推荐按map串行顺序执行，避免共享快照和调用点冲突。
+只有全部前置任务 Status 为 resolved 才能开始；最终实施状态见本文 Status 和最新 Comments。推荐按map串行顺序执行，避免共享快照和调用点冲突。
 
 ## 需要修改的模块和主要文件
 
@@ -83,7 +83,7 @@ lock 无预约时返回 null，场次缺失/历史空 session 按现有错误处
 
 - [x] 完整生命周期 interface/Case 与事务契约
 - [x] 全部调用者迁移并删除低层泄漏
-- [x] Legacy markPaid 暂留范围标记
+- [x] Legacy markPaid 暂留范围标记（后续08已删除）
 - [x] 原子回滚/库存/序号/锁竞争验证
 - [x] 三层测试与 Comments 更新
 
@@ -94,3 +94,5 @@ lock 无预约时返回 null，场次缺失/历史空 session 按现有错误处
 - 2026-11-09：全部依赖已resolved（05提交ea89132）。替换旧Operations/View/ScheduleLifecycleView为AppointmentLifecycle/Case/Confirmation与PaymentLifecycle/Case，全部调用者迁移，删除refundPaid及无调用Mapper能力。预约内部封装场次→预约锁、库存、序号及占用，锁/写入MANDATORY；事务同步器中的身份集合限制Case仅当前事务使用，能随REQUIRES_NEW挂起/恢复，不创建全局工作流框架。Legacy markPaid仅限08前过渡保留。首轮聚焦55项通过，新快照还将包含支付关闭回滚断言。
 
 - 2026-11-09：独立全新快照 `/tmp/booking-06-snapshot-m2251go_` 聚焦72、常规181、MySQL34、可靠性14及Compose全部通过，零失败/错误/跳过。旧Operations/View/ScheduleLifecycleView与无调用refundPaid全部删除；新快照从零编译验证，无旧target类掩盖依赖。无事务拒绝、find/跨事务拒绝、挂起恢复、库存/序号/占用回滚及真实竞争均通过。06 resolved。
+
+- 2026-11-09：10文档收口核对：本issue原阶段独立验收证据保留；最终集成代码a61b808的常规233/MySQL34/可靠性15及Compose全部通过，零失败/错误/跳过，详见 [最终验证报告](../../../docs/verification-report.md)。09覆盖对照未遗漏本issue保证；此处不以最终数量改写原阶段结果。

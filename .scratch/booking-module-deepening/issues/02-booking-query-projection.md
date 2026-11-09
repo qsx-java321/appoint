@@ -27,7 +27,7 @@ Blocked by: 01
 ## 前置依赖
 
 [01 基线行为、状态决策表与风险证据](01-baseline-state-matrix.md)。
-只有全部前置任务 Status 为 resolved 才能开始；当前仅01可开始。推荐按map串行顺序执行，避免共享快照和调用点冲突。
+只有全部前置任务 Status 为 resolved 才能开始；最终实施状态见本文 Status 和最新 Comments。推荐按map串行顺序执行，避免共享快照和调用点冲突。
 
 ## 需要修改的模块和主要文件
 
@@ -89,3 +89,5 @@ PENDING_PAYMENT 搭配 UNPAID/PAYING/PAID 分别投影等待、处理中、确�
 - 2026-11-09：查询拆分已随ea5bbeb实现；01/11/12分别在c4f1dc0、cb6931e、937e717验收。核对Mapper SQL与公开DTO相对9d20e30无差异；Projector覆盖全部合法/历史组合及其余持久化组合拒绝，Assembler保留权限差异/脱敏/摘要。新增BookingQueryServiceTest验证列表只读取一次Clock并截断秒，以及不存在/非本人优先于支付完整性与取时间。查询聚焦通过，独立快照 `/tmp/booking-02-snapshot-g9lqzgi7` 运行聚焦、常规及Compose；本阶段无锁/SQL/消息变更，按本issue规格不重复容器全量。
 
 - 2026-11-09：独立快照查询聚焦、常规168项及Compose正常/迟到支付真实链路通过，零失败/错误/跳过；SQL和DTO无差异。02 resolved。
+
+- 2026-11-09：10文档收口核对：本issue原阶段独立验收证据保留；最终集成代码a61b808的常规233/MySQL34/可靠性15及Compose全部通过，零失败/错误/跳过，详见 [最终验证报告](../../../docs/verification-report.md)。09覆盖对照未遗漏本issue保证；此处不以最终数量改写原阶段结果。

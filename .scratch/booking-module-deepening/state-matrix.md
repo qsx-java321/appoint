@@ -1,6 +1,6 @@
 # 四模块行为矩阵（2026-11-09）
 
-核对代码基线：`ea5bbeb`。该提交已经包含交接所述的首轮 02/04/05/11/12 实现；以下描述当前源码，不将改造前 `9d20e30` 的缺陷当作目标。01 新增测试只固定行为，不修改生产代码。表中测试名相对 `src/test/java/com/qsx/appoint/`。
+核对代码基线：`ea5bbeb`。该提交已经包含交接所述的首轮 02/04/05/11/12 实现；以下描述01阶段源码，不将改造前 `9d20e30` 的缺陷当作目标。01 新增测试只固定行为，不修改生产代码。表中测试名相对 `src/test/java/com/qsx/appoint/`。
 
 ## 生命周期与错误顺序
 
@@ -65,8 +65,8 @@
 - `appointment/BookingMidnightIntegrationTest` 已在 `30b8d28` 固定最终占号跨零点整笔回滚和已成功订单跨日幂等重放。
 - 创建锁序仍为设置→场次→就诊人；实际占号前重新读取日期；支付截止固定创建后15分钟。
 - 改造前回调 attempt→payment、T2失败 attempt→payment、worker refund→payment 是静态锁环风险，未宣称复现过死锁。
-- `ea5bbeb` 已将回调、T2、worker claim/complete/fail 改为只读定位→payment 父锁→子记录，并锁后复验关联。当前 MySQL 并发测试尚不足以证明全部父锁路径；05仍需确定性交错测试。
-- 真实 RabbitMQ 已有发布重复、confirm/return、Broker恢复及 Inbox 重复覆盖；提交前/ACK前窗口和可靠重放仍须12/09逐项验收。
+- `ea5bbeb` 已将回调、T2、worker claim/complete/fail 改为只读定位→payment 父锁→子记录，并锁后复验关联。01阶段MySQL测试尚不足以证明全部父锁路径；后续05已完成9项确定性交错测试，09最终34项MySQL全部通过。
+- 真实 RabbitMQ 已有发布重复、confirm/return、Broker恢复及 Inbox 重复覆盖；01时提交前/ACK前窗口和可靠重放尚待12/09验收；现已全部验收，最终15项可靠性通过。
 
 本矩阵中的迟到事件原子退款失败、历史状态参数化、MySQL锁竞争和消息故障窗口分别交由11、05、12/09验收；不将它们计为01新增保证。01固定现有行为及风险证据，历史数字不替代本次快照结果。
 
@@ -79,3 +79,7 @@
 - 同类 replayRequiresRoutingConfirmationAndResetsCountersWithoutChangingEventId：实际去掉绑定触发mandatory return，原消息仍在DLQ；路由恢复后重放清除计数并保留正文/eventId。
 - coordination/PaymentConfirmationReliabilityIT.committedConfirmationSurvivesLostAckAndBrokerRedelivery：真实MySQL代理事务已提交，ACK前注入IOException并物理关闭RabbitMQ channel，真实重投后Inbox、库存和序号只有一次效果。
 - 完整12快照常规166、MySQL25、可靠性13及Compose全部通过，零跳过。
+
+## 最终验收索引
+
+2026-11-09：01矩阵全部覆盖保留，05父锁、06完整interface、07纯Policy、08正式支付迁移及09两个消息故障窗口均已验收。最终代码a61b808，常规233/MySQL34/可靠性15零失败/错误/跳过，Compose通过；覆盖保留/替换逐组见 [baseline](baseline.md)，当前事务及锁契约见 [模块设计](../../docs/module-design.md)。本矩阵的阶段性“尚待”仅为01历史记录，不代表最终缺项。

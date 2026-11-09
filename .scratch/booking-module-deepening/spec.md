@@ -1,8 +1,12 @@
 # 预约、支付、协调与查询模块深度化改造：目标设计与实施方案
 
-Status: ready-for-agent
+Status: resolved
 
-本文是 `appointment`、`payment`、`coordination`、`bookingquery` 四个模块的渐进式重构规格，已完成源码复核，并配套 [任务地图](map.md) 和 10 个实施 issue。本文描述目标结构、目标 interface、改造后的业务流程、实施阶段、测试门禁和回退策略；不直接授权改变外部业务契约。
+本文是 `appointment`、`payment`、`coordination`、`bookingquery` 四个模块的渐进式重构规格，已完成源码复核，并配套 [任务地图](map.md) 和 12 个实施 issue。本文描述目标结构、目标 interface、改造后的业务流程、实施阶段、测试门禁和回退策略；不直接授权改变外部业务契约。
+
+## 最终实现索引（2026-11-09）
+
+01–12全部独立验收完成，最终代码检查点a61b808，文档阶段亦已验收。当前signature、事务前置条件和实际业务流程以 [模块设计](../../docs/module-design.md)、[业务流程](../../docs/business-flow.md) 及 [最终验证报告](../../docs/verification-report.md) 为准。原始源码复核见第二章；第七至十四章保留实施前目标草图和阶段演进，示意方法/拆分类型不代表最终逐字签名，markPaid等阶段性兼容能力已由08删除。本索引及已确认业务修订优先于历史草图，避免把旧问题误当现状。
 
 ## 2026-11-08 已确认的业务修订
 
@@ -19,15 +23,15 @@ Status: ready-for-agent
 5. `coordination` 只拥有跨模块规则和流程编排，不使用写模块 Mapper、Entity 或 implementation。
 6. `bookingquery` 继续作为跨写模块的只读投影，以 Projector 和 Assembler 分离状态组合与响应组装。
 7. 保留模块化单体、MyBatis、同库事务、数据库条件更新、Transactional Outbox、RabbitMQ/Inbox、退款补偿与对账；不改造成微服务，不引入 Saga 框架或事件溯源。
-8. 正式 HTTP 契约、数据库业务状态、库存不变量、支付截止语义和消息可靠性在重构阶段保持不变。唯一已授权的 HTTP 例外是 issue 08 删除 dev/test 的 `/simulate-success`；2026-11-08 用户明确同意，不影响正式接口。
+8. 正式 HTTP 契约、schema和事件v1保持兼容；迟到支付释放和有界重试按已确认业务修订实施。已授权的 HTTP 例外是 issue 08 删除 dev/test 的 `/simulate-success`；2026-11-08 用户明确同意，不影响正式接口。
 9. 默认使用 package-private implementation；只有模块外 seam、真实多实现或外部系统依赖才新增 public interface。
 10. 按完整用例逐步替换，禁止四个模块一次性重写。
 
-## 二、背景与当前基线
+## 二、改造前基线与问题（历史证据）
 
-### 2.1 当前模块职责
+### 2.1 改造前模块职责
 
-| 模块 | 当前职责 | 主要入口 |
+| 模块 | 改造前职责 | 主要入口 |
 | --- | --- | --- |
 | `appointment` | 预约暂占、预约单、有效占用、库存、就诊序号、预约幂等 | `AppointmentHoldService`、`AppointmentLifecycleOperations`、`AppointmentCreationRequestService` |
 | `payment` | 支付单、支付尝试、渠道回调、退款、Outbox、渠道 Adapter | `PaymentAttemptService`、`PaymentNotificationIngress`、`PaymentLifecycleOperations`、`PaymentRefundOperations` |
@@ -36,7 +40,7 @@ Status: ready-for-agent
 
 模块 ownership 和依赖方向已经通过 `src/test/java/com/qsx/appoint/architecture/ModuleDependencyTest.java` 约束，是本次改造必须保留的基础。
 
-### 2.2 当前值得保留的设计
+### 2.2 基线中值得保留的设计
 
 - `BookingCreationTransaction` 已经是清晰的 application 编排：幂等登记、预约暂占、支付单创建和回执完成在同一事务中执行。
 - `PaymentAttemptServiceImpl` 已将本地 T1、事务外渠道调用和本地 T2 分开，避免外部调用长期占用数据库事务。
@@ -47,7 +51,7 @@ Status: ready-for-agent
 - 条件 UPDATE、唯一约束、`FOR UPDATE` 和统一锁序共同维护并发正确性。
 - MySQL、RabbitMQ Testcontainers 和 ArchUnit 已覆盖关键约束与故障场景。
 
-### 2.3 当前主要问题
+### 2.3 改造前主要问题
 
 #### 2.3.1 appointment 生命周期 interface 偏浅
 
@@ -1208,35 +1212,49 @@ bookingquery
 - 完整测试矩阵通过；
 - 任务地图中所有 issue 都有验证结果和 Comments 记录。
 
-## 十五、建议 issue 拆分
+## 十五、实施 issue 与实际依赖
 
-方案评审通过后，建议创建 `.scratch/booking-module-deepening/map.md` 和以下 issue：
+| 顺序 | Issue | Type | Status | Blocked by |
+| --- | --- | --- | --- | --- |
+| 01 | [基线行为、状态决策表与风险证据](issues/01-baseline-state-matrix.md) | test | resolved | none |
+| 11 | [迟到支付释放暂占](issues/11-late-payment-release.md) | fix | resolved | 01 |
+| 12 | [消费有界重试与可靠转发](issues/12-bounded-consumer-retries.md) | fix | resolved | 01 |
+| 02 | [查询流程投影与响应组装分离](issues/02-booking-query-projection.md) | refactor | resolved | 01 |
+| 03 | [类型化状态、关闭原因与退款原因](issues/03-typed-lifecycle-language.md) | refactor | resolved | 01 |
+| 04 | [预约暂占创建内部深度化](issues/04-appointment-hold-deepening.md) | refactor | resolved | 03 |
+| 05 | [支付回调决策分离与支付锁序收敛](issues/05-payment-notification-policy.md) | refactor/fix | resolved | 03 |
+| 06 | [预约与支付生命周期 interface 深度化](issues/06-lifecycle-interfaces.md) | refactor | resolved | 03, 04, 05, 11 |
+| 07 | [跨模块生命周期决策与流程编排收口](issues/07-coordination-process-manager.md) | refactor | resolved | 05, 06 |
+| 08 | [迁移支付测试并删除 dev/test 旧模拟路径](issues/08-remove-legacy-payment-simulation.md) | cleanup | resolved | 07 |
+| 09 | [架构、并发与消息可靠性最终门禁](issues/09-architecture-and-reliability-gates.md) | test | resolved | 02, 07, 08, 11, 12 |
+| 10 | [最终 interface、流程与验证文档交付](issues/10-documentation-delivery.md) | docs | resolved | 09 |
 
-| 顺序 | Issue | 类型 | 前置依赖 | 独立验收重点 |
-| ---: | --- | --- | --- | --- |
-| 1 | `01-baseline-state-matrix.md` | test | 无 | 锁定外部行为和状态决策表 |
-| 2 | `02-booking-query-projection.md` | refactor | 01 | Projector/Assembler，查询兼容 |
-| 3 | `03-typed-lifecycle-language.md` | refactor | 01 | 状态、原因、映射类型化 |
-| 4 | `04-appointment-hold-deepening.md` | refactor | 03 | 创建暂占主方法和内部 implementation |
-| 5 | `05-payment-notification-policy.md` | refactor/fix | 03 | 回调 Policy/Executor，原子事务与支付父锁保证 |
-| 6 | `06-lifecycle-interfaces.md` | refactor | 03、04、05 | appointment/payment 深 interface |
-| 7 | `07-coordination-process-manager.md` | refactor | 05、06 | 取消/过期/确认/对账 Policy 化 |
-| 8 | `08-remove-legacy-payment-simulation.md` | cleanup | 07 | 测试迁移和旧链路删除 |
-| 9 | `09-architecture-and-reliability-gates.md` | test | 02、07、08 | ArchUnit、MySQL、RabbitMQ 完整门禁 |
-| 10 | `10-documentation-delivery.md` | docs | 09 | ADR/API/流程/验证报告交付 |
+实际串行顺序：01→11→12→02→03→04→05→06→07→08→09→10。
 
-推荐顺序为 01→02→03→04→05→06→07→08→09→10；依赖图（与 issue 的 Blocked by 一致）：
-
-```text
-01 → 02 ──────────────────────────────┐
- └→ 03 → 04 ────────┐                 │
-       └→ 05 ───────┴→ 06 → 07 → 08 → 09 → 10
-                         └───────→ 09
+```mermaid
+flowchart LR
+    I01[01] --> I02[02]
+    I01 --> I03[03]
+    I01 --> I11[11]
+    I01 --> I12[12]
+    I03 --> I04[04]
+    I03 --> I05[05]
+    I03 --> I06[06]
+    I04 --> I06
+    I05 --> I06
+    I11 --> I06
+    I05 --> I07[07]
+    I06 --> I07
+    I07 --> I08[08]
+    I02 --> I09[09]
+    I07 --> I09
+    I08 --> I09
+    I11 --> I09
+    I12 --> I09
+    I09 --> I10[10]
 ```
 
-06 依赖 03、04、05；07 依赖 05、06；09 依赖 02、07、08。
-
-`04` 和 `05` 在 `03` 完成后可以独立实施，但为了降低共享代码冲突，默认仍按顺序串行推进。
+06依赖03/04/05/11；07依赖05/06；09依赖02/07/08/11/12。状态和提交见 [map](map.md)。
 
 ## 十六、测试与验收矩阵
 
@@ -1276,7 +1294,7 @@ bookingquery
 
 - Broker 不可用时回调成功落库；
 - Broker 恢复后 Outbox 发布；
-- 增补业务提交前失败与提交后 ACK 前失败的可控窗口，重复消息时 Inbox 单副作用（当前测试不等于已覆盖两个窗口）；
+- 增补业务提交前失败与提交后 ACK 前失败的可控窗口，重复消息时 Inbox 单副作用（09已用真实事务和Broker覆盖两个窗口）；
 - 永久坏消息进入 DLQ；
 - DLQ 重放保留 eventId；
 - 退款 worker 重试和 DLQ；
@@ -1417,3 +1435,7 @@ bookingquery
 
 - 2026-11-08：现有基线实际运行 `./mvnw -o test`（98项）、`./mvnw -o -Pmysql-it verify`（常规98+MySQL24项）和 `./mvnw -o -Preliability-it verify`（常规98+双容器9项），全部通过、零跳过；详见map。
 - 2026-11-08：完整阅读指定资料并核对四模块实现、Mapper、现有 H2/MySQL/RabbitMQ/ArchUnit 测试。修订 ADR 0005 优先级、创建最终日期复验、支付锁序偏差及纠正范围、生命周期事务前置条件、查询真实组合与权限、退款原因/取消布尔语义、消息失败分类与测试缺口；记录迟到事件残留暂占为待决业务问题。用户明确授权 issue 08 删除 dev/test 旧模拟端点，正式 HTTP 契约不变。创建 map 和 01–10 issue；未修改生产代码。
+
+- 2026-11-09：01–09及11/12已逐阶段验收提交；10收口12项issue、实际依赖图及当前文档。历史源码表和目标草图保留上下文，最终interface以模块设计和源码为准，未复活低层接口或旧同步支付。
+
+- 2026-11-09：10文档独立快照检查及Compose通过，01–12全部resolved；当前文档以最终设计、API、业务流程与实测报告为准，保留已标注的历史设计证据。

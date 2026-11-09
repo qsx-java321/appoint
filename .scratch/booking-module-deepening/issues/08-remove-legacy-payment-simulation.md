@@ -29,7 +29,7 @@ Blocked by: 07
 ## 前置依赖
 
 [07 跨模块生命周期决策与流程编排收口](07-coordination-process-manager.md)。
-只有全部前置任务 Status 为 resolved 才能开始；当前仅01可开始。推荐按map串行顺序执行，避免共享快照和调用点冲突。
+只有全部前置任务 Status 为 resolved 才能开始；最终实施状态见本文 Status 和最新 Comments。推荐按map串行顺序执行，避免共享快照和调用点冲突。
 
 ## 需要修改的模块和主要文件
 
@@ -91,3 +91,5 @@ Blocked by: 07
 - 2026-11-09：07已在0a983b6验收。迁移六组旧HTTP/同步调用到FormalPaymentTestSupport：真实attempt→MockPay签名→Ingress验签→读取真实Outbox→v1 Codec→公开Processor；H2仅解开JSON列额外字符串编码，不承担RabbitMQ传输保证。实际HTTP+MySQL/RabbitMQ由PatientJourney和Compose保留。删除旧Controller/预检/同步方法/markPaid及compat构造、无调用payIfUnpaid和PaymentResponse。dev/test新增请求映射不存在断言，prod沿用映射与Mock禁用断言。干净构建常规225项通过；MySQL竞争增加REFUND_PENDING唯一退款事实及重复支付单Inbox/库存/序号断言，待独立快照验收。
 
 - 2026-11-09：独立全新快照 `/tmp/booking-08-snapshot-ddye990u` 常规225、MySQL34、可靠性14及Compose全部通过，零失败/错误/跳过。正式尝试拒绝场景同时设置预约与支付截止fixture；重复支付先创建同一正式attempt，再并发签名回调，断言一个Outbox/Inbox、一次库存转换和序号。支付/取消竞争允许且验证REFUND_PENDING唯一退款事实。生产源码和测试无旧同步/compat业务残留；dev/test/prod映射均无旧路由，当前操作文档原已使用正式attempt/complete，无旧用法。08 resolved。
+
+- 2026-11-09：10文档收口核对：本issue原阶段独立验收证据保留；最终集成代码a61b808的常规233/MySQL34/可靠性15及Compose全部通过，零失败/错误/跳过，详见 [最终验证报告](../../../docs/verification-report.md)。09覆盖对照未遗漏本issue保证；此处不以最终数量改写原阶段结果。

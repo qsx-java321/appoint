@@ -8,7 +8,7 @@
 - 每位医生 D+1 至 D+7 的 28 个固定预约场次查询。
 - 管理员统一预约设置，默认每时段 20 个号源、挂号费 10.00 CNY。
 - 预约幂等创建、库存暂占、跨账号同证件防重复、费用和就诊资料快照。
-- 支付尝试、MockPay 回调、Transactional Outbox、RabbitMQ/Inbox、迟到支付退款补偿。
+- 支付尝试、MockPay 回调、Transactional Outbox、RabbitMQ/Inbox、迟到支付关闭释放与退款补偿、有界重试和受控 DLQ 重放。
 - 待支付 15 分钟超时、用户主动取消、已支付退款、就诊序号和库存守恒。
 
 新流程不提供医院关门、医生停诊、管理员手工创建/修改/调整/关闭场次。历史 `CLOSED`、`CANCELLED_BY_HOSPITAL`、旧 `MORNING`/`AFTERNOON` 数据继续可读。
@@ -49,7 +49,7 @@ cp .env.example .env
 从项目根目录启动依赖和应用：
 
 ```bash
-docker compose --env-file compose.env up -d --wait mysql rabbitmq
+docker compose --env-file compose.env up -d --wait mysql redis rabbitmq
 ./mvnw spring-boot:run
 ```
 
@@ -61,7 +61,7 @@ docker compose --env-file compose.env up -d --wait mysql rabbitmq
 python3 scripts/compose_acceptance.py
 ```
 
-验收入口会创建独立数据库、数据库账号和 RabbitMQ vhost，启动 dev profile，验证预约、支付、异步确认、取消与退款；成功后删除验收资源，失败时保留资源标识和日志。Redis 只检查健康状态。
+验收入口会创建独立数据库、数据库账号和 RabbitMQ vhost，启动 dev profile，验证预约、支付、异步确认、取消退款、迟到支付释放退款及库存守恒；成功后删除验收资源，失败时保留资源标识和日志。Redis 只检查健康状态。
 
 常规测试：
 
@@ -75,12 +75,20 @@ python3 scripts/compose_acceptance.py
 ./mvnw -Pmysql-it verify
 ```
 
+消息确认、故障重试、DLQ 和提交/ACK 窗口的真实 MySQL + RabbitMQ 测试，单独执行：
+
+```bash
+./mvnw -Preliability-it verify
+```
+
+Maven 命令串行运行；两个集成 profile 均重复运行常规测试，不把报告数量重复相加。Docker 和依赖镜像须可用，不跳过容器测试。停止本地依赖可执行 `docker compose --env-file compose.env stop`，保留数据卷。
+
 ## HTTP 示例
 
 1. [http/auth.http](http/auth.http)：注册并登录管理员和普通用户。
 2. [http/admin-catalog.http](http/admin-catalog.http)：维护医院、科室和医生目录。
 3. [http/admin-schedule.http](http/admin-schedule.http)：读取和更新统一预约设置。
-4. [http/appointment.http](http/appointment.http)：维护就诊人、查询 28 个场次并创建预约。
+4. [http/appointment.http](http/appointment.http)：维护就诊人、查询 28 个场次并创建预约、正式 MockPay 支付、轮询确认和退款。
 
 `.http` 文件适用于 IntelliJ IDEA HTTP Client，环境变量位于 `http/http-client.env.json`。
 
@@ -89,6 +97,7 @@ python3 scripts/compose_acceptance.py
 - [GLOSSARY.md](GLOSSARY.md)：领域术语。
 - [docs/api.md](docs/api.md)：REST API 契约和边界。
 - [docs/business-flow.md](docs/business-flow.md)：端到端业务流程。
+- [docs/module-design.md](docs/module-design.md)：四模块 interface、代码入口、MANDATORY、锁序与事件恢复。
 - [docs/verification-report.md](docs/verification-report.md)：当前自动化验证结果和覆盖范围。
 - [docs/adr/0005-four-session-on-demand-booking.md](docs/adr/0005-four-session-on-demand-booking.md)：四时段、按需生成和历史兼容决策。
 
