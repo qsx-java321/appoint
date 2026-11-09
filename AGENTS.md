@@ -43,3 +43,11 @@
 ### Domain docs
 
 项目采用 single-context 布局，使用根目录下的 `GLOSSARY.md` 和 `docs/adr/` 保存领域术语与架构决策。详见 `docs/agents/domain.md`。
+
+## 本地环境、启动与验证
+
+- Compose 使用根目录 `compose.env`，Spring Boot 使用根目录 `.env`；首次配置分别从 `compose.env.example`、`.env.example` 复制。实际文件含凭据，已被 Git 忽略，不在日志或文档中输出其值。两份文件的 MySQL、RabbitMQ 连接凭据须一致；Shell 环境变量可能覆盖文件配置。
+- 在项目根目录执行 `docker compose --env-file compose.env up -d --wait` 启动并等待 MySQL、Redis、RabbitMQ 健康；查看状态用 `docker compose --env-file compose.env ps`，停止服务用 `docker compose --env-file compose.env stop`。其他 Compose 命令也显式指定该文件。
+- 在项目根目录执行 `./mvnw spring-boot:run`；应用从 `.env` 加载配置，默认本地 `dev` profile 启用 MockPay。IDE 的工作目录同样设为项目根目录。确认启动日志显示 MySQL、RabbitMQ 已连接及应用已启动；未认证访问 `/api/v1/hospitals` 返回 401 可检查 HTTP 入口。
+- 运行 `./mvnw test` 执行常规测试；`./mvnw -Pmysql-it verify` 使用 Testcontainers 验证真实 MySQL；`./mvnw -Preliability-it verify` 验证消息可靠性。Docker 和镜像可用时，`python3 scripts/compose_acceptance.py` 使用隔离数据库及 RabbitMQ vhost 验证真实 HTTP、支付和退款；脚本使用 Maven 离线模式，需预先缓存依赖。成功后清理隔离资源，失败时保留资源标识和日志。
+- 现有 MySQL、RabbitMQ 数据卷中的账号不会因修改 Compose 初始化变量而自动更新。保留卷及现有凭据；需要变更时同步处理服务内账号和应用配置。不要为了排查启动问题删除数据卷。生产切换和迁移见 `docs/runbooks/payment-module-cutover.md`；真实支付渠道尚未接入。

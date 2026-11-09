@@ -1,6 +1,10 @@
 package com.qsx.appoint.payment.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.qsx.appoint.common.messaging.ConfirmedMessagePublisher;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.rabbit.support.DefaultMessagePropertiesConverter;
+import java.time.Duration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.payment.config.RabbitEventTopology;
 import com.rabbitmq.client.GetResponse;
@@ -22,6 +26,7 @@ public class DeadLetterReplayService {
 
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
+    private final ConfirmedMessagePublisher publisher;
 
     /** @return 被重放的 eventId；队列为空返回 null。 */
     public String replayOne(String deadLetterQueue) {
@@ -33,10 +38,13 @@ public class DeadLetterReplayService {
                 JsonNode envelope = objectMapper.readTree(delivery.getBody());
                 String eventId = envelope.path("eventId").asText(null);
                 String routingKey = routingKey(deadLetterQueue, envelope.path("eventType").asText());
-                channel.confirmSelect();
-                channel.basicPublish(RabbitEventTopology.DOMAIN_EXCHANGE, routingKey, true,
-                        delivery.getProps(), delivery.getBody());
-                channel.waitForConfirmsOrDie(5_000);
+                var properties = new DefaultMessagePropertiesConverter().toMessageProperties(
+                        delivery.getProps(), delivery.getEnvelope(), "UTF-8");
+                properties.getHeaders().remove("payment-succeeded-attempt");
+                properties.getHeaders().remove("refund-attempt");
+                properties.setExpiration(null);
+                publisher.publish(RabbitEventTopology.DOMAIN_EXCHANGE, routingKey,
+                        new Message(delivery.getBody(), properties), Duration.ofSeconds(5));
                 channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
                 return eventId;
             } catch (Exception exception) {

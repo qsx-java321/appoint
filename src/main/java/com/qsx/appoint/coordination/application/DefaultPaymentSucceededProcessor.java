@@ -42,8 +42,13 @@ class DefaultPaymentSucceededProcessor implements PaymentSucceededProcessor {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         }
         if ("CONFIRMED".equals(appointment.status())) return "ALREADY_CONFIRMED";
-        if (!"PENDING_PAYMENT".equals(appointment.status())
-                || !event.paidAt().isBefore(appointment.paymentExpiresAt())) {
+        if (!"PENDING_PAYMENT".equals(appointment.status())) {
+            refunds.requestFullRefund(event.paymentOrderId(), "APPOINTMENT_NOT_CONFIRMABLE");
+            return "REFUND_REQUIRED";
+        }
+        if (!event.paidAt().isBefore(appointment.paymentExpiresAt())) {
+            appointments.releaseHeldInventory(schedule.id());
+            appointments.closePendingAppointment(appointment.id(), "EXPIRED", now());
             refunds.requestFullRefund(event.paymentOrderId(), "APPOINTMENT_NOT_CONFIRMABLE");
             return "REFUND_REQUIRED";
         }

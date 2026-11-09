@@ -60,8 +60,14 @@ class DefaultRefundWorker implements RefundWorker {
     }
 
     private RefundWork claim(RefundRequestedEvent event) {
+        PaymentRefund lookup = refundMapper.selectById(event.refundId());
+        if (lookup == null || !lookup.getRefundNo().equals(event.refundNo())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        lockPayment(lookup.getPaymentOrderId());
         PaymentRefund refund = refundMapper.selectByIdForUpdate(event.refundId());
-        if (refund == null || !refund.getRefundNo().equals(event.refundNo())) {
+        if (refund == null || !refund.getRefundNo().equals(event.refundNo())
+                || !refund.getPaymentOrderId().equals(lookup.getPaymentOrderId())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
         if ("SUCCEEDED".equals(refund.getStatus())) return null;
@@ -69,8 +75,8 @@ class DefaultRefundWorker implements RefundWorker {
             throw new BusinessException(ErrorCode.RETRYABLE_CONCURRENCY_ERROR);
         }
         PaymentAttempt attempt = attemptMapper.selectByIdForUpdate(refund.getPaymentAttemptId());
-        if (attempt == null || !"SUCCEEDED".equals(attempt.getStatus())
-                || attempt.getProviderTransactionNo() == null) {
+        if (attempt == null || !attempt.getPaymentOrderId().equals(refund.getPaymentOrderId())
+                || !"SUCCEEDED".equals(attempt.getStatus()) || attempt.getProviderTransactionNo() == null) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         }
         return new RefundWork(refund.getId(), refund.getRefundNo(), refund.getPaymentOrderId(),
@@ -80,7 +86,11 @@ class DefaultRefundWorker implements RefundWorker {
 
     private void complete(RefundWork work, String providerRefundNo) {
         LocalDateTime now = now();
+        lockPayment(work.paymentOrderId());
         PaymentRefund current = refundMapper.selectByIdForUpdate(work.refundId());
+        if (current == null || !current.getPaymentOrderId().equals(work.paymentOrderId())) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        }
         if ("SUCCEEDED".equals(current.getStatus())) return;
         requireOne(refundMapper.markSucceeded(work.refundId(), providerRefundNo, now));
         requireOne(paymentOrderMapper.completeRefund(work.paymentOrderId(), now));
@@ -89,8 +99,13 @@ class DefaultRefundWorker implements RefundWorker {
 
     private void fail(RefundWork work, RuntimeException exception) {
         LocalDateTime now = now();
+        lockPayment(work.paymentOrderId());
         PaymentRefund current = refundMapper.selectByIdForUpdate(work.refundId());
-        if (current == null || "SUCCEEDED".equals(current.getStatus())) return;
+        if (current == null) return;
+        if (!current.getPaymentOrderId().equals(work.paymentOrderId())) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        }
+        if ("SUCCEEDED".equals(current.getStatus())) return;
         String message = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
         if (message.length() > 255) message = message.substring(0, 255);
         requireOne(refundMapper.markFailed(work.refundId(), "GATEWAY_ERROR", message, now));
@@ -140,6 +155,12 @@ class DefaultRefundWorker implements RefundWorker {
             UUID.fromString(event.eventId());
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+    }
+
+    private void lockPayment(Long paymentOrderId) {
+        if (paymentOrderMapper.selectByIdForUpdate(paymentOrderId) == null) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         }
     }
 

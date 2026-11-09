@@ -110,6 +110,27 @@ class PaymentConfirmationReliabilityIT {
     }
 
     @Test
+    void failedConfirmationIsRetriedTwiceThenDeadLettered() throws Exception {
+        PaymentOutboxEvent event = pendingEvent();
+        var envelope = (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(event.getPayload());
+        ((com.fasterxml.jackson.databind.node.ObjectNode) envelope.get("payload"))
+                .put("appointmentOrderId", 99_999_999L);
+        rabbitTemplate.convertAndSend(RabbitEventTopology.DOMAIN_EXCHANGE,
+                RabbitEventTopology.PAYMENT_SUCCEEDED_ROUTING_KEY,
+                objectMapper.writeValueAsString(envelope));
+
+        await().untilAsserted(() -> {
+            Message deadLetter = rabbitTemplate.receive(
+                    RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE + ".dlq", 500);
+            assertThat(deadLetter).isNotNull();
+            assertThat(new String(deadLetter.getBody())).contains(event.getEventId());
+            assertThat(deadLetter.getMessageProperties().<Integer>getHeader("payment-succeeded-attempt"))
+                    .isEqualTo(2);
+            assertThat(inboxCount(event.getEventId())).isZero();
+        });
+    }
+
+    @Test
     void malformedPermanentMessageIsRejectedToDlq() {
         rabbitTemplate.convertAndSend(RabbitEventTopology.DOMAIN_EXCHANGE,
                 RabbitEventTopology.PAYMENT_SUCCEEDED_ROUTING_KEY,

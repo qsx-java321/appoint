@@ -4,6 +4,8 @@ server:
     include-message: never
 
 spring:
+  config:
+    import: optional:file:./.env[.properties]
   application:
     name: appoint
   datasource:

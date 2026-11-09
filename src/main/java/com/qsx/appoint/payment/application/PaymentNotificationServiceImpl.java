@@ -14,7 +14,6 @@ import com.qsx.appoint.payment.mapper.PaymentNotificationMapper;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
 import com.qsx.appoint.payment.mapper.PaymentOutboxEventMapper;
 import com.qsx.appoint.payment.dto.PaymentNotificationResponse;
-import com.qsx.appoint.payment.port.GatewayPaymentStatus;
 import com.qsx.appoint.payment.port.VerifiedPaymentNotification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
@@ -31,6 +30,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 class PaymentNotificationServiceImpl implements PaymentNotificationService {
+    private final PaymentNotificationPolicy policy = new PaymentNotificationPolicy();
     private final PaymentNotificationMapper notificationMapper;
     private final PaymentAttemptMapper attemptMapper;
     private final PaymentOrderMapper paymentOrderMapper;
@@ -51,8 +51,15 @@ class PaymentNotificationServiceImpl implements PaymentNotificationService {
                     null, null, true, null);
         }
 
+        PaymentAttempt lookup = attemptMapper.selectByProviderOrderNo(channel.name(), verified.providerOrderNo());
+        if (lookup == null) return auditRejected(channel, verified, payloadHash, "REJECTED_UNKNOWN_ORDER");
+        PaymentOrder payment = paymentOrderMapper.selectByIdForUpdate(lookup.getPaymentOrderId());
+        if (payment == null) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         PaymentAttempt attempt = attemptMapper.selectByProviderOrderNoForUpdate(channel.name(), verified.providerOrderNo());
-        if (attempt == null) return auditRejected(channel, verified, payloadHash, "REJECTED_UNKNOWN_ORDER");
+        if (attempt == null || !attempt.getId().equals(lookup.getId())
+                || !attempt.getPaymentOrderId().equals(payment.getId())) {
+            throw new BusinessException(ErrorCode.RETRYABLE_CONCURRENCY_ERROR);
+        }
         existing = notificationMapper.selectByChannelAndNotificationIdForUpdate(
                 channel.name(), verified.notificationId());
         if (existing != null) {
@@ -60,8 +67,6 @@ class PaymentNotificationServiceImpl implements PaymentNotificationService {
             return new PaymentNotificationResponse(verified.notificationId(), existing.getProcessingResult(),
                     attempt.getPaymentOrderId(), null, true, null);
         }
-        PaymentOrder payment = paymentOrderMapper.selectByIdForUpdate(attempt.getPaymentOrderId());
-        if (payment == null) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         if (payment.getAmount().compareTo(verified.amount()) != 0
                 || !payment.getCurrency().equals(verified.currency())) {
             return audit(channel, verified, payloadHash, "REJECTED_AMOUNT_OR_CURRENCY",
@@ -69,42 +74,35 @@ class PaymentNotificationServiceImpl implements PaymentNotificationService {
         }
 
         LocalDateTime now = now();
-        if (verified.status() == GatewayPaymentStatus.SUCCEEDED) {
-            if ("PAID".equals(payment.getStatus()) && "SUCCEEDED".equals(attempt.getStatus())) {
-                return audit(channel, verified, payloadHash, "ALREADY_SUCCEEDED",
-                        payment.getId(), payment.getStatus(), false);
-            }
-            boolean latePayment = "PROCESSING".equals(attempt.getStatus()) && "CLOSED".equals(payment.getStatus());
-            if (!"PROCESSING".equals(attempt.getStatus())
-                    || !("PAYING".equals(payment.getStatus()) || latePayment)) {
-                return audit(channel, verified, payloadHash, "REJECTED_STATE",
-                        payment.getId(), payment.getStatus(), false);
-            }
-            requireOne(attemptMapper.markSucceeded(attempt.getId(), verified.providerTransactionNo(), now));
-            requireOne(latePayment
-                    ? paymentOrderMapper.recordLatePaymentIfClosed(payment.getId(), now)
-                    : paymentOrderMapper.payIfPaying(payment.getId(), now));
-            String eventId = insertOutbox(payment, attempt, verified, now);
-            if (latePayment) {
-                refunds.requestFullRefund(payment.getId(), "LATE_PAYMENT");
-                return audit(channel, verified, payloadHash, "SUCCEEDED_REFUND_PENDING",
-                        payment.getId(), "REFUND_PENDING", false, eventId);
-            }
-            return audit(channel, verified, payloadHash, "SUCCEEDED", payment.getId(), "PAID", false, eventId);
-        }
-
-        if (verified.status() == GatewayPaymentStatus.FAILED) {
-            if ("SUCCEEDED".equals(attempt.getStatus()) || "PAID".equals(payment.getStatus())) {
-                return audit(channel, verified, payloadHash, "IGNORED_LATE_FAILURE",
-                        payment.getId(), payment.getStatus(), false);
-            }
-            if ("PROCESSING".equals(attempt.getStatus()) && "PAYING".equals(payment.getStatus())) {
+        var decision = policy.decide(
+                verified.status(), attempt.getStatus(), payment.getStatus());
+        return switch (decision) {
+            case ALREADY_SUCCEEDED -> audit(channel, verified, payloadHash, "ALREADY_SUCCEEDED",
+                    payment.getId(), payment.getStatus(), false);
+            case IGNORE_LATE_FAILURE -> audit(channel, verified, payloadHash, "IGNORED_LATE_FAILURE",
+                    payment.getId(), payment.getStatus(), false);
+            case REJECT_STATE -> audit(channel, verified, payloadHash, "REJECTED_STATE",
+                    payment.getId(), payment.getStatus(), false);
+            case FAIL -> {
                 requireOne(attemptMapper.markFailedByNotification(attempt.getId(), now));
                 requireOne(paymentOrderMapper.restoreUnpaidIfPaying(payment.getId()));
-                return audit(channel, verified, payloadHash, "FAILED", payment.getId(), "UNPAID", false);
+                yield audit(channel, verified, payloadHash, "FAILED", payment.getId(), "UNPAID", false);
             }
-        }
-        return audit(channel, verified, payloadHash, "REJECTED_STATE", payment.getId(), payment.getStatus(), false);
+            case SUCCEED, LATE_PAYMENT -> {
+                boolean latePayment = decision == PaymentNotificationPolicy.Decision.LATE_PAYMENT;
+                requireOne(attemptMapper.markSucceeded(attempt.getId(), verified.providerTransactionNo(), now));
+                requireOne(latePayment
+                        ? paymentOrderMapper.recordLatePaymentIfClosed(payment.getId(), now)
+                        : paymentOrderMapper.payIfPaying(payment.getId(), now));
+                String eventId = insertOutbox(payment, attempt, verified, now);
+                if (latePayment) {
+                    refunds.requestFullRefund(payment.getId(), "LATE_PAYMENT");
+                    yield audit(channel, verified, payloadHash, "SUCCEEDED_REFUND_PENDING",
+                            payment.getId(), "REFUND_PENDING", false, eventId);
+                }
+                yield audit(channel, verified, payloadHash, "SUCCEEDED", payment.getId(), "PAID", false, eventId);
+            }
+        };
     }
 
     private PaymentNotificationResponse auditRejected(PaymentChannel channel, VerifiedPaymentNotification verified,

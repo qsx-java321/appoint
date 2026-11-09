@@ -17,6 +17,10 @@ public interface PaymentAttemptMapper extends BaseMapper<PaymentAttempt> {
     @Select("SELECT * FROM payment_attempts WHERE id = #{id} FOR UPDATE")
     PaymentAttempt selectByIdForUpdate(@Param("id") Long id);
 
+    @Select("SELECT * FROM payment_attempts WHERE channel = #{channel} AND provider_order_no = #{providerOrderNo}")
+    PaymentAttempt selectByProviderOrderNo(@Param("channel") String channel,
+                                         @Param("providerOrderNo") String providerOrderNo);
+
     @Select("SELECT * FROM payment_attempts WHERE channel = #{channel} AND provider_order_no = #{providerOrderNo} FOR UPDATE")
     PaymentAttempt selectByProviderOrderNoForUpdate(@Param("channel") String channel,
                                                     @Param("providerOrderNo") String providerOrderNo);

@@ -67,8 +67,15 @@ class PaymentAttemptTransaction {
     }
 
     private PaymentAttempt requireAttempt(Long attemptId) {
+        PaymentAttempt lookup = paymentAttemptMapper.selectById(attemptId);
+        if (lookup == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        if (paymentOrderMapper.selectByIdForUpdate(lookup.getPaymentOrderId()) == null) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        }
         PaymentAttempt attempt = paymentAttemptMapper.selectByIdForUpdate(attemptId);
-        if (attempt == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        if (attempt == null || !attempt.getPaymentOrderId().equals(lookup.getPaymentOrderId())) {
+            throw new BusinessException(ErrorCode.RETRYABLE_CONCURRENCY_ERROR);
+        }
         return attempt;
     }
 

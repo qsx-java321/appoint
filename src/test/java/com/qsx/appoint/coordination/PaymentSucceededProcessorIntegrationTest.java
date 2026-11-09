@@ -7,11 +7,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:paid-confirmation;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
@@ -59,14 +61,57 @@ class PaymentSucceededProcessorIntegrationTest {
         assertThat(processor.process(event)).isEqualTo("REFUND_REQUIRED");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT status FROM appointment_orders WHERE id = 11003", String.class))
-                .isEqualTo("PENDING_PAYMENT");
+                .isEqualTo("EXPIRED");
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT held_capacity FROM schedules WHERE id = 4", Integer.class)).isEqualTo(1);
+                "SELECT held_capacity FROM schedules WHERE id = 4", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT available_capacity FROM schedules WHERE id = 4", Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM appointment_active_claims WHERE appointment_order_id = 11003", Integer.class)).isZero();
+        assertThat(processor.process(event)).isEqualTo("DUPLICATE");
+        PaymentSucceededEvent duplicateFact = new PaymentSucceededEvent(
+                "00000000-0000-0000-0000-000000001104", 1, event.occurredAt(), event.paymentOrderId(),
+                event.appointmentOrderId(), event.paymentAttemptId(), event.amount(), event.currency(),
+                event.channel(), event.paidAt());
+        assertThat(processor.process(duplicateFact)).isEqualTo("REFUND_REQUIRED");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT available_capacity FROM schedules WHERE id = 4", Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM payment_refunds WHERE payment_order_id = 11004", Integer.class)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT confirmed_capacity FROM schedules WHERE id = 4", Integer.class)).isZero();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT status FROM payment_orders WHERE id = 11004", String.class))
                 .isEqualTo("REFUND_PENDING");
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void failedClaimRemovalRollsBackInboxAndInventoryInRealTransaction() {
+        fixture();
+        jdbcTemplate.update("DELETE FROM appointment_active_claims WHERE appointment_order_id = 11003");
+        PaymentSucceededEvent event = new PaymentSucceededEvent(
+                "00000000-0000-0000-0000-000000001103", 1, LocalDateTime.of(2098, 12, 1, 8, 15),
+                11_004L, 11_003L, 11_005L, new BigDecimal("50.00"), "CNY", "MOCK",
+                LocalDateTime.of(2098, 12, 1, 8, 15));
+        try {
+            assertThatThrownBy(() -> processor.process(event)).isInstanceOf(RuntimeException.class);
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=11003", String.class))
+                    .isEqualTo("PENDING_PAYMENT");
+            assertThat(jdbcTemplate.queryForObject("SELECT held_capacity FROM schedules WHERE id=4", Integer.class))
+                    .isEqualTo(1);
+            assertThat(jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM coordination_inbox_events WHERE event_id=?", Integer.class, event.eventId()))
+                    .isZero();
+            assertThat(jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM payment_refunds WHERE payment_order_id=11004", Integer.class)).isZero();
+        } finally {
+            jdbcTemplate.update("DELETE FROM payment_attempts WHERE payment_order_id=11004");
+            jdbcTemplate.update("DELETE FROM payment_orders WHERE id=11004");
+            jdbcTemplate.update("DELETE FROM appointment_orders WHERE id=11003");
+            jdbcTemplate.update("DELETE FROM patients WHERE id=11002");
+            jdbcTemplate.update("DELETE FROM users WHERE id=11001");
+        }
     }
 
     private void fixture() {
@@ -92,6 +137,11 @@ class PaymentSucceededProcessorIntegrationTest {
                         '13800000000','p@example.com',1,'DOC000001','张医生','主任医师',1,'内科',1,
                         '示例市第一人民医院','示例市健康路 1 号','2099-01-01','09:00:00','09:30:00',
                         'PENDING_PAYMENT','2098-12-01 08:15:00',50.00,'CNY')
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO appointment_active_claims
+                  (schedule_id, appointment_order_id, patient_id, document_type, document_no)
+                VALUES (4, 11003, 11002, 'RESIDENT_ID_CARD', '110105199001011101')
                 """);
         jdbcTemplate.update("""
                 INSERT INTO payment_orders

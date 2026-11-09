@@ -65,10 +65,7 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
         validateBookingDate(command.appointmentDate());
         validateBookable(schedule);
 
-        Patient patient = patientMapper.selectByIdForUpdate(command.patientId());
-        if (patient == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
-        if (!patient.getUserId().equals(command.userId())) throw new BusinessException(ErrorCode.FORBIDDEN);
-        if (!Boolean.TRUE.equals(patient.getEnabled())) throw new BusinessException(ErrorCode.PATIENT_DISABLED);
+        Patient patient = requireOwnedPatient(command.patientId(), command.userId());
 
         Doctor doctor = selectedDoctor;
         Department department = doctor == null ? null : departmentMapper.selectById(doctor.getDepartmentId());
@@ -83,6 +80,39 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
             throw new BusinessException(ErrorCode.SCHEDULE_UNAVAILABLE);
         }
 
+        AppointmentOrder appointment = createAppointmentSnapshot(
+                command, schedule, patient, doctor, department, hospital, now);
+        appointmentOrderMapper.insert(appointment);
+
+        AppointmentActiveClaim claim = new AppointmentActiveClaim();
+        claim.setScheduleId(schedule.getId());
+        claim.setAppointmentOrderId(appointment.getId());
+        claim.setPatientId(patient.getId());
+        claim.setDocumentType(patient.getDocumentType());
+        claim.setDocumentNo(patient.getDocumentNo());
+        claim.setCreatedAt(now);
+        try {
+            activeClaimMapper.insert(claim);
+        } catch (DuplicateKeyException exception) {
+            throw new BusinessException(ErrorCode.DUPLICATE_ACTIVE_APPOINTMENT);
+        }
+
+        return new AppointmentHold(appointment.getId(), appointment.getAppointmentNo(), command.userId(),
+                appointment.getStatus(), appointment.getFeeAmount(), appointment.getFeeCurrency(),
+                appointment.getPaymentExpiresAt(), now);
+    }
+
+    private Patient requireOwnedPatient(Long patientId, Long userId) {
+        Patient patient = patientMapper.selectByIdForUpdate(patientId);
+        if (patient == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        if (!patient.getUserId().equals(userId)) throw new BusinessException(ErrorCode.FORBIDDEN);
+        if (!Boolean.TRUE.equals(patient.getEnabled())) throw new BusinessException(ErrorCode.PATIENT_DISABLED);
+        return patient;
+    }
+
+    private AppointmentOrder createAppointmentSnapshot(CreateAppointmentHoldCommand command, Schedule schedule,
+                                                        Patient patient, Doctor doctor, Department department,
+                                                        Hospital hospital, LocalDateTime now) {
         AppointmentOrder appointment = new AppointmentOrder();
         appointment.setAppointmentNo("AP" + UUID.randomUUID().toString().replace("-", ""));
         appointment.setUserId(command.userId());
@@ -111,24 +141,7 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
         appointment.setPaymentExpiresAt(now.plus(appointmentProperties.paymentTimeout()));
         appointment.setFeeAmount(schedule.getRegistrationFee().setScale(2, RoundingMode.UNNECESSARY));
         appointment.setFeeCurrency(schedule.getFeeCurrency());
-        appointmentOrderMapper.insert(appointment);
-
-        AppointmentActiveClaim claim = new AppointmentActiveClaim();
-        claim.setScheduleId(schedule.getId());
-        claim.setAppointmentOrderId(appointment.getId());
-        claim.setPatientId(patient.getId());
-        claim.setDocumentType(patient.getDocumentType());
-        claim.setDocumentNo(patient.getDocumentNo());
-        claim.setCreatedAt(now);
-        try {
-            activeClaimMapper.insert(claim);
-        } catch (DuplicateKeyException exception) {
-            throw new BusinessException(ErrorCode.DUPLICATE_ACTIVE_APPOINTMENT);
-        }
-
-        return new AppointmentHold(appointment.getId(), appointment.getAppointmentNo(), command.userId(),
-                appointment.getStatus(), appointment.getFeeAmount(), appointment.getFeeCurrency(),
-                appointment.getPaymentExpiresAt(), now);
+        return appointment;
     }
 
     private void validateBookable(Schedule schedule) {

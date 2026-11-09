@@ -30,13 +30,13 @@ def command(*args, input_text=None, capture=False):
 
 
 def mysql(sql):
-    return command('docker', 'compose', 'exec', '-T', 'mysql', 'sh', '-c',
+    return command('docker', 'compose', '--env-file', 'compose.env', 'exec', '-T', 'mysql', 'sh', '-c',
                    'export MYSQL_PWD="$MYSQL_ROOT_PASSWORD"; exec mysql -uroot -N -B',
                    input_text=sql, capture=True).strip()
 
 
 def rabbit(*args):
-    command('docker', 'compose', 'exec', '-T', 'rabbitmq', 'rabbitmqctl', *args)
+    command('docker', 'compose', '--env-file', 'compose.env', 'exec', '-T', 'rabbitmq', 'rabbitmqctl', *args)
 
 
 def request(port, method, path, data=None, token=None, headers=None, expected=200):
@@ -58,12 +58,12 @@ def request(port, method, path, data=None, token=None, headers=None, expected=20
 
 
 def main():
-    command('docker', 'compose', 'config', '--quiet')
-    config = json.loads(command('docker', 'compose', 'config', '--format', 'json', capture=True))
+    command('docker', 'compose', '--env-file', 'compose.env', 'config', '--quiet')
+    config = json.loads(command('docker', 'compose', '--env-file', 'compose.env', 'config', '--format', 'json', capture=True))
     rabbit_user = config['services']['rabbitmq']['environment']['RABBITMQ_DEFAULT_USER']
     rabbit_pass = config['services']['rabbitmq']['environment']['RABBITMQ_DEFAULT_PASS']
-    command('docker', 'compose', 'up', '-d', '--wait', 'mysql', 'redis', 'rabbitmq')
-    assert command('docker', 'compose', 'exec', '-T', 'redis', 'redis-cli', 'ping', capture=True).strip() == 'PONG'
+    command('docker', 'compose', '--env-file', 'compose.env', 'up', '-d', '--wait', 'mysql', 'redis', 'rabbitmq')
+    assert command('docker', 'compose', '--env-file', 'compose.env', 'exec', '-T', 'redis', 'redis-cli', 'ping', capture=True).strip() == 'PONG'
     rabbit('status', '--quiet')
     mysql(f"CREATE DATABASE `{DB}`; CREATE USER '{USER}'@'%' IDENTIFIED BY '{PASSWORD}'; GRANT ALL PRIVILEGES ON `{DB}`.* TO '{USER}'@'%';")
     rabbit('add_vhost', VHOST)

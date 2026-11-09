@@ -1,6 +1,7 @@
 package com.qsx.appoint.payment.messaging;
 
 import com.qsx.appoint.common.BusinessException;
+import com.qsx.appoint.common.messaging.ConfirmedMessagePublisher;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.payment.application.RefundRequestedEvent;
 import com.qsx.appoint.payment.application.RefundWorker;
@@ -11,11 +12,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.time.Duration;
 
 @Slf4j
 @Component
@@ -27,7 +28,7 @@ public class RefundRequestedListener {
 
     private final RefundRequestedEventCodec codec;
     private final RefundWorker worker;
-    private final RabbitTemplate rabbitTemplate;
+    private final ConfirmedMessagePublisher publisher;
 
     @RabbitListener(queues = RabbitEventTopology.REFUND_WORKER_QUEUE, ackMode = "MANUAL")
     public void consume(Message message, Channel channel) throws IOException {
@@ -41,16 +42,18 @@ public class RefundRequestedListener {
         }
         try {
             worker.process(event);
-            channel.basicAck(tag, false);
         } catch (BusinessException exception) {
             if (exception.getErrorCode() == ErrorCode.VALIDATION_ERROR) {
                 channel.basicReject(tag, false);
             } else {
                 retryOrDeadLetter(message, channel, tag, event.eventId(), exception);
             }
+            return;
         } catch (RuntimeException exception) {
             retryOrDeadLetter(message, channel, tag, event.eventId(), exception);
+            return;
         }
+        channel.basicAck(tag, false);
     }
 
     private void retryOrDeadLetter(Message original, Channel channel, long tag,
@@ -66,8 +69,14 @@ public class RefundRequestedListener {
                 .setHeader(ATTEMPT_HEADER, attempt)
                 .setExpiration("1000")
                 .build();
-        rabbitTemplate.send(RabbitEventTopology.RETRY_EXCHANGE,
-                RabbitEventTopology.REFUND_REQUESTED_ROUTING_KEY, retry);
+        try {
+            publisher.publish(RabbitEventTopology.RETRY_EXCHANGE,
+                    RabbitEventTopology.REFUND_REQUESTED_ROUTING_KEY, retry, Duration.ofSeconds(5));
+        } catch (RuntimeException publishFailure) {
+            log.error("退款重试转发失败，保留原消息，eventId={}", eventId, publishFailure);
+            channel.basicNack(tag, false, true);
+            return;
+        }
         channel.basicAck(tag, false);
     }
 }

@@ -3,6 +3,7 @@
 target/
 .mvn/timing.properties
 .env
+compose.env
 http/http-client.private.env.json
 *.iml
 

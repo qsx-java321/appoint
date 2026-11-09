@@ -37,10 +37,23 @@
 
 ## 本地运行
 
+首次使用时准备两份本地配置，按需修改凭据，并确保两份文件中的 MySQL 和 RabbitMQ 连接信息一致：
+
 ```bash
-docker compose up -d mysql rabbitmq
+cp compose.env.example compose.env
+cp .env.example .env
+```
+
+`compose.env` 供 Docker Compose 初始化 MySQL、RabbitMQ；`.env` 供 Spring Boot 从项目根目录启动时加载，默认启用 `dev` profile 和 MockPay。两份实际配置均不提交 Git。已有 MySQL、RabbitMQ 数据卷时，修改初始化变量不会自动修改卷内已有账号密码。
+
+从项目根目录启动依赖和应用：
+
+```bash
+docker compose --env-file compose.env up -d --wait mysql rabbitmq
 ./mvnw spring-boot:run
 ```
+
+其他 Compose 命令同样需要 `--env-file compose.env`。IDE 的工作目录应设为项目根目录；系统环境变量可覆盖应用 `.env`。Redis 不参与当前业务，但隔离验收会检查其健康状态。
 
 使用 Compose 实际依赖执行隔离业务验收：
 
