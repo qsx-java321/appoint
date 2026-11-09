@@ -3,6 +3,11 @@ package com.qsx.appoint.coordination;
 import com.qsx.appoint.coordination.application.PaymentSucceededEvent;
 import com.qsx.appoint.coordination.application.PaymentSucceededProcessor;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
+import com.qsx.appoint.common.BusinessException;
+import com.qsx.appoint.common.ErrorCode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -11,6 +16,12 @@ import org.springframework.transaction.annotation.Propagation;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -23,6 +34,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PaymentSucceededProcessorIntegrationTest {
     @Autowired private PaymentSucceededProcessor processor;
     @Autowired private JdbcTemplate jdbcTemplate;
+    @Autowired private BookingLifecycleCoordinator lifecycle;
+    @Autowired private Clock appointmentClock;
 
     @Test
     void inboxAndConfirmationCommitOnceForDuplicateEvent() {
@@ -112,6 +125,136 @@ class PaymentSucceededProcessorIntegrationTest {
             jdbcTemplate.update("DELETE FROM patients WHERE id=11002");
             jdbcTemplate.update("DELETE FROM users WHERE id=11001");
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"UNPAID,false", "PAYING,false", "PAID,true"})
+    void pendingCancellationPreservesRefundReasonAndBoolean(String payment, boolean refund) {
+        fixture();
+        jdbcTemplate.update("UPDATE payment_orders SET status=? WHERE id=11004", payment);
+        // 固定未来截止，取消时选择 CANCELLED；资金事实决定是否退款及 HTTP 200/202。
+        assertThat(lifecycle.cancelOwned(11001L, 11003L)).isEqualTo(refund);
+        assertThat(lifecycle.cancelOwned(11001L, 11003L)).isEqualTo(refund);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=11003", String.class))
+                .isEqualTo("CANCELLED");
+        assertThat(jdbcTemplate.queryForObject("SELECT available_capacity FROM schedules WHERE id=4", Integer.class))
+                .isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM appointment_active_claims WHERE appointment_order_id=11003", Integer.class))
+                .isZero();
+        if (refund) {
+            assertThat(jdbcTemplate.queryForObject("SELECT reason FROM payment_refunds WHERE payment_order_id=11004", String.class))
+                    .isEqualTo("APPOINTMENT_CANCELLED");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2098-12-01 08:14:59,CONFIRMED", "2098-12-01 08:15:00,EXPIRED",
+            "2098-12-01 08:15:01,EXPIRED", ",EXPIRED"})
+    void reconciliationUsesPaidAtIncludingMissingAndExactDeadline(String paidAt, String expected) {
+        fixture();
+        jdbcTemplate.update("UPDATE payment_orders SET paid_at=? WHERE id=11004", paidAt);
+        assertThat(lifecycle.reconcilePaidPending(11003L)).isTrue();
+        assertThat(lifecycle.reconcilePaidPending(11003L)).isFalse();
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=11003", String.class))
+                .isEqualTo(expected);
+        assertThat(jdbcTemplate.queryForObject("SELECT held_capacity FROM schedules WHERE id=4", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT total_capacity-available_capacity-held_capacity-confirmed_capacity FROM schedules WHERE id=4", Integer.class)).isZero();
+        if ("EXPIRED".equals(expected)) {
+            assertThat(jdbcTemplate.queryForObject("SELECT reason FROM payment_refunds WHERE payment_order_id=11004", String.class))
+                    .isEqualTo("APPOINTMENT_NOT_CONFIRMABLE");
+        }
+    }
+
+    @Test
+    void expirationBeforeDeadlineDoesNotRequirePaymentButCancellationChecksOwnerFirst() {
+        fixture();
+        jdbcTemplate.update("DELETE FROM payment_attempts WHERE payment_order_id=11004");
+        jdbcTemplate.update("DELETE FROM payment_orders WHERE id=11004");
+        assertThat(lifecycle.expireIfDue(11003L)).isFalse();
+        assertThat(lifecycle.expireIfDue(-1L)).isFalse();
+        assertThatThrownBy(() -> lifecycle.cancelOwned(999L, 11003L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+        assertThatThrownBy(() -> lifecycle.cancelOwned(11001L, 11003L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INTERNAL_ERROR));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"CLOSED,false", "REFUND_PENDING,true", "REFUNDED,false", "PAID,error"})
+    void repeatedCancellationOfClosedAppointmentChecksPaymentState(String payment, String result) {
+        fixture();
+        jdbcTemplate.update("UPDATE appointment_orders SET status='CANCELLED' WHERE id=11003");
+        jdbcTemplate.update("UPDATE payment_orders SET status=? WHERE id=11004", payment);
+        if ("error".equals(result)) {
+            assertThatThrownBy(() -> lifecycle.cancelOwned(11001L, 11003L))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INTERNAL_ERROR));
+        } else {
+            assertThat(lifecycle.cancelOwned(11001L, 11003L)).isEqualTo(Boolean.parseBoolean(result));
+        }
+        assertThat(jdbcTemplate.queryForObject("SELECT held_capacity FROM schedules WHERE id=4", Integer.class)).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"UNPAID,false", "PAYING,false", "PAID,true"})
+    void cancellationAfterExpiryKeepsCancellationRefundReason(String payment, boolean refund) {
+        fixture();
+        jdbcTemplate.update("UPDATE appointment_orders SET payment_expires_at=? WHERE id=11003",
+                LocalDateTime.now(appointmentClock).minusSeconds(1));
+        jdbcTemplate.update("UPDATE payment_orders SET status=? WHERE id=11004", payment);
+        assertThat(lifecycle.cancelOwned(11001L, 11003L)).isEqualTo(refund);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=11003", String.class))
+                .isEqualTo("EXPIRED");
+        if (refund) {
+            assertThat(jdbcTemplate.queryForObject("SELECT reason FROM payment_refunds WHERE payment_order_id=11004", String.class))
+                    .isEqualTo("APPOINTMENT_CANCELLED");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"-1,CONFIRMED", "0,EXPIRED", "1,EXPIRED"})
+    void expiryUsesPersistedPaidAtEvenWhenConfirmationIsDelayed(int offset, String expected) {
+        fixture();
+        LocalDateTime deadline = LocalDateTime.now(appointmentClock).minusSeconds(5).withNano(0);
+        jdbcTemplate.update("UPDATE appointment_orders SET payment_expires_at=? WHERE id=11003", deadline);
+        jdbcTemplate.update("UPDATE payment_orders SET paid_at=? WHERE id=11004", deadline.plusSeconds(offset));
+        assertThat(lifecycle.expireIfDue(11003L)).isTrue();
+        assertThat(lifecycle.expireIfDue(11003L)).isFalse();
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=11003", String.class))
+                .isEqualTo(expected);
+    }
+
+    @TestConfiguration
+    static class TimeConfig {
+        @Bean @Primary
+        Clock fixedClock() {
+            return Clock.fixed(Instant.parse("2026-11-09T00:00:00Z"), ZoneId.of("Asia/Shanghai"));
+        }
+    }
+
+    @Test
+    void confirmedCancellationAtExactTwentyFourHoursIsRejected() {
+        fixture();
+        jdbcTemplate.update("UPDATE appointment_orders SET status='CONFIRMED', appointment_date='2026-11-10', start_time='08:00:00' WHERE id=11003");
+        assertThatThrownBy(() -> lifecycle.cancelOwned(11001L, 11003L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.CANCELLATION_DEADLINE_REACHED));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM payment_refunds WHERE payment_order_id=11004", Integer.class)).isZero();
+    }
+
+    @Test
+    void newEventForConfirmedAppointmentDoesNotRequirePaymentLookup() {
+        fixture();
+        jdbcTemplate.update("UPDATE appointment_orders SET status='CONFIRMED' WHERE id=11003");
+        jdbcTemplate.update("DELETE FROM payment_attempts WHERE payment_order_id=11004");
+        jdbcTemplate.update("DELETE FROM payment_orders WHERE id=11004");
+        PaymentSucceededEvent event = new PaymentSucceededEvent(
+                "00000000-0000-0000-0000-000000001106", 1, LocalDateTime.of(2098, 12, 1, 8, 0),
+                11_004L, 11_003L, 11_005L, new BigDecimal("50.00"), "CNY", "MOCK",
+                LocalDateTime.of(2098, 12, 1, 8, 0));
+        assertThat(processor.process(event)).isEqualTo("ALREADY_CONFIRMED");
+        assertThat(jdbcTemplate.queryForObject("SELECT next_visit_number FROM schedules WHERE id=4", Integer.class)).isEqualTo(1);
     }
 
     private void fixture() {

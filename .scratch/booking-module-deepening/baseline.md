@@ -40,3 +40,14 @@
 - 2026-11-08：阶段 1 暂存快照已执行 Compose 隔离真实业务验收，以及常规 98、MySQL 24、双容器可靠性 9 项，均通过。RabbitMQ Testcontainers 使用 4.1，Compose 使用 4.3.2，版本对齐仍待完成。跨零点最终占号测试和完整决策矩阵仍待补齐。
 
 - 2026-11-08：`BookingMidnightIntegrationTest` 用可控 Clock 验证最终占号前跨零点整笔回滚及成功订单跨日幂等重放；当前代码和原生产代码暂存快照均通过。
+
+## 2026-11-09 本轮续作
+
+- 当前源码起点 `ea5bbeb`；已有改动已经提交，不重复重写。状态决策、错误顺序、退款原因、返回值和测试映射见 [状态矩阵](state-matrix.md)。
+- 新增聚焦断言运行45项通过、零失败/错误/跳过；独立暂存快照三层及 Compose 门禁已通过。
+- Compose MySQL/Redis/RabbitMQ 均 healthy。默认业务库只读复核最新 Flyway V9、预约0、支付0、退款表存在；执行完整 historical-candidates.sql 返回0条。该状态已不同于11月8日记录，未对该库执行迁移或写入。
+- 未处理旧失败现场 accept_fa1f0c42b045；后续仅在确认归属和需要时处理，不触碰其他业务数据。
+
+### 01 暂存快照实际验收
+
+2026-11-09，快照 `/tmp/booking-01-snapshot-cr7kbp14`：常规154、MySQL24、双容器可靠性10，均零失败、零错误、零跳过；三个 Maven 命令均串行、离线执行。Compose 真实预约、支付、异步确认、取消、退款和库存守恒通过，成功清理本次隔离资源。日志 `/tmp/booking-01-{test,mysql,reliability,compose}.log`。后续仅更新报告文字，测试/生产内容与该快照一致。

@@ -37,17 +37,17 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 
 | 顺序 | Issue | Type | 初始Status/Triage | Blocked by | 当前可执行性 | 独立验收重点 |
 | ---: | --- | --- | --- | --- | --- | --- |
-| 01 | [基线行为、状态决策表与风险证据](issues/01-baseline-state-matrix.md) | test | claimed | 无 | 实施中 | 状态/错误/副作用矩阵、最终日期复验与风险证据 |
+| 01 | [基线行为、状态决策表与风险证据](issues/01-baseline-state-matrix.md) | test | resolved | 无 | 已验收 | 状态/错误/副作用矩阵、最终日期复验与风险证据 |
 | 11 | [迟到支付释放暂占](issues/11-late-payment-release.md) | fix | claimed | 01 | 验收中 | 过期、释放、退款与 Inbox 原子提交 |
 | 12 | [消费有界重试与可靠转发](issues/12-bounded-consumer-retries.md) | fix | claimed | 01 | 验收中 | 三次处理、确认后 ACK、受控重放 |
 | 02 | [查询流程投影与响应组装分离](issues/02-booking-query-projection.md) | refactor | claimed | 01 | 实施中 | Projector/Assembler；SQL、JSON、权限完全兼容 |
 | 03 | [类型化状态、关闭原因与退款原因](issues/03-typed-lifecycle-language.md) | refactor | ready-for-agent | 01 | 依赖未完成 | 状态/原因类型化；持久化与事件稳定字符串不变 |
 | 04 | [预约暂占创建内部深度化](issues/04-appointment-hold-deepening.md) | refactor | claimed | 03 | 实施中 | 设置/场次/就诊人/占号/快照顺序及跨零点回滚 |
 | 05 | [支付回调决策分离与支付锁序收敛](issues/05-payment-notification-policy.md) | refactor/fix | claimed | 03 | 实施中 | 回调纯决策；payment父锁先行；原子Outbox/审计/退款 |
-| 06 | [预约与支付生命周期 interface 深度化](issues/06-lifecycle-interfaces.md) | refactor | ready-for-agent | 03、04、05 | 依赖未完成 | 完整预约操作封装库存/序号/占用；MANDATORY |
+| 06 | [预约与支付生命周期 interface 深度化](issues/06-lifecycle-interfaces.md) | refactor | ready-for-agent | 03、04、05、11 | 依赖未完成 | 完整预约操作封装库存/序号/占用；MANDATORY |
 | 07 | [跨模块生命周期决策与流程编排收口](issues/07-coordination-process-manager.md) | refactor | ready-for-agent | 05、06 | 依赖未完成 | 取消/过期/确认/对账纯决策；保留入口差异 |
 | 08 | [迁移支付测试并删除 dev/test 旧模拟路径](issues/08-remove-legacy-payment-simulation.md) | cleanup | ready-for-agent | 07 | 依赖未完成 | 正式支付测试迁移；已授权删除dev/test旧端点 |
-| 09 | [架构、并发与消息可靠性最终门禁](issues/09-architecture-and-reliability-gates.md) | test | ready-for-agent | 02、07、08 | 依赖未完成 | 架构违规反例；MySQL竞争与真实消息故障窗口 |
+| 09 | [架构、并发与消息可靠性最终门禁](issues/09-architecture-and-reliability-gates.md) | test | ready-for-agent | 02、07、08、11、12 | 依赖未完成 | 架构违规反例；MySQL竞争与真实消息故障窗口 |
 | 10 | [最终 interface、流程与验证文档交付](issues/10-documentation-delivery.md) | docs | ready-for-agent | 09 | 依赖未完成 | 当前契约/流程/ADR/验证记录一致，已知限制交付 |
 
 ## 推荐执行顺序
@@ -65,9 +65,9 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 
 - 02依赖01；03依赖01。推荐02先做，在03统一类型；若03先做，02直接复用类型，避免临时重复enum。
 - 04、05仅在03完成后可分别实施；04的创建与05的支付逻辑相对独立，默认串行降低调用点冲突。
-- 06显式依赖03、04、05，先稳定支付锁图，再将完整预约操作接入全部调用者；一个可构建issue内完成整个interface家族切换。
+- 06显式依赖03、04、05、11，先稳定支付锁图，再将完整预约操作接入全部调用者；一个可构建issue内完成整个interface家族切换。
 - 07依赖05、06，抽取既有决策而非补写业务。
-- 08依赖07，迁移测试后删除Legacy；09依赖02、07、08，查询验收不可遗漏；10依赖09。
+- 08依赖07，迁移测试后删除Legacy；09依赖02、07、08、11、12，查询验收不可遗漏；10依赖09。
 
 第一项可开始实施的是 [01 基线行为、状态决策表与风险证据](issues/01-baseline-state-matrix.md)。实现已经开始；01 基线矩阵、已开始的 11/12 和结构改造仍需完成各自验收。
 
@@ -119,7 +119,7 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 - [x] 修订spec中的不准确描述及可实施性/事务/锁序风险
 - [x] 创建map及01–10完整issue，核对依赖与回退
 - [x] 运行现有三层基线并记录真实结果
-- [ ] 实施01（本轮未授权生产改造，尚未开始）
+- [x] 实施01（状态矩阵、边界用例及独立快照门禁通过）
 - [ ] 后续实施02–10及各自验收
 
 ## Comments
@@ -136,3 +136,7 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 - 2026-11-08：最新生产代码串行验证：常规 124 项、MySQL 24 项、双容器可靠性 10 项通过；随后补充不同 eventId 重复迟到支付的断言，并单独运行对应 H2 测试通过。历史业务数据库不可用，候选 SQL 尚未执行。完整 01–12 任务尚未完成。
 
 - 2026-11-08：Compose 三服务健康，独立数据库和 vhost 的真实业务验收通过；阶段 1 暂存快照常规 98、MySQL 24、双容器 9 项通过。跨零点占号测试及完整决策矩阵仍未完成，01 保持 claimed。
+
+- 2026-11-09：继续实施时 HEAD 为 ea5bbeb，交接所述在途生产改动已提交；初始仅 scripts/__pycache__/ 未跟踪。新增 [状态矩阵](state-matrix.md) 和边界断言；06、09依赖已按用户决定修正。独立快照门禁运行中，不提前标记 resolved。
+
+- 2026-11-09：01独立快照常规154、MySQL24、双容器10及Compose真实链路全部通过，零跳过，01 resolved；提交号见 Git 日志及后续阶段记录。下一阶段11。

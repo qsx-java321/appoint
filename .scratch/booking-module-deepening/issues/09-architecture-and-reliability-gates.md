@@ -3,7 +3,7 @@
 Type: test
 Triage: ready-for-agent
 Status: ready-for-agent
-Blocked by: 02, 07, 08
+Blocked by: 02, 07, 08, 11, 12
 
 设计依据：[spec](../spec.md)，执行位置：[map](../map.md)。初始 Status 使用 triage 标签表示待认领；开始实施改为 claimed，验收完成改为 resolved。Triage 不代表依赖已解除。
 
@@ -30,6 +30,7 @@ Blocked by: 02, 07, 08
 ## 前置依赖
 
 [02 查询流程投影与响应组装分离](02-booking-query-projection.md)；[07 跨模块生命周期决策与流程编排收口](07-coordination-process-manager.md)；[08 迁移支付测试并删除 dev/test 旧模拟路径](08-remove-legacy-payment-simulation.md)。
+[11 迟到支付释放暂占](11-late-payment-release.md)；[12 消费有界重试与可靠转发](12-bounded-consumer-retries.md)。
 只有全部前置任务 Status 为 resolved 才能开始；当前仅01可开始。推荐按map串行顺序执行，避免共享快照和调用点冲突。
 
 ## 需要修改的模块和主要文件

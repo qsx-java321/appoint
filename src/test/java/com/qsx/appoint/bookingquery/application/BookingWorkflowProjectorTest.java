@@ -43,6 +43,26 @@ class BookingWorkflowProjectorTest {
                 .isInstanceOf(BusinessException.class);
     }
 
+    @Test
+    void everyOtherPersistedStateCombinationIsRejected() {
+        var allowed = java.util.Set.of(
+                "PENDING_PAYMENT/UNPAID", "PENDING_PAYMENT/PAYING", "PENDING_PAYMENT/PAID", "CONFIRMED/PAID",
+                "CANCELLED/CLOSED", "EXPIRED/CLOSED", "CANCELLED_BY_HOSPITAL/CLOSED",
+                "CANCELLED/REFUND_PENDING", "EXPIRED/REFUND_PENDING", "CANCELLED_BY_HOSPITAL/REFUND_PENDING",
+                "CANCELLED/REFUNDED", "EXPIRED/REFUNDED", "CANCELLED_BY_HOSPITAL/REFUNDED");
+        for (String appointment : java.util.List.of("PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "EXPIRED", "CANCELLED_BY_HOSPITAL")) {
+            for (var payment : com.qsx.appoint.payment.domain.PaymentOrderStatus.values()) {
+                if (!allowed.contains(appointment + "/" + payment.name())) {
+                    assertThatThrownBy(() -> projector.project(record(appointment, payment.name())))
+                            .as("%s/%s", appointment, payment)
+                            .isInstanceOfSatisfying(BusinessException.class,
+                                    exception -> assertThat(exception.getErrorCode())
+                                            .isEqualTo(com.qsx.appoint.common.ErrorCode.INTERNAL_ERROR));
+                }
+            }
+        }
+    }
+
     private BookingQueryRecord record(String appointment, String payment) {
         BookingQueryRecord record = new BookingQueryRecord();
         record.setId(1L);

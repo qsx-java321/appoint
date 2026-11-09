@@ -3,7 +3,7 @@
 Type: refactor
 Triage: ready-for-agent
 Status: ready-for-agent
-Blocked by: 03, 04, 05
+Blocked by: 03, 04, 05, 11
 
 设计依据：[spec](../spec.md)，执行位置：[map](../map.md)。初始 Status 使用 triage 标签表示待认领；开始实施改为 claimed，验收完成改为 resolved。Triage 不代表依赖已解除。
 
@@ -29,6 +29,7 @@ Blocked by: 03, 04, 05
 ## 前置依赖
 
 [03 类型化状态、关闭原因与退款原因](03-typed-lifecycle-language.md)；[04 预约暂占创建内部深度化](04-appointment-hold-deepening.md)；[05 支付回调决策分离与支付锁序收敛](05-payment-notification-policy.md)。
+[11 迟到支付释放暂占](11-late-payment-release.md)。
 只有全部前置任务 Status 为 resolved 才能开始；当前仅01可开始。推荐按map串行顺序执行，避免共享快照和调用点冲突。
 
 ## 需要修改的模块和主要文件
