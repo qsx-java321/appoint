@@ -8,8 +8,8 @@ import com.qsx.appoint.coordination.application.PaymentSucceededProcessor;
 import com.qsx.appoint.coordination.application.LegacyPaymentSimulationPrecheck;
 import com.qsx.appoint.payment.adapter.mock.MockPaymentGateway;
 import com.qsx.appoint.payment.application.PaymentAttemptService;
-import com.qsx.appoint.payment.application.PaymentLifecycleOperations;
-import com.qsx.appoint.payment.application.PaymentLifecycleView;
+import com.qsx.appoint.payment.application.PaymentLifecycle;
+import com.qsx.appoint.payment.application.PaymentLifecycleCase;
 import com.qsx.appoint.payment.application.PaymentNotificationIngress;
 import com.qsx.appoint.payment.domain.PaymentChannel;
 import com.qsx.appoint.payment.dto.PaymentAttemptResponse;
@@ -38,7 +38,7 @@ import java.util.UUID;
 @Profile({"dev", "test"})
 public class LegacySimulatePaymentController {
     private final BookingLifecycleCoordinator lifecycleCoordinator;
-    private final PaymentLifecycleOperations payments;
+    private final PaymentLifecycle payments;
     private final PaymentAttemptService attempts;
     private final MockPaymentGateway gateway;
     private final PaymentNotificationIngress notificationIngress;
@@ -49,7 +49,7 @@ public class LegacySimulatePaymentController {
     public ResponseEntity<Result<PaymentResponse>> simulateSuccess(
             Authentication authentication, @PathVariable Long id) {
         Long userId = (Long) authentication.getPrincipal();
-        PaymentLifecycleView payment = payments.findPayment(id);
+        PaymentLifecycleCase payment = payments.find(id);
         if (payment != null && (payment.status() == PaymentOrderStatus.UNPAID)) {
             precheck.validate(userId, id);
             PaymentAttemptResponse attempt = attempts.startAttempt(userId, id, PaymentChannel.MOCK);

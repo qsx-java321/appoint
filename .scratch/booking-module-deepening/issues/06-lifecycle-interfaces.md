@@ -2,7 +2,7 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 Blocked by: 03, 04, 05, 11
 
 设计依据：[spec](../spec.md)，执行位置：[map](../map.md)。初始 Status 使用 triage 标签表示待认领；开始实施改为 claimed，验收完成改为 resolved。Triage 不代表依赖已解除。
@@ -81,12 +81,16 @@ lock 无预约时返回 null，场次缺失/历史空 session 按现有错误处
 
 ## 完成状态清单
 
-- [ ] 完整生命周期 interface/Case 与事务契约
-- [ ] 全部调用者迁移并删除低层泄漏
-- [ ] Legacy markPaid 暂留范围标记
-- [ ] 原子回滚/库存/序号/锁竞争验证
-- [ ] 三层测试与 Comments 更新
+- [x] 完整生命周期 interface/Case 与事务契约
+- [x] 全部调用者迁移并删除低层泄漏
+- [x] Legacy markPaid 暂留范围标记
+- [x] 原子回滚/库存/序号/锁竞争验证
+- [x] 三层测试与 Comments 更新
 
 ## Comments
 
 - 2026-11-08：根据源码复核后的spec创建。仅完成任务定义，未认领、未实施；本轮基线结果见map，不等同于本issue验收结果。 依赖尚未resolved，暂不可开始实施。
+
+- 2026-11-09：全部依赖已resolved（05提交ea89132）。替换旧Operations/View/ScheduleLifecycleView为AppointmentLifecycle/Case/Confirmation与PaymentLifecycle/Case，全部调用者迁移，删除refundPaid及无调用Mapper能力。预约内部封装场次→预约锁、库存、序号及占用，锁/写入MANDATORY；事务同步器中的身份集合限制Case仅当前事务使用，能随REQUIRES_NEW挂起/恢复，不创建全局工作流框架。Legacy markPaid仅限08前过渡保留。首轮聚焦55项通过，新快照还将包含支付关闭回滚断言。
+
+- 2026-11-09：独立全新快照 `/tmp/booking-06-snapshot-m2251go_` 聚焦72、常规181、MySQL34、可靠性14及Compose全部通过，零失败/错误/跳过。旧Operations/View/ScheduleLifecycleView与无调用refundPaid全部删除；新快照从零编译验证，无旧target类掩盖依赖。无事务拒绝、find/跨事务拒绝、挂起恢复、库存/序号/占用回滚及真实竞争均通过。06 resolved。

@@ -5,7 +5,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
-public record AppointmentLifecycleView(
+/** 稳定业务事实；写入只接受当前事务lock返回的原对象，不能使用find或跨事务副本。 */
+public record AppointmentLifecycleCase(
         Long id,
         Long userId,
         Long scheduleId,

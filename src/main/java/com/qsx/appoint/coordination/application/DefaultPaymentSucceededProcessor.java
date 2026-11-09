@@ -3,9 +3,8 @@ package com.qsx.appoint.coordination.application;
 import com.qsx.appoint.appointment.domain.AppointmentCloseReason;
 import com.qsx.appoint.appointment.domain.AppointmentStatus;
 import com.qsx.appoint.payment.domain.RefundReason;
-import com.qsx.appoint.appointment.application.AppointmentLifecycleOperations;
-import com.qsx.appoint.appointment.application.AppointmentLifecycleView;
-import com.qsx.appoint.appointment.application.ScheduleLifecycleView;
+import com.qsx.appoint.appointment.application.AppointmentLifecycle;
+import com.qsx.appoint.appointment.application.AppointmentLifecycleCase;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.coordination.persistence.CoordinationInboxEventMapper;
@@ -25,7 +24,7 @@ class DefaultPaymentSucceededProcessor implements PaymentSucceededProcessor {
     private static final String CONSUMER = "appointment-payment-succeeded-v1";
 
     private final CoordinationInboxEventMapper inboxMapper;
-    private final AppointmentLifecycleOperations appointments;
+    private final AppointmentLifecycle appointments;
     private final PaymentRefundOperations refunds;
     private final Clock appointmentClock;
 
@@ -37,10 +36,7 @@ class DefaultPaymentSucceededProcessor implements PaymentSucceededProcessor {
             return "DUPLICATE";
         }
 
-        AppointmentLifecycleView lookup = appointments.findAppointment(event.appointmentOrderId());
-        if (lookup == null) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        ScheduleLifecycleView schedule = appointments.lockSchedule(lookup.scheduleId());
-        AppointmentLifecycleView appointment = appointments.lockAppointment(event.appointmentOrderId());
+        AppointmentLifecycleCase appointment = appointments.lock(event.appointmentOrderId());
         if (appointment == null || !appointment.id().equals(event.appointmentOrderId())) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         }
@@ -50,15 +46,12 @@ class DefaultPaymentSucceededProcessor implements PaymentSucceededProcessor {
             return "REFUND_REQUIRED";
         }
         if (!event.paidAt().isBefore(appointment.paymentExpiresAt())) {
-            appointments.releaseHeldInventory(schedule.id());
-            appointments.closePendingAppointment(appointment.id(), AppointmentCloseReason.PAYMENT_EXPIRED, now());
+            appointments.closePending(appointment, AppointmentCloseReason.PAYMENT_EXPIRED, now());
             refunds.requestFullRefund(event.paymentOrderId(), RefundReason.APPOINTMENT_NOT_CONFIRMABLE);
             return "REFUND_REQUIRED";
         }
 
-        Integer visitNumber = schedule.nextVisitNumber();
-        appointments.confirmInventory(schedule.id(), visitNumber);
-        appointments.confirmAppointment(appointment.id(), visitNumber);
+        appointments.confirm(appointment);
         return "CONFIRMED";
     }
 

@@ -44,7 +44,7 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 | 03 | [类型化状态、关闭原因与退款原因](issues/03-typed-lifecycle-language.md) | refactor | resolved | 01 | 已验收 | 状态/原因类型化；持久化与事件稳定字符串不变 |
 | 04 | [预约暂占创建内部深度化](issues/04-appointment-hold-deepening.md) | refactor | resolved | 03 | 已验收 | 设置/场次/就诊人/占号/快照顺序及跨零点回滚 |
 | 05 | [支付回调决策分离与支付锁序收敛](issues/05-payment-notification-policy.md) | refactor/fix | resolved | 03 | 已验收 | 回调纯决策；payment父锁先行；原子Outbox/审计/退款 |
-| 06 | [预约与支付生命周期 interface 深度化](issues/06-lifecycle-interfaces.md) | refactor | ready-for-agent | 03、04、05、11 | 依赖未完成 | 完整预约操作封装库存/序号/占用；MANDATORY |
+| 06 | [预约与支付生命周期 interface 深度化](issues/06-lifecycle-interfaces.md) | refactor | resolved | 03、04、05、11 | 已验收 | 完整预约操作封装库存/序号/占用；MANDATORY |
 | 07 | [跨模块生命周期决策与流程编排收口](issues/07-coordination-process-manager.md) | refactor | ready-for-agent | 05、06 | 依赖未完成 | 取消/过期/确认/对账纯决策；保留入口差异 |
 | 08 | [迁移支付测试并删除 dev/test 旧模拟路径](issues/08-remove-legacy-payment-simulation.md) | cleanup | ready-for-agent | 07 | 依赖未完成 | 正式支付测试迁移；已授权删除dev/test旧端点 |
 | 09 | [架构、并发与消息可靠性最终门禁](issues/09-architecture-and-reliability-gates.md) | test | ready-for-agent | 02、07、08、11、12 | 依赖未完成 | 架构违规反例；MySQL竞争与真实消息故障窗口 |
@@ -152,3 +152,5 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 - 2026-11-09：04独立快照聚焦22、常规170、MySQL25及Compose通过，零跳过，04 resolved。03提交fd6e446，下一阶段05。
 
 - 2026-11-09：05独立快照常规173、MySQL34、可靠性14及Compose通过，全部零跳过，05 resolved。04提交199c90a；下一阶段06，全部依赖03/04/05/11已验收。
+
+- 2026-11-09：06独立新快照聚焦72、常规181、MySQL34、可靠性14及Compose通过，全部零跳过，06 resolved。05提交ea89132；下一阶段07。

@@ -77,3 +77,9 @@
 ### 05 暂存快照实际验收
 
 2026-11-09，`/tmp/booking-05-snapshot-sgwopa8o`：常规173、MySQL34、可靠性14及Compose全部通过，零失败/错误/跳过，Maven串行离线执行。日志 `/tmp/booking-05-{test,mysql,reliability,compose}.log`。NOWAIT父锁探针证明测试中的callback、T2、refund请求/claim/complete/fail在等待子锁时已持有父支付锁；不把这些测试解释成证明所有可能交错均无死锁。故障回滚与真实Broker停机回调分别由AtomicityTest及PaymentConfirmationReliabilityIT覆盖。原父锁实现来自ea5bbeb，本阶段收拢回调和补齐验收，不重复改写。
+
+### 06 深interface实际验收
+
+独立快照 `/tmp/booking-06-snapshot-m2251go_` 已通过聚焦72、常规181、MySQL34，均零失败/错误/跳过，消息14项及Compose验收全部通过。当前事务同步器保存身份Map/Set，拒绝find/复制/跨事务Case；REQUIRES_NEW挂起恢复、库存/序号及关闭回滚有接口集成测试。coordination已无场次锁、分步库存操作及nextVisitNumber；Legacy markPaid保留至08。全部门禁通过，06 resolved。
+
+06最终日志 `/tmp/booking-06-{focused,test,mysql,reliability,compose}.log`，代码与独立快照一致；Legacy专用markPaid及端点将在08整体删除。

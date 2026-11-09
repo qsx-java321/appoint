@@ -1,5 +1,12 @@
 package com.qsx.appoint.payment.application;
 
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import java.util.Set;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import com.qsx.appoint.payment.domain.PaymentOrderStatus;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
@@ -17,22 +24,26 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-class PaymentLifecycleOperationsImpl implements PaymentLifecycleOperations {
+class DefaultPaymentLifecycle implements PaymentLifecycle {
     private final PaymentOrderMapper paymentOrderMapper;
     private final PaymentAttemptMapper paymentAttemptMapper;
     private final Clock appointmentClock;
 
     @Override
-    public PaymentLifecycleView findPayment(Long id) {
+    public PaymentLifecycleCase find(Long id) {
         return view(paymentOrderMapper.selectByIdForLookup(id));
     }
 
     @Override
-    public PaymentLifecycleView lockByAppointment(Long appointmentOrderId) {
-        return view(paymentOrderMapper.selectByAppointmentOrderIdForUpdate(appointmentOrderId));
+    @Transactional(propagation = Propagation.MANDATORY)
+    public PaymentLifecycleCase lockByAppointment(Long appointmentOrderId) {
+        PaymentLifecycleCase payment = view(paymentOrderMapper.selectByAppointmentOrderIdForUpdate(appointmentOrderId));
+        if (payment != null) context(true).locked.add(payment);
+        return payment;
     }
 
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public void markPaid(Long id) {
         requireOne(paymentOrderMapper.payIfUnpaid(id));
         // 仅供 dev/test 的旧模拟成功协调路径保留可退款的渠道事实；新流程由真实 attempt 回调写入。
@@ -55,18 +66,30 @@ class PaymentLifecycleOperationsImpl implements PaymentLifecycleOperations {
     }
 
     @Override
-    public void closeUnpaid(Long id) {
-        requireOne(paymentOrderMapper.closeIfUnpaid(id));
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void closeUnpaid(PaymentLifecycleCase payment) {
+        Context context = context(false);
+        if (context == null || !context.locked.remove(payment)) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        requireOne(paymentOrderMapper.closeIfUnpaid(payment.id()));
     }
 
-    @Override
-    public void refundPaid(Long id) {
-        requireOne(paymentOrderMapper.refundIfPaid(id));
+    private Context context(boolean create) {
+        for (var synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+            if (synchronization instanceof Context context) return context;
+        }
+        if (!create) return null;
+        Context context = new Context();
+        TransactionSynchronizationManager.registerSynchronization(context);
+        return context;
+    }
+    private static final class Context implements TransactionSynchronization {
+        final Set<PaymentLifecycleCase> locked = Collections.newSetFromMap(new IdentityHashMap<>());
+        @Override public void afterCompletion(int status) { locked.clear(); }
     }
 
-    private PaymentLifecycleView view(PaymentOrder order) {
+    private PaymentLifecycleCase view(PaymentOrder order) {
         if (order == null) return null;
-        return new PaymentLifecycleView(order.getId(), order.getPaymentNo(), order.getAppointmentOrderId(),
+        return new PaymentLifecycleCase(order.getId(), order.getPaymentNo(), order.getAppointmentOrderId(),
                 order.getUserId(), PaymentOrderStatus.fromStored(order.getStatus()), order.getPaidAt());
     }
 
