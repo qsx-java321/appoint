@@ -65,6 +65,7 @@ class PaymentConfirmationReliabilityIT {
     @Autowired private OutboxPublisher publisher;
     @Autowired private CachingConnectionFactory connectionFactory;
     @Autowired private DeadLetterReplayService replayService;
+    @Autowired private org.springframework.context.ApplicationContext applicationContext;
 
     @Test
     void brokerOutageKeepsEventThenRecoveryConfirmsExactlyOnce() throws Exception {
@@ -182,6 +183,63 @@ class PaymentConfirmationReliabilityIT {
         });
     }
 
+    @Test
+    void committedConfirmationSurvivesLostAckAndBrokerRedelivery() throws Exception {
+        ackFixture();
+        PaymentOutboxEvent event = pendingEvent();
+        var envelope = (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(event.getPayload());
+        envelope.put("aggregateId", 23004L);
+        var payload = (com.fasterxml.jackson.databind.node.ObjectNode) envelope.get("payload");
+        payload.put("paymentOrderId", 23004L);
+        payload.put("appointmentOrderId", 23003L);
+        payload.put("paymentAttemptId", 23005L);
+        byte[] body = objectMapper.writeValueAsBytes(envelope);
+        var processor = applicationContext.getBean(com.qsx.appoint.coordination.application.PaymentSucceededProcessor.class);
+        var codec = applicationContext.getBean(com.qsx.appoint.coordination.messaging.PaymentSucceededEventCodec.class);
+        var listener = new com.qsx.appoint.coordination.messaging.PaymentSucceededListener(
+                applicationContext.getBean(com.qsx.appoint.common.messaging.ConfirmedMessagePublisher.class), codec, processor);
+        String queue = "ack-window-" + UUID.randomUUID();
+        var connection = connectionFactory.createConnection();
+        var channel = connection.createChannel(false);
+        try {
+            channel.queueDeclare(queue, false, false, false, null);
+            channel.basicPublish("", queue, null, body);
+            var first = channel.basicGet(queue, false);
+            assertThat(first).isNotNull();
+            var failingAck = org.mockito.Mockito.mock(com.rabbitmq.client.Channel.class,
+                    org.mockito.AdditionalAnswers.delegatesTo(channel));
+            org.mockito.Mockito.doThrow(new java.io.IOException("ACK lost after commit"))
+                    .when(failingAck).basicAck(first.getEnvelope().getDeliveryTag(), false);
+            var converter = new org.springframework.amqp.rabbit.support.DefaultMessagePropertiesConverter();
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> listener.consume(new Message(first.getBody(),
+                    converter.toMessageProperties(first.getProps(), first.getEnvelope(), "UTF-8")), failingAck))
+                    .isInstanceOf(java.io.IOException.class);
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=23003", String.class)).isEqualTo("CONFIRMED");
+            ((org.springframework.amqp.rabbit.connection.ChannelProxy) channel).getTargetChannel().close();
+            var redeliveryChannel = connection.createChannel(false);
+            try {
+                var received = new java.util.concurrent.atomic.AtomicReference<com.rabbitmq.client.GetResponse>();
+                await().until(() -> {
+                    received.set(redeliveryChannel.basicGet(queue, false));
+                    return received.get() != null;
+                });
+                var duplicate = received.get();
+                assertThat(duplicate.getEnvelope().isRedeliver()).isTrue();
+                listener.consume(new Message(duplicate.getBody(), converter.toMessageProperties(
+                        duplicate.getProps(), duplicate.getEnvelope(), "UTF-8")), redeliveryChannel);
+                assertThat(inboxCount(event.getEventId())).isEqualTo(1);
+                assertThat(jdbcTemplate.queryForObject("SELECT next_visit_number FROM schedules WHERE id=4", Integer.class)).isEqualTo(2);
+                assertThat(jdbcTemplate.queryForObject("SELECT confirmed_capacity FROM schedules WHERE id=4", Integer.class)).isEqualTo(1);
+                redeliveryChannel.queueDelete(queue);
+            } finally {
+                redeliveryChannel.close();
+            }
+        } finally {
+            if (channel.isOpen()) channel.close();
+            connection.close();
+        }
+    }
+
     private PaymentOutboxEvent pendingEvent() throws Exception {
         String eventId = UUID.randomUUID().toString();
         LocalDateTime paidAt = LocalDateTime.of(2098, 12, 1, 8, 0);
@@ -242,6 +300,36 @@ class PaymentConfirmationReliabilityIT {
                 INSERT INTO payment_orders
                   (id,payment_no,appointment_order_id,user_id,status,amount,currency,expires_at,legacy)
                 VALUES (21004,'P21004',21003,21001,'PAID',50.00,'CNY','2098-12-01 08:15:00',FALSE)
+                """);
+    }
+
+    private void ackFixture() {
+        jdbcTemplate.update("""
+                UPDATE schedules SET status='OPEN', session_type='MORNING', start_time='08:00:00', end_time='12:00:00',
+                  total_capacity=2, available_capacity=1, held_capacity=1, confirmed_capacity=0,
+                  next_visit_number=1, registration_fee=50.00, fee_currency='CNY' WHERE id=4
+                """);
+        jdbcTemplate.update("INSERT INTO users (id,email,password_hash) VALUES (23001,'ack-window@example.com','hash')");
+        jdbcTemplate.update("""
+                INSERT INTO patients (id,user_id,name,document_type,document_no,contact_phone,contact_email)
+                VALUES (23002,23001,'测试','RESIDENT_ID_CARD','110105199001012101','13800000000','p@example.com')
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO appointment_orders
+                  (id,appointment_no,user_id,schedule_id,patient_id,patient_name,patient_document_type,
+                   patient_document_no,patient_contact_phone,patient_contact_email,doctor_id,doctor_no,
+                   doctor_name,doctor_title,department_id,department_name,hospital_id,hospital_name,
+                   hospital_address,appointment_date,start_time,end_time,status,payment_expires_at,
+                   fee_amount,fee_currency)
+                VALUES (23003,'A23003',23001,4,23002,'测试','RESIDENT_ID_CARD','110105199001012101',
+                        '13800000000','p@example.com',1,'DOC000001','张医生','主任医师',1,'内科',1,
+                        '示例市第一人民医院','示例市健康路 1 号','2099-01-01','09:00:00','09:30:00',
+                        'PENDING_PAYMENT','2098-12-01 08:15:00',50.00,'CNY')
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO payment_orders
+                  (id,payment_no,appointment_order_id,user_id,status,amount,currency,expires_at,legacy)
+                VALUES (23004,'P23004',23003,23001,'PAID',50.00,'CNY','2098-12-01 08:15:00',FALSE)
                 """);
     }
 

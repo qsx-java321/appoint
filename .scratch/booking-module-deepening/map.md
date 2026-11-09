@@ -39,7 +39,7 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 | ---: | --- | --- | --- | --- | --- | --- |
 | 01 | [基线行为、状态决策表与风险证据](issues/01-baseline-state-matrix.md) | test | resolved | 无 | 已验收 | 状态/错误/副作用矩阵、最终日期复验与风险证据 |
 | 11 | [迟到支付释放暂占](issues/11-late-payment-release.md) | fix | resolved | 01 | 已验收 | 过期、释放、退款与 Inbox 原子提交 |
-| 12 | [消费有界重试与可靠转发](issues/12-bounded-consumer-retries.md) | fix | claimed | 01 | 验收中 | 三次处理、确认后 ACK、受控重放 |
+| 12 | [消费有界重试与可靠转发](issues/12-bounded-consumer-retries.md) | fix | resolved | 01 | 已验收 | 三次处理、确认后 ACK、受控重放 |
 | 02 | [查询流程投影与响应组装分离](issues/02-booking-query-projection.md) | refactor | claimed | 01 | 实施中 | Projector/Assembler；SQL、JSON、权限完全兼容 |
 | 03 | [类型化状态、关闭原因与退款原因](issues/03-typed-lifecycle-language.md) | refactor | ready-for-agent | 01 | 依赖未完成 | 状态/原因类型化；持久化与事件稳定字符串不变 |
 | 04 | [预约暂占创建内部深度化](issues/04-appointment-hold-deepening.md) | refactor | claimed | 03 | 实施中 | 设置/场次/就诊人/占号/快照顺序及跨零点回滚 |
@@ -142,3 +142,5 @@ Type表示工作性质，Triage表示任务清晰可交给agent；初始Status=r
 - 2026-11-09：01独立快照常规154、MySQL24、双容器10及Compose真实链路全部通过，零跳过，01 resolved；提交号见 Git 日志及后续阶段记录。下一阶段11。
 
 - 2026-11-09：11独立快照聚焦28、常规159、MySQL25、可靠性10及扩展Compose验收通过，全部零跳过，11 resolved。下一阶段12；生产修复已包含在ea5bbeb，不重复重写。
+
+- 2026-11-09：12独立快照常规166、MySQL25、可靠性13及Compose通过，全部零跳过，12 resolved。11提交cb6931e；下一阶段02。

@@ -73,4 +73,27 @@ class PaymentSucceededListenerTest {
         verify(channel).basicReject(7, false);
         verifyNoInteractions(publisher);
     }
+    @Test
+    void permanentInvalidMessageDoesNotRetry() throws IOException {
+        when(codec.read(any())).thenThrow(new com.qsx.appoint.common.BusinessException(
+                com.qsx.appoint.common.ErrorCode.VALIDATION_ERROR));
+        listener.consume(message(0), channel);
+        verify(channel).basicReject(7, false);
+        verifyNoInteractions(processor, publisher);
+    }
+
+    @Test
+    void ackFailureAfterCommittedProcessingPropagatesForRedelivery() throws IOException {
+        PaymentSucceededEvent event = mock(PaymentSucceededEvent.class);
+        when(codec.read(any())).thenReturn(event);
+        when(processor.process(event)).thenReturn("CONFIRMED");
+        doThrow(new IOException("ACK lost")).when(channel).basicAck(7, false);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> listener.consume(message(0), channel))
+                .isInstanceOf(IOException.class);
+        var order = inOrder(processor, channel);
+        order.verify(processor).process(event);
+        order.verify(channel).basicAck(7, false);
+        verifyNoInteractions(publisher);
+    }
+
 }

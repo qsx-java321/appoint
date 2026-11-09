@@ -71,3 +71,11 @@
 本矩阵中的迟到事件原子退款失败、历史状态参数化、MySQL锁竞争和消息故障窗口分别交由11、05、12/09验收；不将它们计为01新增保证。01固定现有行为及风险证据，历史数字不替代本次快照结果。
 
 11新增 `coordination/LatePaymentMySqlIT.lateEventsCancellationAndExpirySerializeToOneReleaseAndRefund`，用有界屏障及Future并发两个不同成功事件、用户取消和过期；校验只释放一次、序号不变、每单一张退款及一个RefundRequested。Compose扩展使用真实HTTP/回调/RabbitMQ验证迟到收款，时间缩短仅在独立验收数据库执行。11独立快照三层及扩展Compose验收已通过，实际数量见baseline。
+
+## 12 新增传输与故障覆盖
+
+- common/messaging/ConfirmedMessagePublisherTest：确认成功才返回；NACK、return、超时、连接异常均失败。监听器测试证明转发失败不ACK原消息。
+- payment/OutboxPublisherReliabilityIT.retryTransportDelaysBothRetriesAndStopsAfterThreeAttempts：真实RabbitMQ承载三次手动消费、两次TTL重试及DLQ；业务processor/codec为测试替身，仅承担传输保证。
+- 同类 replayRequiresRoutingConfirmationAndResetsCountersWithoutChangingEventId：实际去掉绑定触发mandatory return，原消息仍在DLQ；路由恢复后重放清除计数并保留正文/eventId。
+- coordination/PaymentConfirmationReliabilityIT.committedConfirmationSurvivesLostAckAndBrokerRedelivery：真实MySQL代理事务已提交，ACK前注入IOException并物理关闭RabbitMQ channel，真实重投后Inbox、库存和序号只有一次效果。
+- 完整12快照常规166、MySQL25、可靠性13及Compose全部通过，零跳过。

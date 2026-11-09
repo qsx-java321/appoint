@@ -187,6 +187,81 @@ class OutboxPublisherReliabilityIT {
         assertThat(second.getMessageProperties().getMessageId()).isEqualTo(event.getEventId());
     }
 
+    @Test
+    void retryTransportDelaysBothRetriesAndStopsAfterThreeAttempts() throws Exception {
+        String eventId = UUID.randomUUID().toString();
+        var event = new com.qsx.appoint.coordination.application.PaymentSucceededEvent(eventId, 1,
+                LocalDateTime.now(), 1L, 2L, 3L, new java.math.BigDecimal("10.00"), "CNY", "MOCK", LocalDateTime.now());
+        var codec = org.mockito.Mockito.mock(com.qsx.appoint.coordination.messaging.PaymentSucceededEventCodec.class);
+        org.mockito.Mockito.when(codec.read(org.mockito.ArgumentMatchers.any())).thenReturn(event);
+        var processor = org.mockito.Mockito.mock(com.qsx.appoint.coordination.application.PaymentSucceededProcessor.class);
+        org.mockito.Mockito.when(processor.process(event)).thenThrow(new IllegalStateException("temporary failure"));
+        var listener = new com.qsx.appoint.coordination.messaging.PaymentSucceededListener(
+                new com.qsx.appoint.common.messaging.ConfirmedMessagePublisher(rabbitTemplate), codec, processor);
+        rabbitTemplate.convertAndSend(RabbitEventTopology.DOMAIN_EXCHANGE,
+                RabbitEventTopology.PAYMENT_SUCCEEDED_ROUTING_KEY, eventId);
+        var times = new java.util.ArrayList<Long>();
+        for (int i = 0; i < 3; i++) {
+            final int failures = i;
+            org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(10)).until(() ->
+                    Boolean.TRUE.equals(rabbitTemplate.execute(channel -> {
+                        var delivery = channel.basicGet(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE, false);
+                        if (delivery == null) return false;
+                        var properties = new org.springframework.amqp.rabbit.support.DefaultMessagePropertiesConverter()
+                                .toMessageProperties(delivery.getProps(), delivery.getEnvelope(), "UTF-8");
+                        assertThat(properties.<Integer>getHeader("payment-succeeded-attempt"))
+                                .isEqualTo(failures == 0 ? null : failures);
+                        times.add(System.nanoTime());
+                        listener.consume(new Message(delivery.getBody(), properties), channel);
+                        return true;
+                    })));
+        }
+        assertThat(times.get(1) - times.get(0)).isGreaterThanOrEqualTo(900_000_000L);
+        assertThat(times.get(2) - times.get(1)).isGreaterThanOrEqualTo(900_000_000L);
+        org.mockito.Mockito.verify(processor, org.mockito.Mockito.times(3)).process(event);
+        Message dead = rabbitTemplate.receive(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE + ".dlq", 5_000);
+        assertThat(dead).isNotNull();
+        assertThat(new String(dead.getBody(), java.nio.charset.StandardCharsets.UTF_8)).contains(eventId);
+        assertThat(rabbitTemplate.receive(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE, 200)).isNull();
+    }
+
+    @Test
+    void replayRequiresRoutingConfirmationAndResetsCountersWithoutChangingEventId() {
+        String eventId = UUID.randomUUID().toString();
+        String dlq = RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE + ".dlq";
+        Binding binding = BindingBuilder.bind(new Queue(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE))
+                .to(new TopicExchange(RabbitEventTopology.DOMAIN_EXCHANGE))
+                .with(RabbitEventTopology.PAYMENT_SUCCEEDED_ROUTING_KEY);
+        var replay = new com.qsx.appoint.payment.application.DeadLetterReplayService(rabbitTemplate, objectMapper,
+                new com.qsx.appoint.common.messaging.ConfirmedMessagePublisher(rabbitTemplate));
+        rabbitTemplate.convertAndSend(RabbitEventTopology.DEAD_LETTER_EXCHANGE,
+                RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE,
+                "{\"eventId\":\"" + eventId + "\",\"eventType\":\"PaymentSucceeded\"}", message -> {
+                    message.getMessageProperties().setHeader("payment-succeeded-attempt", 2);
+                    message.getMessageProperties().setHeader("refund-attempt", 2);
+                    message.getMessageProperties().setMessageId(eventId);
+                    return message;
+                });
+        org.awaitility.Awaitility.await().untilAsserted(() ->
+                assertThat(rabbitAdmin.getQueueProperties(dlq).get(RabbitAdmin.QUEUE_MESSAGE_COUNT)).isEqualTo(1));
+        rabbitAdmin.removeBinding(binding);
+        try {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> replay.replayOne(dlq))
+                    .isInstanceOf(RuntimeException.class);
+            assertThat(rabbitAdmin.getQueueProperties(dlq).get(RabbitAdmin.QUEUE_MESSAGE_COUNT)).isEqualTo(1);
+        } finally {
+            rabbitAdmin.declareBinding(binding);
+        }
+        assertThat(replay.replayOne(dlq)).isEqualTo(eventId);
+        Message restored = rabbitTemplate.receive(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE, 5_000);
+        assertThat(restored).isNotNull();
+        assertThat(restored.getMessageProperties().getMessageId()).isEqualTo(eventId);
+        assertThat(restored.getMessageProperties().getHeaders()).doesNotContainKeys("payment-succeeded-attempt", "refund-attempt");
+        assertThat(restored.getMessageProperties().getExpiration()).isNull();
+        assertThat(new String(restored.getBody(), java.nio.charset.StandardCharsets.UTF_8)).contains(eventId);
+        assertThat(replay.replayOne(dlq)).isNull();
+    }
+
     private void forceDue(String eventId) {
         jdbcTemplate.update("UPDATE payment_outbox_events SET next_attempt_at = ? WHERE event_id = ?",
                 LocalDateTime.now().minusSeconds(1), eventId);

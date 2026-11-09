@@ -55,3 +55,7 @@
 ### 11 暂存快照实际验收
 
 2026-11-09，`/tmp/booking-11-snapshot-nbgv8xyc`：聚焦28、常规159、MySQL25、双容器10，均零失败/错误/跳过。串行命令同01，日志 `/tmp/booking-11-{focused,test,mysql,reliability,compose}.log`。Compose新增真实迟到支付释放及退款通过，仅在本次隔离库缩短截止；过期扫描关闭，确保由事件路径释放。11 resolved；历史候选0条，不自动修复。
+
+### 12 暂存快照实际验收
+
+2026-11-09，`/tmp/booking-12-snapshot-5zpor6w1`：常规166、MySQL25、双容器可靠性13，均零失败/错误/跳过；Maven串行离线执行，Compose正常及迟到支付链路通过并清理本次资源。日志 `/tmp/booking-12-{test,mysql,reliability,compose}.log`。Broker停机故障仅在Testcontainers中注入；共享Compose未停止。
