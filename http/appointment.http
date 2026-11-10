@@ -62,6 +62,12 @@ Content-Type: application/json
   "patientId": "{{patientId}}"
 }
 
+### 查询最新详情并取支付单ID：首次创建和200幂等重放都从这里继续
+GET {{baseUrl}}/api/v1/appointments/{{paidAppointmentId}}
+Authorization: Bearer {{accessToken}}
+
+> {% client.global.set("paidPaymentId", response.body.data.paymentOrderId); %}
+
 ### 截止前创建 MockPay 支付尝试
 POST {{baseUrl}}/api/v1/payments/{{paidPaymentId}}/attempts
 Authorization: Bearer {{accessToken}}

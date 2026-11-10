@@ -1,6 +1,6 @@
 # 四模块代码设计与事务契约
 
-本文对应四模块改造完成后的实现。业务结果见 [业务流程](business-flow.md)，HTTP 字段见 [API](api.md)，实测覆盖见 [验证报告](verification-report.md)。系统仍是一个 Spring Boot 应用、同一 MySQL，本轮没有数据库迁移或事件版本升级；Redis 仅作为本地依赖运行。
+本文对应四模块改造完成后的实现。业务结果见 [业务流程](business-flow.md)，HTTP 字段见 [API](api.md)，历史实测覆盖与后续文档核对见 [验证报告](verification-report.md)。系统仍是一个 Spring Boot 应用、同一 MySQL，四模块改造没有新增数据库迁移或事件版本；Redis 仅作为本地依赖运行。
 
 ## 模块职责与入口
 
@@ -32,7 +32,7 @@ flowchart LR
 - [AppointmentHoldServiceImpl](../src/main/java/com/qsx/appoint/appointment/application/AppointmentHoldServiceImpl.java) 保留创建步骤，用 private 方法封装按需场次、占号、有效占用和快照构造。日期在实际占号前重新读取，不能只使用请求开始时的日期。
 - [PaymentNotificationServiceImpl](../src/main/java/com/qsx/appoint/payment/application/PaymentNotificationServiceImpl.java) 表达幂等短路、锁定上下文、锁下复验、纯 Policy 决策、private execute。资金结果、通知审计、成功 Outbox 和必要迟到退款保持同一事务；不另开 Executor 事务。
 - [BookingLifecyclePolicy](../src/main/java/com/qsx/appoint/coordination/application/BookingLifecyclePolicy.java) 只判断预约与支付组合事实，返回动作及关闭/退款原因，不读 Clock、数据库或渠道。Coordinator 保留归属校验、完整性、入口短路和事务顺序；事件 Processor 保留格式校验及 Inbox。
-- [BookingWorkflowProjector](../src/main/java/com/qsx/appoint/bookingquery/application/BookingWorkflowProjector.java) 负责组合状态，`AppointmentResponseAssembler` 负责完整性、权限、脱敏及 DTO，查询主方法负责归属及一次列表时间采样。SQL、DTO 以及既有权限差异保持兼容。
+- [BookingWorkflowProjector](../src/main/java/com/qsx/appoint/bookingquery/application/BookingWorkflowProjector.java) 负责组合状态，`AppointmentResponseAssembler` 负责支付关联完整性、可操作标记、脱敏及 DTO，查询主方法负责账号归属及一次列表时间采样。可操作标记不替代写入口权限校验；SQL、DTO 以及既有权限差异保持兼容。
 
 纯 Policy 与单一内部 Assembler 不额外增加 interface。类型化的预约/支付状态和关闭/退款原因在 Java 层使用，持久化 Entity、Mapper、HTTP 和事件继续使用既有字符串；未知存储状态转为 `INTERNAL_ERROR`。
 
@@ -64,6 +64,8 @@ flowchart LR
 
 只读定位用于找到父记录，不代替锁下复验。不能持有 payment 子记录再反向等待父记录，也不能在支付路径反向锁预约。条件 UPDATE 行数、唯一约束和 InnoDB 行锁仍是最终防线；应用 Policy 不代替数据库约束。
 
+创建的事务外入口 `DefaultBookingCoordinator` 负责规范化幂等键/摘要并调用事务 Bean。事务先插入账号内幂等登记，同键唯一冲突退出并回滚后，外层才查询已提交记录、比较摘要并返回重放回执。登记、暂占、支付单及完成回执一起提交，不能在捕获重复键的创建事务里继续返回成功。
+
 ## 事件、重复与恢复
 
 事件 envelope 保留 `eventId`、`eventType`、`eventVersion=1`、`aggregateId`、`occurredAt` 和 `payload`。`PaymentSucceeded` 的 aggregateId 是 paymentOrderId；payload 保留 paymentOrderId、appointmentOrderId、paymentAttemptId、providerTransactionNo、amount、currency、channel、paidAt。paidAt 是本系统确认渠道收款的服务端时间，不使用渠道 occurredAt 决定截止资格。
@@ -74,11 +76,36 @@ flowchart LR
 | RefundRequested v1 | `payment.refund.requested.v1` | `payment.refund-worker.v1` |
 | RefundSucceeded / RefundFailed v1 | `payment.refund.succeeded.v1` / `payment.refund.failed.v1` | `notification.refund-result.v1` |
 
-Outbox 发布到 `appoint.domain-events`，收到 Publisher Confirm 且无 mandatory return 才标记发布。消费者在数据库事务提交后 ACK；提交前失败全部回滚，提交后 ACK 丢失则重投命中 Inbox。事件和退款仍按至少一次投递设计。
+退款结果队列及其重试/DLQ 拓扑已声明，但当前没有 `RefundSucceeded` / `RefundFailed` 监听器，不代表短信或邮件通知已经实现；退款状态在 worker 的本地事务中保存，详情查询直接读取数据库。
+
+### Outbox 发布
+
+支付通知或退款事务将资金结果与 Outbox 一起写入 MySQL，不在这些业务事务中等待 Broker。`OutboxPublisher` 定时调用独立事务 Bean `OutboxPublishTransaction`，使用 `FOR UPDATE SKIP LOCKED` 领取到期 PENDING，持有本批事件锁发布到 `appoint.domain-events`；多发布器可跳过彼此锁住的记录。
+
+`RabbitOutboxMessageSender` 沿用已保存的 payload 和 eventId，设置持久化消息并选择固定路由；`ConfirmedMessagePublisher` 等待 Publisher Confirm 且检查 mandatory return。仅确认成功且无退回才记录 PUBLISHED。Broker 接收、数据库标记与最终消费不能原子提交；确认不确定或确认后提交前崩溃均可能重复投递。
+
+| Outbox 状态 | 含义与处理 |
+| --- | --- |
+| PENDING | 未获可靠发布确认，达到 nextAttemptAt 后可被领取 |
+| PUBLISHED | 发布获 Broker 确认且没有路由退回，不代表消费完成 |
+| FAILED | 发布失败次数耗尽，保留原事件待人工处理，不代表支付或退款业务失败 |
+
+当前 `application.yml` 配置：扫描间隔 5 秒、每批 50 条、累计发布失败上限 8 次、确认等待 5 秒，退避从 1 秒指数增加、上限 5 分钟。`publishAttempts` 是发布失败计数，与消费者重试头和退款单的执行计数不同；实际再次执行还受扫描周期影响。发布器仅领取 PENDING，不自动重置 FAILED。
+
+### 消费事务与幂等
+
+- 支付成功：`PaymentSucceededListener` 解码后调用带事务代理的 Processor。Inbox、预约确认的库存/序号，或关闭释放和退款申请在同一事务提交；提交前失败一起回滚，提交后 ACK 丢失的重投由 Inbox 和预约状态去重。
+- 退款请求：`RefundRequestedListener` 调用 worker；worker 用 `TransactionTemplate` 短事务 claim，事务外调用渠道，再以短事务 complete 或 fail。已提交的领取/失败事实不会随整个监听器调用失败而撤销；不使用预约确认 Inbox，依靠唯一退款单、本地成功状态及渠道 refundNo 幂等。渠道成功、本地保存失败时仍可能再次请求渠道，必须沿用原 refundNo。
+
+两种监听器均在业务用例成功返回后手动 ACK；Publisher Confirm 是发布确认，消费者 ACK 是处理确认，二者不能互相替代。事件和退款按至少一次投递设计。
+
+### 消费重试、DLQ 与对账
 
 支付成功处理首次加两次 TTL 重试合计三次，两次间隔一秒；永久无效消息直接 DLQ，耗尽也进入 DLQ。转发到 `appoint.domain-events.retry` 确认成功后才 ACK 原消息；失败 NACK/requeue。退款执行保留三次处理及渠道 refundNo 幂等。Broker 故障或确认不确定可带来额外投递，三次计数不构成绝对物理投递上限。
 
-`DeadLetterReplayService.replayOne` 仅允许已登记 DLQ，原正文及 eventId 保持不变，重置对应重试计数和 TTL，确认目标发布成功后 ACK 原 DLQ 消息；没有开放 REST 重放接口。对账恢复截止前已支付待确认预约，或为已关闭已付预约确保退款；关联异常转人工项。不得删除 Inbox、生成新 eventId 绕过幂等或直接修改库存来补偿。
+`DeadLetterReplayService.replayOne` 仅允许已登记 DLQ，原正文及 eventId 保持不变，重置对应重试计数和 TTL，确认目标发布成功后 ACK 原 DLQ 消息；失败 NACK/requeue 保留原消息，没有开放 REST 重放接口。该服务处理 RabbitMQ DLQ，不处理数据库中的 Outbox FAILED；退款结果事件即使重放，目前也没有监听器处理。
+
+对账当前每 5 分钟扫描一次，按 5 分钟滞留阈值、每类最多 100 个候选处理已付待确认和已关闭已付缺退款：前者按 paidAt 恢复确认或关闭退款，后者确保退款。长期 PENDING/FAILED Outbox、PENDING/FAILED 退款、CREATED/PROCESSING 尝试及可关联记录中的账号/金额/币种不一致仅计数并输出人工项；不会自动重置 Outbox、重放 DLQ、查询渠道或修复历史库存。关联统计不覆盖所有缺失关联，不能当作完整数据库一致性证明。不得删除 Inbox、生成新 eventId 绕过幂等或直接修改库存来补偿；运维处理见 [切换与恢复手册](runbooks/payment-module-cutover.md#6-失败处理与前向恢复)。
 
 ## 兼容边界与验证
 

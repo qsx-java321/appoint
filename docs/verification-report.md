@@ -54,3 +54,44 @@ Compose使用 `mysql:8.4`、`redis:7.4.9`、`rabbitmq:4.3.2-management`，新建
 ## 10 文档交付验收
 
 2026-11-09，独立暂存树 `e6b226bd73fb291a0b88b4de9254188921234459` 导出 `/tmp/booking-10-snapshot-s8n0x13n`。快照内32份Markdown、124个本地链接、围栏、12项issue字段/状态/依赖、两份依赖表与图及正式DTO字段检查通过；`python3 scripts/compose_acceptance.py` 再次通过，日志 `/tmp/booking-10-final-compose.log`。源码/测试/构建/脚本与09完全相同，按10约定复用三层结果。补记最终验收状态与交接后重新导出最终文档快照检查，不修改被测业务代码。所有12项issue均resolved；不推送。
+
+## 2026-11-10 文档同步核对
+
+本轮以开始时的 `dba84d1` 为代码参照，更新正式文档和 HTTP 示例：补齐账号、就诊人及管理员目录 API，修正幂等创建顺序、管理员初始化引用和支付时间语义，区分 Inbox 确认事务与退款分段事务，明确 Outbox/DLQ/对账恢复边界及升级起点。ADR 保留历史决定并补充当前适用范围；未修改历史任务状态或上述验收数字。
+
+静态检查结果：
+
+- 检查根目录及 docs 下 17 份正式 Markdown 的本地链接、章节锚点和代码围栏，以及 4 份 HTTP 示例中的 README 引用，无失效项。
+- 从当前 Controller 提取的 31 个 REST 操作均在 API 文档覆盖；已删除同步模拟入口仅在历史说明中出现，不作为可用接口。
+- 6 段 Markdown JSON 示例及 15 个 HTTP JSON 请求体解析通过；4 份 HTTP 示例共 30 个请求，变量都有声明、环境配置或会话赋值来源。MockPay 动态 checkout 路径另与 Gateway 返回格式及接口文档核对；幂等重放后先查详情取支付单 ID，再发起支付。
+- 注册/登录、就诊人、目录与统一设置、预约及支付的请求/响应字段、成功状态、权限和主要错误码按 Controller、DTO、Service、Security 配置逐项核对。管理员授权 SQL 仅按 V1 表结构和角色约束检查，未连接数据库执行。
+- runbook 的 V2/V4 只读预检与迁移实现条件一致；按 V1、V2–V3、V4–V8、V9 区分剩余迁移和失败后检查要求。消息状态、重试参数、监听器和对账范围与当前实现/配置核对。
+- `git diff --check` 通过，变更范围仅为 Markdown 和 HTTP 示例。
+
+以上是文档静态核对，不是新一轮业务运行验收。本轮未运行 Maven 测试、MySQL/RabbitMQ 容器测试或 Compose 验收，未执行授权 SQL、迁移或业务数据修复；2026-11-09 的测试结果仍只代表其注明的检查点。
+
+## 2026-11-10 注册至预约成功的真实 HTTP 验证
+
+文档同步核对完成后，按请求启动现有 Compose 的 MySQL、Redis、RabbitMQ 和 dev profile 的 Spring Boot 应用，在 `http://127.0.0.1:8080` 执行独立账号的真实 HTTP 链路。启动检查确认三个依赖健康、MySQL/RabbitMQ 已连接、Flyway 已是最新版本；支付渠道为 MockPay，回调仍经过正式验签、Outbox、RabbitMQ 和预约确认消费者。
+
+本次共发起 25 个 HTTP 请求（含轮询），关键结果如下：
+
+| 操作 | HTTP / 业务结果 |
+| --- | --- |
+| 未登录访问医院目录 | 401，认证入口有效 |
+| 注册、登录、核对当前用户 | 201 / 200 / 200，注册角色为 USER |
+| 创建、查询本人就诊人 | 201 / 200 |
+| 查询医院、科室、医生、未来场次 | 均为 200，返回 D+1 至 D+7 共 28 个场次 |
+| 创建预约 | 201，PENDING_PAYMENT / UNPAID，支付截止为创建时间加 15 分钟 |
+| 同键同内容重试 | 200，返回同一预约标识，不再次占号 |
+| 查询预约和暂占后场次 | 200，可用名额从 20 减为 19，确认前无就诊序号 |
+| 发起支付尝试、MockPay 完成支付 | 均为 202 |
+| 轮询详情、查询本人预约列表 | 200，最终 CONFIRMED / PAID，列表包含成功预约 |
+
+实际观察到流程状态 `PAYMENT_PROCESSING → CONFIRMING_APPOINTMENT → CONFIRMED`。预约 ID 为 `2120092056893313025`，支付单 ID 为 `2120092056943644673`；选择示例市第一人民医院、内科、张医生，场次为 2026-11-13 08:00–10:00，金额 10.00 CNY，就诊序号为 1。
+
+MySQL 只读核对：场次 `20 = available 19 + held 0 + confirmed 1`，下一就诊序号为 2；该预约有 1 条有效占用，对应 PaymentSucceeded Outbox 已发布 1 条、预约消费者 Inbox 已处理 1 条。没有直接修改订单状态、支付截止或库存，也没有取消该成功预约；测试账号、就诊人和预约记录保留供检查。
+
+脱敏 HTTP 记录与详细报告暂存于 `/tmp/appoint-http-journey-2a458b4ff627/`，密码、JWT、通知签名和完整证件号未写入记录；临时文件可能随系统清理丢失，关键结果已在本文保存。本次验证的是正常预约链路及同键重试，不是重新运行完整 Maven、MySQL/RabbitMQ 故障注入或 Compose 隔离验收套件。
+
+验证结束后按请求向本次 Maven/Spring Boot 进程组发送 SIGTERM，确认应用退出及 8080 端口关闭；执行 `docker compose --env-file compose.env stop` 后，MySQL、Redis、RabbitMQ 均为 Exited (0)。容器、数据卷和测试业务数据保留，没有执行 down、删卷或数据库清理。

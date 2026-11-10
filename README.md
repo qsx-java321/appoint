@@ -4,6 +4,8 @@
 
 ## 当前能力
 
+- 账号注册、JWT 登录、当前用户查询及管理员角色访问控制。
+- 本人就诊人的新增、查询、资料修改与启停，以及证件校验和脱敏。
 - 医院、科室、医生目录管理和查询。
 - 每位医生 D+1 至 D+7 的 28 个固定预约场次查询。
 - 管理员统一预约设置，默认每时段 20 个号源、挂号费 10.00 CNY。
@@ -26,7 +28,7 @@
 
 用户按 `Asia/Shanghai` 服务端日期只能创建明天至第 7 天的预约。查询未生成场次不会写库；首次下单在事务中生成场次并复制当时统一设置。设置更新不改变已生成场次和订单费用快照。
 
-成功下单后始终获得完整 15 分钟支付时间，允许跨零点。支付成功时间必须严格早于截止时间；扫描延迟不会延长支付资格，截止后实际收款进入退款补偿。
+当前配置的支付截止为创建时间加 15 分钟，允许跨零点。本系统确认收款的服务端时间 `paidAt` 必须严格早于截止时间；不使用渠道上报的发生时间判定资格。扫描延迟不会延长支付资格，截止后确认的收款进入退款补偿。
 
 ## 技术栈
 
@@ -85,12 +87,47 @@ Maven 命令串行运行；两个集成 profile 均重复运行常规测试，�
 
 ## HTTP 示例
 
-1. [http/auth.http](http/auth.http)：注册并登录管理员和普通用户。
+1. [http/auth.http](http/auth.http)：注册普通用户、登录并查询当前用户；管理员需先按下文授予角色后重新登录。
 2. [http/admin-catalog.http](http/admin-catalog.http)：维护医院、科室和医生目录。
 3. [http/admin-schedule.http](http/admin-schedule.http)：读取和更新统一预约设置。
 4. [http/appointment.http](http/appointment.http)：维护就诊人、查询 28 个场次并创建预约、正式 MockPay 支付、轮询确认和退款。
 
 `.http` 文件适用于 IntelliJ IDEA HTTP Client，环境变量位于 `http/http-client.env.json`。
+
+## 本地开发管理员初始化
+
+Flyway 创建 `USER`、`ADMIN` 角色和演示医疗目录，不创建账号。注册接口只赋予 `USER`，也不提供自助授予管理员角色的 HTTP 接口。
+
+1. 先用 `http/auth.http` 注册目标账号。下例沿用 `student@example.com`；如需同时演示普通用户权限，另注册一个不授予 `ADMIN` 的账号。
+2. 在确认过的本地开发数据库中，由有权限的维护者通过数据库客户端执行以下 SQL。先核对目标邮箱对应的用户 ID 和现有角色；邮箱应与注册后保存的小写邮箱一致。
+
+```sql
+SELECT u.id, u.email, r.code AS role_code
+FROM users u
+LEFT JOIN user_roles ur ON ur.user_id = u.id
+LEFT JOIN roles r ON r.id = ur.role_id
+WHERE u.email = 'student@example.com';
+
+SELECT id, code FROM roles WHERE code = 'ADMIN';
+
+INSERT IGNORE INTO user_roles (user_id, role_id)
+SELECT u.id, r.id
+FROM users u
+JOIN roles r ON r.code = 'ADMIN'
+WHERE u.email = 'student@example.com';
+
+SELECT u.id, u.email, r.code AS role_code
+FROM users u
+JOIN user_roles ur ON ur.user_id = u.id
+JOIN roles r ON r.id = ur.role_id
+WHERE u.email = 'student@example.com';
+```
+
+目标用户和 `ADMIN` 角色都必须存在；否则 INSERT 不会插入记录，需回到前置步骤检查。`INSERT IGNORE` 借助 `(user_id, role_id)` 唯一约束跳过已有关系，使重复执行不重复授予；操作后必须查询确认实际角色。
+
+3. 确认结果包含 `ADMIN` 后重新执行登录请求，更新 HTTP Client 的 `accessToken`。旧 JWT 的角色不会随数据库授权即时改变；`GET /api/v1/users/me` 可核对数据库中的当前角色，管理员接口权限仍以本次请求 JWT 中的角色为准。
+
+以上 SQL 仅作为受控本地开发操作说明，不随应用启动或 HTTP 示例自动执行。
 
 ## 文档
 
@@ -98,7 +135,7 @@ Maven 命令串行运行；两个集成 profile 均重复运行常规测试，�
 - [docs/api.md](docs/api.md)：REST API 契约和边界。
 - [docs/business-flow.md](docs/business-flow.md)：端到端业务流程。
 - [docs/module-design.md](docs/module-design.md)：四模块 interface、代码入口、MANDATORY、锁序与事件恢复。
-- [docs/verification-report.md](docs/verification-report.md)：当前自动化验证结果和覆盖范围。
+- [docs/verification-report.md](docs/verification-report.md)：带日期和代码检查点的历史验证基线，以及后续文档核对记录；不代表每次文档更新都重跑了业务验收。
 - [docs/adr/0005-four-session-on-demand-booking.md](docs/adr/0005-four-session-on-demand-booking.md)：四时段、按需生成和历史兼容决策。
 
 ## 当前边界
@@ -106,3 +143,4 @@ Maven 命令串行运行；两个集成 profile 均重复运行常规测试，�
 - 不开发签到、叫号或精确到分钟的就诊安排；每个场次仅维护独立就诊序号。
 - 已确认预约只能在开诊前严格超过 24 小时主动取消。
 - dev/test 使用 MockPay；真实支付渠道尚未接入。
+- 退款结果队列已声明，尚无对应监听器，未实现短信或邮件通知；Outbox 发布失败耗尽、消费进入 DLQ 等情况可能需要人工恢复，详见模块设计与切换手册。
