@@ -15,7 +15,7 @@ public class CreateAppointmentRequest {
     @NotNull
     private Long doctorId;
 
-    /** 请求就诊日期，必须在实际占号时满足服务端D+1至D+7。 */
+    /** 请求就诊日期，实际占号时须在上海日期今天至后天且早于场次下单截止。 */
     @NotNull
     private java.time.LocalDate appointmentDate;
 

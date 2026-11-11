@@ -1,9 +1,9 @@
 # 选择 HTTP Client 的 local 环境。先运行 auth.http。
-# 将 appointmentDate 改为 Asia/Shanghai 服务端日期的明天至第 7 天。
+# 将日期改为 Asia/Shanghai 服务端的今天、明天或后天；当天须严格早于场次开始前15分钟。
 # 每次新的预约意图使用新 UUID；网络重试必须沿用原 Idempotency-Key。
-# 若要演示已确认退款，第一张预约选择 D+2 或更晚，确保取消时严格超过开诊前24小时。
+# 若要演示已确认退款，第一张预约选择 D+2，确保取消时严格超过开诊前24小时。
 
-@appointmentDate = 2026-11-11
+@appointmentDate = 2026-11-13
 @secondAppointmentDate = 2026-11-12
 @paidKey = 11111111-1111-4111-8111-111111111111
 @cancelKey = 22222222-2222-4222-8222-222222222222
@@ -24,7 +24,7 @@ Content-Type: application/json
 
 > {% client.global.set("patientId", response.body.data.id); %}
 
-### 查询明天至第 7 天：每天四段，共 28 项；查询不生成场次
+### 查询今天、明天、后天：每天四段，共12项，含截止及可预约状态；查询不生成场次
 GET {{baseUrl}}/api/v1/doctors/1/schedules
 Authorization: Bearer {{accessToken}}
 
@@ -129,5 +129,6 @@ Content-Type: application/json
 GET {{baseUrl}}/api/v1/appointments/my
 Authorization: Bearer {{accessToken}}
 
-# paymentExpiresAt 始终为创建时间 + 15 分钟，可跨零点。
+# paymentExpiresAt = min(锁后准入创建时间 + 15分钟, 场次开始时间)，可跨零点。
+# 新下单截止后，原订单仍可在自己的支付截止前付款；查询和重试不重算期限。
 # 恰好到截止时刻后创建支付尝试返回 409 / PAYMENT_EXPIRED；扫描延迟不延长资格。

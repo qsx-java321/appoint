@@ -17,6 +17,7 @@ import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.catalog.mapper.BookingSettingsMapper;
 import com.qsx.appoint.catalog.entity.BookingSettings;
 import com.qsx.appoint.catalog.model.AppointmentSession;
+import com.qsx.appoint.catalog.model.BookingTimeRules;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.patient.entity.Patient;
@@ -30,14 +31,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.Clock;
-import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 /**
  * 在同库创建事务中完成预约侧暂占：按需生成场次、锁定就诊人、占号、保存快照与有效占用。
  * <p>统一设置仅决定首次生成场次的容量/费用；已生成场次以自身快照为准。
- * 创建时间用于费用凭证及支付截止，最终占号日期必须重新读取Clock，不能沿用请求开始日期。
+ * 锁后实际占号前采样准入时间，统一判断日期/截止并保存创建时间与支付截止。
  * @see AppointmentHoldService
  */
 @Service
@@ -61,9 +61,8 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public AppointmentHold createHold(CreateAppointmentHoldCommand command) {
-        LocalDateTime now = command.createdAt();
         AppointmentSession session = AppointmentSession.require(command.sessionType());
-        validateBookingDate(command.appointmentDate());
+        validateBookingTime(command.appointmentDate(), session.startTime(), now());
         Doctor doctor = doctorMapper.selectById(command.doctorId());
         if (doctor == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         Schedule schedule = lockOrCreateSchedule(command, session);
@@ -76,18 +75,18 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
         if (department == null || hospital == null) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         }
-        holdOne(schedule, command.appointmentDate());
+        LocalDateTime acceptedAt = holdOne(schedule);
 
         AppointmentOrder appointment = createAppointmentSnapshot(
-                command, schedule, patient, doctor, department, hospital, now);
+                command, schedule, patient, doctor, department, hospital, acceptedAt);
         appointmentOrderMapper.insert(appointment);
 
         // 唯一占用冲突会回滚前面的库存和预约；不能捕获后继续完成支付建单。
-        claimActiveAppointment(schedule, appointment, patient, now);
+        claimActiveAppointment(schedule, appointment, patient, acceptedAt);
 
         return new AppointmentHold(appointment.getId(), appointment.getAppointmentNo(), command.userId(),
                 appointment.getStatus(), appointment.getFeeAmount(), appointment.getFeeCurrency(),
-                appointment.getPaymentExpiresAt(), now);
+                appointment.getPaymentExpiresAt(), acceptedAt);
     }
 
     /**
@@ -105,24 +104,26 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
                 settings.getRegistrationFee(), settings.getCurrency());
         Schedule schedule = scheduleMapper.selectByDoctorDateSessionForUpdate(
                 command.doctorId(), command.appointmentDate(), session.name());
-        validateBookingDate(command.appointmentDate());
         validateBookable(schedule);
         return schedule;
     }
 
     /**
-     * 在实际占号写入点重新检查日期并执行available→held条件更新。
-     * <p>设置、场次或就诊人锁可能等待跨零点；前面的日期检查不能代替本次最终日期验收。
+     * 在锁后占号写入点采样时间，复验三天窗口和严格截止，并执行available→held条件更新。
+     * <p>Java和SQL使用同一采样；返回值同时作为预约、支付及占用的创建时间。
      * @param schedule 当前事务已锁定的场次
-     * @param appointmentDate 请求的就诊日期，必须仍处于最终日期的D+1至D+7
+     * @return 实际准入时间，不是外层请求登记或客户端点击时间
      */
-    private void holdOne(Schedule schedule, LocalDate appointmentDate) {
-        validateBookingDate(appointmentDate);
-        LocalDate finalAcceptanceDate = LocalDate.now(appointmentClock);
-        validateBookingDate(appointmentDate, finalAcceptanceDate);
-        if (scheduleMapper.holdOneFutureSession(schedule.getId(), finalAcceptanceDate) != 1) {
+    private LocalDateTime holdOne(Schedule schedule) {
+        LocalDateTime acceptedAt = now();
+        validateBookingTime(schedule.getAppointmentDate(), schedule.getStartTime(), acceptedAt);
+        var dates = BookingTimeRules.selectableDates(acceptedAt);
+        LocalDateTime earliestStart = acceptedAt.plus(BookingTimeRules.MINIMUM_BOOKING_ADVANCE);
+        if (scheduleMapper.holdOneBookableSession(schedule.getId(), dates.getFirst(), dates.getLast(),
+                earliestStart.toLocalDate(), earliestStart.toLocalTime()) != 1) {
             throw new BusinessException(ErrorCode.SCHEDULE_UNAVAILABLE);
         }
+        return acceptedAt;
     }
 
     /**
@@ -164,7 +165,7 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
 
     /**
      * 从已验证的目录、就诊人与场次复制不可变预约凭证。
-     * <p>费用来自场次快照，截止为外层创建时间加支付超时；历史订单不跟随资料或设置变化。
+     * <p>费用来自场次快照，截止取准入时间加支付时限与场次开始的较早者；历史订单不重算。
      * @return 尚未插入的PENDING_PAYMENT预约Entity，仅在本模块内部使用
      */
     private AppointmentOrder createAppointmentSnapshot(CreateAppointmentHoldCommand command, Schedule schedule,
@@ -195,7 +196,8 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
         appointment.setStatus(AppointmentStatus.PENDING_PAYMENT.name());
         appointment.setCreatedAt(now);
         appointment.setUpdatedAt(now);
-        appointment.setPaymentExpiresAt(now.plus(appointmentProperties.paymentTimeout()));
+        appointment.setPaymentExpiresAt(BookingTimeRules.paymentExpiresAt(now,
+                schedule.getAppointmentDate().atTime(schedule.getStartTime()), appointmentProperties.paymentTimeout()));
         appointment.setFeeAmount(schedule.getRegistrationFee().setScale(2, RoundingMode.UNNECESSARY));
         appointment.setFeeCurrency(schedule.getFeeCurrency());
         return appointment;
@@ -219,26 +221,15 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
         }
     }
 
-    /**
-     * 读取此时服务端日期后检查预约窗口；可能在同一创建过程中重复调用以处理跨零点。
-     * @param appointmentDate 请求的就诊日期
-     */
-    private void validateBookingDate(LocalDate appointmentDate) {
-        LocalDate today = LocalDateTime.now(appointmentClock).truncatedTo(ChronoUnit.SECONDS).toLocalDate();
-        validateBookingDate(appointmentDate, today);
-    }
-
-    /**
-     * 校验就诊日期严格落在给定日期的D+1至D+7，包含两个端点。
-     * @param appointmentDate 请求的就诊日期，null不合法
-     * @param today 本次资格判断的服务端日期
-     * @throws com.qsx.appoint.common.BusinessException 日期越界时为SCHEDULE_CUTOFF_REACHED
-     */
-    private void validateBookingDate(LocalDate appointmentDate, LocalDate today) {
-        if (appointmentDate == null || appointmentDate.isBefore(today.plusDays(1))
-                || appointmentDate.isAfter(today.plusDays(7))) {
+    private void validateBookingTime(java.time.LocalDate appointmentDate, java.time.LocalTime startTime,
+                                      LocalDateTime acceptanceTime) {
+        if (!BookingTimeRules.canCreate(appointmentDate, startTime, acceptanceTime)) {
             throw new BusinessException(ErrorCode.SCHEDULE_CUTOFF_REACHED);
         }
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(appointmentClock).truncatedTo(ChronoUnit.SECONDS);
     }
 }
 

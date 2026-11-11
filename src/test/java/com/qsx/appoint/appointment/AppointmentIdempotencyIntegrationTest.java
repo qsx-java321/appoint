@@ -3,6 +3,8 @@ package com.qsx.appoint.appointment;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.catalog.entity.Schedule;
+import com.qsx.appoint.catalog.mapper.DoctorMapper;
+import com.qsx.appoint.support.BookingTestDoctors;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.appointment.entity.AppointmentOrder;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
@@ -37,6 +39,7 @@ class AppointmentIdempotencyIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private ScheduleMapper scheduleMapper;
+    @Autowired private DoctorMapper doctorMapper;
     @Autowired private AppointmentOrderMapper appointmentOrderMapper;
     @Autowired private BookingLifecycleCoordinator lifecycleService;
 
@@ -278,8 +281,8 @@ class AppointmentIdempotencyIntegrationTest {
     private Long createSchedule(LocalDate date, LocalTime start) {
         int sequence = SCHEDULE_SEQUENCE.getAndIncrement();
         Schedule schedule = new Schedule();
-        schedule.setDoctorId(2L);
-        schedule.setAppointmentDate(LocalDate.now().plusDays(1 + sequence / 2));
+        schedule.setDoctorId(BookingTestDoctors.copyOf(doctorMapper, 2L));
+        schedule.setAppointmentDate(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(2));
         boolean afternoon = sequence % 2 == 1;
         schedule.setStartTime(afternoon ? LocalTime.of(14, 0) : LocalTime.of(8, 0));
         schedule.setEndTime(afternoon ? LocalTime.of(16, 0) : LocalTime.of(10, 0));

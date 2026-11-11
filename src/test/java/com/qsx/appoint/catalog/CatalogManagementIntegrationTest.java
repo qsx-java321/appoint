@@ -142,7 +142,7 @@ class CatalogManagementIntegrationTest {
         String hospitalId = createHospital("全链路医院", "全链路 1 号");
         String departmentId = createDepartment(hospitalId, "全链路科室");
         JsonNode doctor = createDoctor(departmentId, "全链路医生", "主任医师", "全链路测试");
-        LocalDate appointmentDate = LocalDate.now(appointmentClock).plusDays(6);
+        LocalDate appointmentDate = LocalDate.now(appointmentClock).plusDays(2);
 
         mockMvc.perform(get("/api/v1/hospitals").with(user("user").roles("USER")))
                 .andExpect(status().isOk())
@@ -158,7 +158,7 @@ class CatalogManagementIntegrationTest {
         mockMvc.perform(get("/api/v1/doctors/{id}/schedules", doctor.path("id").asText())
                         .with(user("user").roles("USER")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(28))
+                .andExpect(jsonPath("$.data.length()").value(12))
                 .andExpect(jsonPath("$.data[0].sessionType").value("MORNING_FIRST"));
 
         Long userId = createUser();
@@ -401,7 +401,7 @@ class CatalogManagementIntegrationTest {
         String departmentId = createDepartment(hospitalId, "快照旧科室");
         JsonNode doctor = createDoctor(departmentId, "快照旧医生", "旧职称", "旧简介");
         Long doctorId = doctor.path("id").asLong();
-        LocalDate appointmentDate = LocalDate.now(appointmentClock).plusDays(6);
+        LocalDate appointmentDate = LocalDate.now(appointmentClock).plusDays(2);
         Long morningScheduleId = createSchedule(doctorId, appointmentDate, "MORNING_FIRST");
         Long afternoonScheduleId = createSchedule(doctorId, appointmentDate, "AFTERNOON_FIRST");
         Long userId = createUser();

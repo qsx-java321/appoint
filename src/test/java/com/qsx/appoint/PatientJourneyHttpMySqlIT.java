@@ -80,9 +80,9 @@ class PatientJourneyHttpMySqlIT {
         assertThat(send("GET", "/api/v1/departments/1/doctors", ownerToken, null)
                 .json().at("/data/0/doctorNo").asText()).isEqualTo("DOC000001");
 
-        LocalDate visitDate = LocalDate.now().plusDays(2);
+        LocalDate visitDate = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(2);
         HttpResult schedules = send("GET", "/api/v1/doctors/1/schedules", ownerToken, null);
-        assertThat(schedules.json().path("data")).hasSize(28);
+        assertThat(schedules.json().path("data")).hasSize(12);
 
         HttpResult invalidAppointment = send("POST", "/api/v1/appointments", ownerToken, "{}",
                 Map.of("Idempotency-Key", UUID.randomUUID().toString()));
@@ -161,7 +161,7 @@ class PatientJourneyHttpMySqlIT {
         register(email);
         String token = login(email);
         String patientId = createPatient(token);
-        LocalDate appointmentDate = LocalDate.now().plusDays(3);
+        LocalDate appointmentDate = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(2);
         HttpResult created = createAppointment(token, patientId,
                 appointmentDate, "MORNING_SECOND");
         assertThat(created.status()).isEqualTo(201);

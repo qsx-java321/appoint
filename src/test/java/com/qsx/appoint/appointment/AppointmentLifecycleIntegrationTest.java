@@ -10,6 +10,8 @@ import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
 import com.qsx.appoint.coordination.application.ReconciliationService;
 import com.qsx.appoint.catalog.entity.Schedule;
+import com.qsx.appoint.catalog.mapper.DoctorMapper;
+import com.qsx.appoint.support.BookingTestDoctors;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.payment.entity.PaymentOrder;
 import com.qsx.appoint.payment.entity.PaymentOutboxEvent;
@@ -57,6 +59,7 @@ class AppointmentLifecycleIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private ScheduleMapper scheduleMapper;
+    @Autowired private DoctorMapper doctorMapper;
     @Autowired private AppointmentOrderMapper appointmentOrderMapper;
     @Autowired private PaymentOrderMapper paymentOrderMapper;
     @Autowired private PaymentOutboxEventMapper paymentOutboxEventMapper;
@@ -416,11 +419,11 @@ class AppointmentLifecycleIntegrationTest {
 
     private Schedule createSchedule(LocalDate date, LocalTime start) {
         Schedule schedule = new Schedule();
-        schedule.setDoctorId(1L);
+        schedule.setDoctorId(BookingTestDoctors.copyOf(doctorMapper, 1L));
         boolean past = date.isBefore(LocalDate.now(appointmentClock));
         int sequence = SCHEDULE_SEQUENCE.getAndIncrement();
         boolean afternoon = !past && sequence % 2 == 1;
-        schedule.setAppointmentDate(past ? date : LocalDate.now(appointmentClock).plusDays(1 + sequence / 2));
+        schedule.setAppointmentDate(past ? date : LocalDate.now(appointmentClock).plusDays(2));
         schedule.setStartTime(afternoon ? LocalTime.of(14, 0) : LocalTime.of(8, 0));
         schedule.setEndTime(afternoon ? LocalTime.of(16, 0) : LocalTime.of(10, 0));
         schedule.setStatus("OPEN");

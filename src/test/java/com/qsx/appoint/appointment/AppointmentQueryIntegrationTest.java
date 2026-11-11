@@ -238,7 +238,7 @@ class AppointmentQueryIntegrationTest {
                 .andExpect(jsonPath("$.data.paymentAttemptCount").isNumber())
                 .andExpect(jsonPath("$.data.workflowStatus").value(
                         "CONFIRMED".equals(appointmentStatus) ? "CONFIRMED" : "WAITING_FOR_PAYMENT"))
-                .andExpect(jsonPath("$.data.appointmentDate").value(LocalDate.now().plusDays(6).toString()))
+                .andExpect(jsonPath("$.data.appointmentDate").value(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(2).toString()))
                 .andExpect(jsonPath("$.data.startTime").value("08:00:00"))
                 .andExpect(jsonPath("$.data.endTime").value("10:00:00"))
                 .andExpect(jsonPath("$.data.paymentExpiresAt").isNotEmpty())
@@ -264,7 +264,7 @@ class AppointmentQueryIntegrationTest {
                 .andExpect(jsonPath("$.data[0].paymentStatus").value(paymentStatus))
                 .andExpect(jsonPath("$.data[0].workflowStatus").value(
                         "CONFIRMED".equals(appointmentStatus) ? "CONFIRMED" : "WAITING_FOR_PAYMENT"))
-                .andExpect(jsonPath("$.data[0].appointmentDate").value(LocalDate.now().plusDays(6).toString()))
+                .andExpect(jsonPath("$.data[0].appointmentDate").value(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(2).toString()))
                 .andExpect(jsonPath("$.data[0].startTime").value("08:00:00"))
                 .andExpect(jsonPath("$.data[0].endTime").value("10:00:00"))
                 .andExpect(jsonPath("$.data[0].doctor.id").value("1"))
@@ -332,7 +332,7 @@ class AppointmentQueryIntegrationTest {
     private Schedule createAvailableSchedule() {
         Schedule schedule = new Schedule();
         schedule.setDoctorId(1L);
-        schedule.setAppointmentDate(LocalDate.now().plusDays(6));
+        schedule.setAppointmentDate(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(2));
         schedule.setStartTime(LocalTime.of(8, 0));
         schedule.setEndTime(LocalTime.of(10, 0));
         schedule.setStatus("OPEN");

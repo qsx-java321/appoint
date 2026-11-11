@@ -2,6 +2,7 @@ package com.qsx.appoint.catalog.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import com.qsx.appoint.catalog.model.ScheduleAvailability;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
@@ -26,4 +27,7 @@ public class ScheduleResponse {
     private final BigDecimal registrationFee;
     private final String feeCurrency;
     private final boolean bookable;
+    private final LocalDateTime bookingClosesAt;
+    private final ScheduleAvailability availability;
+    private final LocalDateTime serverTime;
 }

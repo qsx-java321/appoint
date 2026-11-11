@@ -187,9 +187,16 @@ def main():
                 'contactEmail': 'patient@example.com'}, token, expected=201)['id']
             patients = request(port, 'GET', '/api/v1/patients', token=token)
             assert any(item['id'] == patient for item in patients)
-            request(port, 'GET', '/api/v1/doctors/1/schedules', token=token)
-            date = (datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).date()
-                    + datetime.timedelta(days=3)).isoformat()
+            schedules = request(port, 'GET', '/api/v1/doctors/1/schedules', token=token)
+            assert len(schedules) == 12
+            assert len({item['serverTime'] for item in schedules}) == 1
+            for item in schedules:
+                assert item['bookable'] == (item['availability'] == 'AVAILABLE')
+                assert datetime.datetime.fromisoformat(item['bookingClosesAt']) == (
+                    datetime.datetime.fromisoformat(item['appointmentDate'] + 'T' + item['startTime'])
+                    - datetime.timedelta(minutes=15))
+            date = (datetime.datetime.fromisoformat(schedules[0]['serverTime']).date()
+                    + datetime.timedelta(days=2)).isoformat()
             order = request(port, 'POST', '/api/v1/appointments', {
                 'doctorId': '1', 'appointmentDate': date, 'sessionType': 'MORNING_FIRST',
                 'patientId': patient}, token, {'Idempotency-Key': str(uuid.uuid4())}, 201)
@@ -358,4 +365,6 @@ if __name__ == '__main__':
     parser.add_argument('--http-report', type=Path, help='写入脱敏的业务 HTTP 请求结果 JSON')
     options = parser.parse_args()
     HTTP_CLIENT, HTTP_REPORT = options.http_client, options.http_report
+    if HTTP_REPORT:
+        HTTP_REPORT.parent.mkdir(parents=True, exist_ok=True)
     main()

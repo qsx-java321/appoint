@@ -3,6 +3,8 @@ package com.qsx.appoint;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.catalog.entity.Schedule;
+import com.qsx.appoint.catalog.mapper.DoctorMapper;
+import com.qsx.appoint.support.BookingTestDoctors;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.payment.adapter.mock.MockPaymentGateway;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
@@ -42,6 +44,7 @@ class ApiFlowIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private ScheduleMapper scheduleMapper;
+    @Autowired private DoctorMapper doctorMapper;
     @Autowired private MockPaymentGateway mockPaymentGateway;
     @Autowired private PaymentOrderMapper paymentOrderMapper;
     @Autowired private PaymentOutboxEventMapper outboxEventMapper;
@@ -118,7 +121,7 @@ class ApiFlowIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
         String patientId = createPatient(token);
-        Long scheduleId = createSchedule(LocalDate.now(appointmentClock).plusDays(5));
+        Long scheduleId = createSchedule(LocalDate.now(appointmentClock).plusDays(2));
 
         mockMvc.perform(get("/api/v1/hospitals").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
@@ -143,7 +146,7 @@ class ApiFlowIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
         String patientId = createPatient(token);
-        Long scheduleId = createSchedule(LocalDate.now(appointmentClock).plusDays(6));
+        Long scheduleId = createSchedule(LocalDate.now(appointmentClock).plusDays(2));
 
         String appointmentResult = mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
@@ -179,7 +182,7 @@ class ApiFlowIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
         String patientId = createPatient(token);
-        Long scheduleId = createSchedule(LocalDate.now(appointmentClock).plusDays(4));
+        Long scheduleId = createSchedule(LocalDate.now(appointmentClock).plusDays(2));
         String appointmentResult = mockMvc.perform(post("/api/v1/appointments")
                         .header("Authorization", "Bearer " + token)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
@@ -270,7 +273,7 @@ class ApiFlowIntegrationTest {
 
     private Long createSchedule(LocalDate date) {
         Schedule schedule = new Schedule();
-        schedule.setDoctorId(1L);
+        schedule.setDoctorId(BookingTestDoctors.copyOf(doctorMapper, 1L));
         schedule.setAppointmentDate(date);
         schedule.setStartTime(LocalTime.of(8, 0));
         schedule.setEndTime(LocalTime.of(10, 0));

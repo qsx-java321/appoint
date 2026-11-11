@@ -5,6 +5,8 @@ import com.qsx.appoint.catalog.dto.*;
 import com.qsx.appoint.catalog.entity.*;
 import com.qsx.appoint.catalog.mapper.*;
 import com.qsx.appoint.catalog.model.AppointmentSession;
+import com.qsx.appoint.catalog.model.BookingTimeRules;
+import com.qsx.appoint.catalog.model.ScheduleAvailability;
 import com.qsx.appoint.catalog.service.CatalogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -12,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,14 +37,14 @@ public class CatalogServiceImpl implements CatalogService {
     public List<ScheduleResponse> listSchedules(Long doctorId) {
         Doctor doctor = doctorMapper.selectById(doctorId);
         if (doctor == null) return List.of();
-        LocalDate firstDate = LocalDate.now(appointmentClock).plusDays(1);
-        LocalDate lastDate = firstDate.plusDays(6);
+        LocalDateTime serverTime = LocalDateTime.now(appointmentClock).truncatedTo(ChronoUnit.SECONDS);
+        List<LocalDate> dates = BookingTimeRules.selectableDates(serverTime);
         List<String> sessionTypes = java.util.Arrays.stream(AppointmentSession.values())
                 .map(Enum::name).toList();
         Map<SessionKey, Schedule> persisted = new HashMap<>();
         scheduleMapper.selectList(new LambdaQueryWrapper<Schedule>()
                         .eq(Schedule::getDoctorId, doctorId)
-                        .between(Schedule::getAppointmentDate, firstDate, lastDate)
+                        .between(Schedule::getAppointmentDate, dates.getFirst(), dates.getLast())
                         .in(Schedule::getSessionType, sessionTypes))
                 .forEach(schedule -> persisted.put(
                         new SessionKey(schedule.getAppointmentDate(), schedule.getSessionType()), schedule));
@@ -48,9 +52,8 @@ public class CatalogServiceImpl implements CatalogService {
         if (settings == null) throw new com.qsx.appoint.common.BusinessException(
                 com.qsx.appoint.common.ErrorCode.INTERNAL_ERROR);
 
-        java.util.ArrayList<ScheduleResponse> result = new java.util.ArrayList<>(28);
-        for (int day = 0; day < 7; day++) {
-            LocalDate date = firstDate.plusDays(day);
+        java.util.ArrayList<ScheduleResponse> result = new java.util.ArrayList<>(dates.size() * sessionTypes.size());
+        for (LocalDate date : dates) {
             for (AppointmentSession session : AppointmentSession.values()) {
                 Schedule schedule = persisted.get(new SessionKey(date, session.name()));
                 int total = schedule == null ? settings.getCapacityPerSession() : schedule.getTotalCapacity();
@@ -58,12 +61,22 @@ public class CatalogServiceImpl implements CatalogService {
                 java.math.BigDecimal fee = schedule == null
                         ? settings.getRegistrationFee() : schedule.getRegistrationFee();
                 String currency = schedule == null ? settings.getCurrency() : schedule.getFeeCurrency();
+                ScheduleAvailability availability = availability(date, session.startTime(), available, serverTime);
                 result.add(new ScheduleResponse(schedule == null ? null : schedule.getId(),
                         doctorId, doctor.getDoctorNo(), date, session.name(),
-                        session.startTime(), session.endTime(), total, available, fee, currency, available > 0));
+                        session.startTime(), session.endTime(), total, available, fee, currency,
+                        availability == ScheduleAvailability.AVAILABLE,
+                        BookingTimeRules.bookingClosesAt(date, session.startTime()), availability, serverTime));
             }
         }
         return result;
+    }
+
+    private ScheduleAvailability availability(LocalDate date, LocalTime startTime, int available,
+                                               LocalDateTime serverTime) {
+        if (!serverTime.isBefore(date.atTime(startTime))) return ScheduleAvailability.STARTED;
+        if (!BookingTimeRules.canCreate(date, startTime, serverTime)) return ScheduleAvailability.CUTOFF_REACHED;
+        return available > 0 ? ScheduleAvailability.AVAILABLE : ScheduleAvailability.FULL;
     }
 
     private record SessionKey(LocalDate date, String sessionType) { }

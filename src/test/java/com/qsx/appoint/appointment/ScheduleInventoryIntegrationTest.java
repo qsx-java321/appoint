@@ -74,7 +74,7 @@ class ScheduleInventoryIntegrationTest {
     @Test
     void crossAccountSameDocumentIsBlockedUntilFirstClaimIsReleased() {
         Long operator = createUser("operator-duplicate");
-        Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 8), "AFTERNOON", 2);
+        Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 3), "AFTERNOON", 2);
         Long firstUser = createUser("duplicate-first");
         Long secondUser = createUser("duplicate-second");
         Long firstPatient = createPatient(firstUser, "孩子甲", "110105199001010010");
@@ -98,7 +98,7 @@ class ScheduleInventoryIntegrationTest {
     @Test
     void visitNumbersAreMonotonicAndCancelledNumberIsNotReused() {
         Long operator = createUser("operator-sequence");
-        Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 8), "MORNING", 2);
+        Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 3), "MORNING", 2);
         Long user = createUser("sequence-user");
         CreateAppointmentResponse first = createAppointment(user,
                 createPatient(user, "序号甲", "110105199001010010"), schedule.getId());
@@ -143,7 +143,7 @@ class ScheduleInventoryIntegrationTest {
     void paymentIsRejectedAtTheExactPaymentDeadlineWithoutChangingTheHold() {
         clock.setInstant(RELEASE_INSTANT.plus(Duration.ofDays(1)));
         Long operator = createUser("operator-payment-deadline");
-        Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 9), "MORNING", 1);
+        Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 4), "MORNING", 1);
         Long user = createUser("payment-deadline-user");
         CreateAppointmentResponse created = createAppointment(user,
                 createPatient(user, "支付边界", "110105199001010010"), schedule.getId());
@@ -165,7 +165,7 @@ class ScheduleInventoryIntegrationTest {
     void confirmedCancellationCanBeRepeatedWithoutChangingItsReceipt() {
         clock.setInstant(RELEASE_INSTANT.plus(Duration.ofDays(1)));
         Long operator = createUser("operator-refund-idempotency");
-        Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 9), "AFTERNOON", 1);
+        Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 4), "AFTERNOON", 1);
         Long user = createUser("refund-idempotency-user");
         CreateAppointmentResponse created = createAppointment(user,
                 createPatient(user, "重复退款", "110105199001010010"), schedule.getId());
@@ -188,7 +188,7 @@ class ScheduleInventoryIntegrationTest {
     @Test
     void appointmentCreationCopiesAnImmutableFeeSnapshotToBothOrders() {
         Long operator = createUser("operator-snapshot");
-        Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 11), "MORNING", 1);
+        Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 6), "MORNING", 1);
         clock.setInstant(ZonedDateTime.of(2026, 11, 4, 8, 0, 0, 0, SHANGHAI).toInstant());
         Long user = createUser("snapshot-user");
         CreateAppointmentResponse created = createAppointment(user,

@@ -1,0 +1,5059 @@
+{
+  "runId": "e34a8b021efb",
+  "httpClient": "curl",
+  "requests": [
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "status": 201,
+      "expectedStatus": 201,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538201817997314",
+          "email": "[redacted]",
+          "roles": [
+            "USER"
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "accessToken": "[redacted]",
+          "tokenType": "Bearer",
+          "expiresIn": 7200,
+          "user": {
+            "id": "2120538201817997314",
+            "email": "[redacted]",
+            "roles": [
+              "USER"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/hospitals",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "id": "1",
+            "name": "示例市第一人民医院",
+            "address": "示例市健康路 1 号"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/hospitals/1/departments",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "id": "1",
+            "name": "内科"
+          },
+          {
+            "id": "2",
+            "name": "骨科"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/departments/1/doctors",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "introduction": "擅长常见内科疾病诊治。"
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/patients",
+      "status": 201,
+      "expectedStatus": 201,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538203147591682",
+          "name": "验收就诊人",
+          "documentType": "RESIDENT_ID_CARD",
+          "documentNoMasked": "110105********0010",
+          "contactPhone": "[redacted]",
+          "contactEmail": "[redacted]",
+          "enabled": true,
+          "createdAt": "2026-11-11T23:24:39",
+          "updatedAt": "2026-11-11T23:24:39"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/patients",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]",
+            "enabled": true,
+            "createdAt": "2026-11-11T23:24:39",
+            "updatedAt": "2026-11-11T23:24:39"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/doctors/1/schedules",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "doctorId": "1",
+            "doctorNo": "DOC000001",
+            "appointmentDate": "2026-11-11",
+            "sessionType": "MORNING_FIRST",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "totalCapacity": 20,
+            "availableCapacity": 20,
+            "registrationFee": "10.00",
+            "feeCurrency": "CNY",
+            "bookable": false,
+            "bookingClosesAt": "2026-11-11T07:45:00",
+            "availability": "STARTED",
+            "serverTime": "2026-11-11T23:24:40"
+          },
+          {
+            "doctorId": "1",
+            "doctorNo": "DOC000001",
+            "appointmentDate": "2026-11-11",
+            "sessionType": "MORNING_SECOND",
+            "startTime": "10:30:00",
+            "endTime": "12:00:00",
+            "totalCapacity": 20,
+            "availableCapacity": 20,
+            "registrationFee": "10.00",
+            "feeCurrency": "CNY",
+            "bookable": false,
+            "bookingClosesAt": "2026-11-11T10:15:00",
+            "availability": "STARTED",
+            "serverTime": "2026-11-11T23:24:40"
+          },
+          {
+            "doctorId": "1",
+            "doctorNo": "DOC000001",
+            "appointmentDate": "2026-11-11",
+            "sessionType": "AFTERNOON_FIRST",
+            "startTime": "14:00:00",
+            "endTime": "16:00:00",
+            "totalCapacity": 20,
+            "availableCapacity": 20,
+            "registrationFee": "10.00",
+            "feeCurrency": "CNY",
+            "bookable": false,
+            "bookingClosesAt": "2026-11-11T13:45:00",
+            "availability": "STARTED",
+            "serverTime": "2026-11-11T23:24:40"
+          },
+          {
+            "doctorId": "1",
+            "doctorNo": "DOC000001",
+            "appointmentDate": "2026-11-11",
+            "sessionType": "AFTERNOON_SECOND",
+            "startTime": "16:30:00",
+            "endTime": "18:00:00",
+            "totalCapacity": 20,
+            "availableCapacity": 20,
+            "registrationFee": "10.00",
+            "feeCurrency": "CNY",
+            "bookable": false,
+            "bookingClosesAt": "2026-11-11T16:15:00",
+            "availability": "STARTED",
+            "serverTime": "2026-11-11T23:24:40"
+          },
+          {
+            "doctorId": "1",
+            "doctorNo": "DOC000001",
+            "appointmentDate": "2026-11-12",
+            "sessionType": "MORNING_FIRST",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "totalCapacity": 20,
+            "availableCapacity": 20,
+            "registrationFee": "10.00",
+            "feeCurrency": "CNY",
+            "bookable": true,
+            "bookingClosesAt": "2026-11-12T07:45:00",
+            "availability": "AVAILABLE",
+            "serverTime": "2026-11-11T23:24:40"
+          },
+          {
+            "doctorId": "1",
+            "doctorNo": "DOC000001",
+            "appointmentDate": "2026-11-12",
+            "sessionType": "MORNING_SECOND",
+            "startTime": "10:30:00",
+            "endTime": "12:00:00",
+            "totalCapacity": 20,
+            "availableCapacity": 20,
+            "registrationFee": "10.00",
+            "feeCurrency": "CNY",
+            "bookable": true,
+            "bookingClosesAt": "2026-11-12T10:15:00",
+            "availability": "AVAILABLE",
+            "serverTime": "2026-11-11T23:24:40"
+          },
+          {
+            "doctorId": "1",
+            "doctorNo": "DOC000001",
+            "appointmentDate": "2026-11-12",
+            "sessionType": "AFTERNOON_FIRST",
+            "startTime": "14:00:00",
+            "endTime": "16:00:00",
+            "totalCapacity": 20,
+            "availableCapacity": 20,
+            "registrationFee": "10.00",
+            "feeCurrency": "CNY",
+            "bookable": true,
+            "bookingClosesAt": "2026-11-12T13:45:00",
+            "availability": "AVAILABLE",
+            "serverTime": "2026-11-11T23:24:40"
+          },
+          {
+            "doctorId": "1",
+            "doctorNo": "DOC000001",
+            "appointmentDate": "2026-11-12",
+            "sessionType": "AFTERNOON_SECOND",
+            "startTime": "16:30:00",
+            "endTime": "18:00:00",
+            "totalCapacity": 20,
+            "availableCapacity": 20,
+            "registrationFee": "10.00",
+            "feeCurrency": "CNY",
+            "bookable": true,
+            "bookingClosesAt": "2026-11-12T16:15:00",
+            "availability": "AVAILABLE",
+            "serverTime": "2026-11-11T23:24:40"
+          },
+          {
+            "doctorId": "1",
+            "doctorNo": "DOC000001",
+            "appointmentDate": "2026-11-13",
+            "sessionType": "MORNING_FIRST",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "totalCapacity": 20,
+            "availableCapacity": 20,
+            "registrationFee": "10.00",
+            "feeCurrency": "CNY",
+            "bookable": true,
+            "bookingClosesAt": "2026-11-13T07:45:00",
+            "availability": "AVAILABLE",
+            "serverTime": "2026-11-11T23:24:40"
+          },
+          {
+            "doctorId": "1",
+            "doctorNo": "DOC000001",
+            "appointmentDate": "2026-11-13",
+            "sessionType": "MORNING_SECOND",
+            "startTime": "10:30:00",
+            "endTime": "12:00:00",
+            "totalCapacity": 20,
+            "availableCapacity": 20,
+            "registrationFee": "10.00",
+            "feeCurrency": "CNY",
+            "bookable": true,
+            "bookingClosesAt": "2026-11-13T10:15:00",
+            "availability": "AVAILABLE",
+            "serverTime": "2026-11-11T23:24:40"
+          },
+          {
+            "doctorId": "1",
+            "doctorNo": "DOC000001",
+            "appointmentDate": "2026-11-13",
+            "sessionType": "AFTERNOON_FIRST",
+            "startTime": "14:00:00",
+            "endTime": "16:00:00",
+            "totalCapacity": 20,
+            "availableCapacity": 20,
+            "registrationFee": "10.00",
+            "feeCurrency": "CNY",
+            "bookable": true,
+            "bookingClosesAt": "2026-11-13T13:45:00",
+            "availability": "AVAILABLE",
+            "serverTime": "2026-11-11T23:24:40"
+          },
+          {
+            "doctorId": "1",
+            "doctorNo": "DOC000001",
+            "appointmentDate": "2026-11-13",
+            "sessionType": "AFTERNOON_SECOND",
+            "startTime": "16:30:00",
+            "endTime": "18:00:00",
+            "totalCapacity": 20,
+            "availableCapacity": 20,
+            "registrationFee": "10.00",
+            "feeCurrency": "CNY",
+            "bookable": true,
+            "bookingClosesAt": "2026-11-13T16:15:00",
+            "availability": "AVAILABLE",
+            "serverTime": "2026-11-11T23:24:40"
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments",
+      "status": 201,
+      "expectedStatus": 201,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentOrderId": "2120538203495718913",
+          "paymentOrderId": "2120538203550244865",
+          "appointmentStatus": "PENDING_PAYMENT",
+          "paymentStatus": "UNPAID",
+          "amount": "10.00",
+          "currency": "CNY",
+          "paymentExpiresAt": "2026-11-11T23:39:40",
+          "serverTime": "2026-11-11T23:24:40"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/payments/2120538203550244865/attempts",
+      "status": 202,
+      "expectedStatus": 202,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "paymentOrderId": "2120538203550244865",
+          "paymentAttemptId": "2120538203688656897",
+          "channel": "MOCK",
+          "paymentStatus": "PAYING",
+          "attemptStatus": "PROCESSING",
+          "providerOrderNo": "mock-pay-b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+          "checkoutUrl": "/api/v1/mock-pay/attempts/b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+          "expiresAt": "2026-11-11T23:39:40"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/mock-pay/attempts/b3876ab8-f514-41d9-bc80-9ab7c0f629b9/complete",
+      "status": 202,
+      "expectedStatus": 202,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "notificationId": "mock-notify-b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+          "providerOrderNo": "mock-pay-b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+          "providerTransactionNo": "mock-txn-b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+          "status": "SUCCEEDED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "occurredAt": "2026-11-11T23:24:40.140425532",
+          "signature": "[redacted]"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538203495718913",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538203495718913",
+          "appointmentNo": "APeab2bd0d4b024b52aaa03cc895f14ad0",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "PENDING_PAYMENT",
+          "visitNumber": null,
+          "createdAt": "2026-11-11T23:24:40",
+          "paymentOrderId": "2120538203550244865",
+          "paymentStatus": "PAYING",
+          "workflowStatus": "PAYMENT_PROCESSING",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538203688656897",
+            "attemptNo": "b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+            "channel": "MOCK",
+            "status": "PROCESSING",
+            "providerOrderNo": "mock-pay-b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:40",
+            "completedAt": null
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:40",
+          "closedAt": null,
+          "serverTime": "2026-11-11T23:24:40",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": true,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": null
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538203495718913",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538203495718913",
+          "appointmentNo": "APeab2bd0d4b024b52aaa03cc895f14ad0",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 1,
+          "createdAt": "2026-11-11T23:24:40",
+          "paymentOrderId": "2120538203550244865",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538203688656897",
+            "attemptNo": "b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:40",
+            "completedAt": "2026-11-11T23:24:40"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:40",
+          "closedAt": null,
+          "serverTime": "2026-11-11T23:24:40",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": true,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "NOT_CHECKED_IN",
+            "checkedInAt": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments/2120538203495718913/cancel",
+      "status": 202,
+      "expectedStatus": 202,
+      "response": {
+        "code": 0,
+        "message": "退款申请已受理",
+        "data": {
+          "id": "2120538203495718913",
+          "appointmentNo": "APeab2bd0d4b024b52aaa03cc895f14ad0",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CANCELLED",
+          "visitNumber": 1,
+          "createdAt": "2026-11-11T23:24:40",
+          "paymentOrderId": "2120538203550244865",
+          "paymentStatus": "REFUND_PENDING",
+          "workflowStatus": "CANCELLED_REFUNDING",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538203688656897",
+            "attemptNo": "b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:40",
+            "completedAt": "2026-11-11T23:24:40"
+          },
+          "refund": {
+            "id": "2120538206184267777",
+            "refundNo": "REF8ddc805443ef4dd588bee91c009df0ca",
+            "amount": 10.0,
+            "currency": "CNY",
+            "channel": "MOCK",
+            "status": "PENDING",
+            "reason": "APPOINTMENT_CANCELLED",
+            "attemptCount": 0,
+            "lastFailureCode": null,
+            "completedAt": null
+          },
+          "paymentExpiresAt": "2026-11-11T23:39:40",
+          "closedAt": "2026-11-11T23:24:40",
+          "serverTime": "2026-11-11T23:24:40",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": null
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538203495718913",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538203495718913",
+          "appointmentNo": "APeab2bd0d4b024b52aaa03cc895f14ad0",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CANCELLED",
+          "visitNumber": 1,
+          "createdAt": "2026-11-11T23:24:40",
+          "paymentOrderId": "2120538203550244865",
+          "paymentStatus": "REFUND_PENDING",
+          "workflowStatus": "CANCELLED_REFUNDING",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538203688656897",
+            "attemptNo": "b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:40",
+            "completedAt": "2026-11-11T23:24:40"
+          },
+          "refund": {
+            "id": "2120538206184267777",
+            "refundNo": "REF8ddc805443ef4dd588bee91c009df0ca",
+            "amount": 10.0,
+            "currency": "CNY",
+            "channel": "MOCK",
+            "status": "PENDING",
+            "reason": "APPOINTMENT_CANCELLED",
+            "attemptCount": 0,
+            "lastFailureCode": null,
+            "completedAt": null
+          },
+          "paymentExpiresAt": "2026-11-11T23:39:40",
+          "closedAt": "2026-11-11T23:24:40",
+          "serverTime": "2026-11-11T23:24:40",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": null
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538203495718913",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538203495718913",
+          "appointmentNo": "APeab2bd0d4b024b52aaa03cc895f14ad0",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CANCELLED",
+          "visitNumber": 1,
+          "createdAt": "2026-11-11T23:24:40",
+          "paymentOrderId": "2120538203550244865",
+          "paymentStatus": "REFUNDED",
+          "workflowStatus": "CANCELLED_REFUNDED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538203688656897",
+            "attemptNo": "b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:40",
+            "completedAt": "2026-11-11T23:24:40"
+          },
+          "refund": {
+            "id": "2120538206184267777",
+            "refundNo": "REF8ddc805443ef4dd588bee91c009df0ca",
+            "amount": 10.0,
+            "currency": "CNY",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "reason": "APPOINTMENT_CANCELLED",
+            "attemptCount": 1,
+            "lastFailureCode": null,
+            "completedAt": "2026-11-11T23:24:40"
+          },
+          "paymentExpiresAt": "2026-11-11T23:39:40",
+          "closedAt": "2026-11-11T23:24:40",
+          "serverTime": "2026-11-11T23:24:41",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": null
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments",
+      "status": 201,
+      "expectedStatus": 201,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentOrderId": "2120538209254498305",
+          "paymentOrderId": "2120538209267081217",
+          "appointmentStatus": "PENDING_PAYMENT",
+          "paymentStatus": "UNPAID",
+          "amount": "10.00",
+          "currency": "CNY",
+          "paymentExpiresAt": "2026-11-11T23:39:41",
+          "serverTime": "2026-11-11T23:24:41"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/payments/2120538209267081217/attempts",
+      "status": 202,
+      "expectedStatus": 202,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "paymentOrderId": "2120538209267081217",
+          "paymentAttemptId": "2120538209342578689",
+          "channel": "MOCK",
+          "paymentStatus": "PAYING",
+          "attemptStatus": "PROCESSING",
+          "providerOrderNo": "mock-pay-0706876e-827e-40ef-8a7b-6d3239cdff2a",
+          "checkoutUrl": "/api/v1/mock-pay/attempts/0706876e-827e-40ef-8a7b-6d3239cdff2a",
+          "expiresAt": "2026-11-11T23:39:41"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/mock-pay/attempts/0706876e-827e-40ef-8a7b-6d3239cdff2a/complete",
+      "status": 202,
+      "expectedStatus": 202,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "notificationId": "mock-notify-0706876e-827e-40ef-8a7b-6d3239cdff2a",
+          "providerOrderNo": "mock-pay-0706876e-827e-40ef-8a7b-6d3239cdff2a",
+          "providerTransactionNo": "mock-txn-0706876e-827e-40ef-8a7b-6d3239cdff2a",
+          "status": "SUCCEEDED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "occurredAt": "2026-11-11T23:24:41.6324393",
+          "signature": "[redacted]"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538209254498305",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538209254498305",
+          "appointmentNo": "AP0a6e33c6f6b242b1a0f953263840340e",
+          "scheduleId": "7",
+          "appointmentDate": "2026-11-13",
+          "startTime": "10:30:00",
+          "endTime": "12:00:00",
+          "status": "PENDING_PAYMENT",
+          "visitNumber": null,
+          "createdAt": "2026-11-11T23:24:41",
+          "paymentOrderId": "2120538209267081217",
+          "paymentStatus": "PAYING",
+          "workflowStatus": "PAYMENT_PROCESSING",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538209342578689",
+            "attemptNo": "0706876e-827e-40ef-8a7b-6d3239cdff2a",
+            "channel": "MOCK",
+            "status": "PROCESSING",
+            "providerOrderNo": "mock-pay-0706876e-827e-40ef-8a7b-6d3239cdff2a",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:41",
+            "completedAt": null
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:24:40",
+          "closedAt": null,
+          "serverTime": "2026-11-11T23:24:41",
+          "paymentExpired": true,
+          "canPay": false,
+          "canCancel": true,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_SECOND",
+          "visit": null
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538209254498305",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538209254498305",
+          "appointmentNo": "AP0a6e33c6f6b242b1a0f953263840340e",
+          "scheduleId": "7",
+          "appointmentDate": "2026-11-13",
+          "startTime": "10:30:00",
+          "endTime": "12:00:00",
+          "status": "EXPIRED",
+          "visitNumber": null,
+          "createdAt": "2026-11-11T23:24:41",
+          "paymentOrderId": "2120538209267081217",
+          "paymentStatus": "REFUND_PENDING",
+          "workflowStatus": "CANCELLED_REFUNDING",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538209342578689",
+            "attemptNo": "0706876e-827e-40ef-8a7b-6d3239cdff2a",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-0706876e-827e-40ef-8a7b-6d3239cdff2a",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:41",
+            "completedAt": "2026-11-11T23:24:41"
+          },
+          "refund": {
+            "id": "2120538211481673730",
+            "refundNo": "REF49deb0a8522647e5b2b2e040c2a286a8",
+            "amount": 10.0,
+            "currency": "CNY",
+            "channel": "MOCK",
+            "status": "PENDING",
+            "reason": "APPOINTMENT_NOT_CONFIRMABLE",
+            "attemptCount": 0,
+            "lastFailureCode": null,
+            "completedAt": null
+          },
+          "paymentExpiresAt": "2026-11-11T23:24:40",
+          "closedAt": "2026-11-11T23:24:41",
+          "serverTime": "2026-11-11T23:24:42",
+          "paymentExpired": true,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_SECOND",
+          "visit": null
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538209254498305",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538209254498305",
+          "appointmentNo": "AP0a6e33c6f6b242b1a0f953263840340e",
+          "scheduleId": "7",
+          "appointmentDate": "2026-11-13",
+          "startTime": "10:30:00",
+          "endTime": "12:00:00",
+          "status": "EXPIRED",
+          "visitNumber": null,
+          "createdAt": "2026-11-11T23:24:41",
+          "paymentOrderId": "2120538209267081217",
+          "paymentStatus": "REFUNDED",
+          "workflowStatus": "CANCELLED_REFUNDED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538209342578689",
+            "attemptNo": "0706876e-827e-40ef-8a7b-6d3239cdff2a",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-0706876e-827e-40ef-8a7b-6d3239cdff2a",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:41",
+            "completedAt": "2026-11-11T23:24:41"
+          },
+          "refund": {
+            "id": "2120538211481673730",
+            "refundNo": "REF49deb0a8522647e5b2b2e040c2a286a8",
+            "amount": 10.0,
+            "currency": "CNY",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "reason": "APPOINTMENT_NOT_CONFIRMABLE",
+            "attemptCount": 1,
+            "lastFailureCode": null,
+            "completedAt": "2026-11-11T23:24:42"
+          },
+          "paymentExpiresAt": "2026-11-11T23:24:40",
+          "closedAt": "2026-11-11T23:24:41",
+          "serverTime": "2026-11-11T23:24:42",
+          "paymentExpired": true,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_SECOND",
+          "visit": null
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/users/me",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538201817997314",
+          "email": "[redacted]",
+          "roles": [
+            "USER"
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "accessToken": "[redacted]",
+          "tokenType": "Bearer",
+          "expiresIn": 7200,
+          "user": {
+            "id": "2120538201817997314",
+            "email": "[redacted]",
+            "roles": [
+              "USER",
+              "ADMIN"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "status": 201,
+      "expectedStatus": 201,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538216334483457",
+          "email": "[redacted]",
+          "roles": [
+            "USER"
+          ]
+        }
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/doctors/1/account",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "doctorId": "1",
+          "userId": "2120538216334483457"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "accessToken": "[redacted]",
+          "tokenType": "Bearer",
+          "expiresIn": 7200,
+          "user": {
+            "id": "2120538216334483457",
+            "email": "[redacted]",
+            "roles": [
+              "USER",
+              "DOCTOR"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/users/me",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538216334483457",
+          "email": "[redacted]",
+          "roles": [
+            "USER",
+            "DOCTOR"
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/doctor/sessions",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "appointmentDate": "2026-11-11",
+            "sessionType": "MORNING_FIRST",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "confirmedCount": 0,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          },
+          {
+            "appointmentDate": "2026-11-11",
+            "sessionType": "MORNING_SECOND",
+            "startTime": "10:30:00",
+            "endTime": "12:00:00",
+            "confirmedCount": 0,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          },
+          {
+            "appointmentDate": "2026-11-11",
+            "sessionType": "AFTERNOON_FIRST",
+            "startTime": "14:00:00",
+            "endTime": "16:00:00",
+            "confirmedCount": 0,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          },
+          {
+            "appointmentDate": "2026-11-11",
+            "sessionType": "AFTERNOON_SECOND",
+            "startTime": "16:30:00",
+            "endTime": "18:00:00",
+            "confirmedCount": 0,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/doctor/sessions",
+      "status": 403,
+      "expectedStatus": 403,
+      "response": {
+        "code": 2002,
+        "message": "没有权限执行此操作",
+        "data": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments",
+      "status": 201,
+      "expectedStatus": 201,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentOrderId": "2120538217181732865",
+          "paymentOrderId": "2120538217198510081",
+          "appointmentStatus": "PENDING_PAYMENT",
+          "paymentStatus": "UNPAID",
+          "amount": "10.00",
+          "currency": "CNY",
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "serverTime": "2026-11-11T23:24:43"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/payments/2120538217198510081/attempts",
+      "status": 202,
+      "expectedStatus": 202,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "paymentOrderId": "2120538217198510081",
+          "paymentAttemptId": "2120538217269813249",
+          "channel": "MOCK",
+          "paymentStatus": "PAYING",
+          "attemptStatus": "PROCESSING",
+          "providerOrderNo": "mock-pay-fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+          "checkoutUrl": "/api/v1/mock-pay/attempts/fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+          "expiresAt": "2026-11-11T23:39:43"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/mock-pay/attempts/fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1/complete",
+      "status": 202,
+      "expectedStatus": 202,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "notificationId": "mock-notify-fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+          "providerOrderNo": "mock-pay-fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+          "providerTransactionNo": "mock-txn-fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+          "status": "SUCCEEDED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "occurredAt": "2026-11-11T23:24:43.374572004",
+          "signature": "[redacted]"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538217181732865",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538217181732865",
+          "appointmentNo": "APb9844c086fc3470098a18a3ef36d6676",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "PENDING_PAYMENT",
+          "visitNumber": null,
+          "createdAt": "2026-11-11T23:24:43",
+          "paymentOrderId": "2120538217198510081",
+          "paymentStatus": "PAYING",
+          "workflowStatus": "PAYMENT_PROCESSING",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538217269813249",
+            "attemptNo": "fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+            "channel": "MOCK",
+            "status": "PROCESSING",
+            "providerOrderNo": "mock-pay-fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:43",
+            "completedAt": null
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "closedAt": null,
+          "serverTime": "2026-11-11T23:24:43",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": true,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": null
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538217181732865",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538217181732865",
+          "appointmentNo": "APb9844c086fc3470098a18a3ef36d6676",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 2,
+          "createdAt": "2026-11-11T23:24:43",
+          "paymentOrderId": "2120538217198510081",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538217269813249",
+            "attemptNo": "fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:43",
+            "completedAt": "2026-11-11T23:24:43"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "closedAt": null,
+          "serverTime": "2026-11-11T23:24:43",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": true,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "NOT_CHECKED_IN",
+            "checkedInAt": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/patients",
+      "status": 201,
+      "expectedStatus": 201,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538219639595009",
+          "name": "就诊验收1",
+          "documentType": "RESIDENT_ID_CARD",
+          "documentNoMasked": "110105********1013",
+          "contactPhone": "[redacted]",
+          "contactEmail": "[redacted]",
+          "enabled": true,
+          "createdAt": "2026-11-11T23:24:43",
+          "updatedAt": "2026-11-11T23:24:43"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments",
+      "status": 201,
+      "expectedStatus": 201,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentOrderId": "2120538219736064002",
+          "paymentOrderId": "2120538219752841218",
+          "appointmentStatus": "PENDING_PAYMENT",
+          "paymentStatus": "UNPAID",
+          "amount": "10.00",
+          "currency": "CNY",
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "serverTime": "2026-11-11T23:24:43"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/payments/2120538219752841218/attempts",
+      "status": 202,
+      "expectedStatus": 202,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "paymentOrderId": "2120538219752841218",
+          "paymentAttemptId": "2120538219840921601",
+          "channel": "MOCK",
+          "paymentStatus": "PAYING",
+          "attemptStatus": "PROCESSING",
+          "providerOrderNo": "mock-pay-78e50769-113d-4938-95ca-4e2d5678afb6",
+          "checkoutUrl": "/api/v1/mock-pay/attempts/78e50769-113d-4938-95ca-4e2d5678afb6",
+          "expiresAt": "2026-11-11T23:39:43"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/mock-pay/attempts/78e50769-113d-4938-95ca-4e2d5678afb6/complete",
+      "status": 202,
+      "expectedStatus": 202,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "notificationId": "mock-notify-78e50769-113d-4938-95ca-4e2d5678afb6",
+          "providerOrderNo": "mock-pay-78e50769-113d-4938-95ca-4e2d5678afb6",
+          "providerTransactionNo": "mock-txn-78e50769-113d-4938-95ca-4e2d5678afb6",
+          "status": "SUCCEEDED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "occurredAt": "2026-11-11T23:24:43.983233647",
+          "signature": "[redacted]"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538219736064002",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538219736064002",
+          "appointmentNo": "AP9af7af5b775f42458080049c10a5a84c",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "PENDING_PAYMENT",
+          "visitNumber": null,
+          "createdAt": "2026-11-11T23:24:43",
+          "paymentOrderId": "2120538219752841218",
+          "paymentStatus": "PAYING",
+          "workflowStatus": "PAYMENT_PROCESSING",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538219840921601",
+            "attemptNo": "78e50769-113d-4938-95ca-4e2d5678afb6",
+            "channel": "MOCK",
+            "status": "PROCESSING",
+            "providerOrderNo": "mock-pay-78e50769-113d-4938-95ca-4e2d5678afb6",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:43",
+            "completedAt": null
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "closedAt": null,
+          "serverTime": "2026-11-11T23:24:43",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": true,
+          "patient": {
+            "id": "2120538219639595009",
+            "name": "就诊验收1",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1013",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": null
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538219736064002",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538219736064002",
+          "appointmentNo": "AP9af7af5b775f42458080049c10a5a84c",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 3,
+          "createdAt": "2026-11-11T23:24:43",
+          "paymentOrderId": "2120538219752841218",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538219840921601",
+            "attemptNo": "78e50769-113d-4938-95ca-4e2d5678afb6",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-78e50769-113d-4938-95ca-4e2d5678afb6",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:43",
+            "completedAt": "2026-11-11T23:24:43"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "closedAt": null,
+          "serverTime": "2026-11-11T23:24:44",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": true,
+          "patient": {
+            "id": "2120538219639595009",
+            "name": "就诊验收1",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1013",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "NOT_CHECKED_IN",
+            "checkedInAt": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/patients",
+      "status": 201,
+      "expectedStatus": 201,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538222193926146",
+          "name": "就诊验收2",
+          "documentType": "RESIDENT_ID_CARD",
+          "documentNoMasked": "110105********1021",
+          "contactPhone": "[redacted]",
+          "contactEmail": "[redacted]",
+          "enabled": true,
+          "createdAt": "2026-11-11T23:24:44",
+          "updatedAt": "2026-11-11T23:24:44"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments",
+      "status": 201,
+      "expectedStatus": 201,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentOrderId": "2120538222298783746",
+          "paymentOrderId": "2120538222307172354",
+          "appointmentStatus": "PENDING_PAYMENT",
+          "paymentStatus": "UNPAID",
+          "amount": "10.00",
+          "currency": "CNY",
+          "paymentExpiresAt": "2026-11-11T23:39:44",
+          "serverTime": "2026-11-11T23:24:44"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/payments/2120538222307172354/attempts",
+      "status": 202,
+      "expectedStatus": 202,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "paymentOrderId": "2120538222307172354",
+          "paymentAttemptId": "2120538222386864130",
+          "channel": "MOCK",
+          "paymentStatus": "PAYING",
+          "attemptStatus": "PROCESSING",
+          "providerOrderNo": "mock-pay-433cbac8-dac1-4c4f-aa60-86b8df545101",
+          "checkoutUrl": "/api/v1/mock-pay/attempts/433cbac8-dac1-4c4f-aa60-86b8df545101",
+          "expiresAt": "2026-11-11T23:39:44"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/mock-pay/attempts/433cbac8-dac1-4c4f-aa60-86b8df545101/complete",
+      "status": 202,
+      "expectedStatus": 202,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "notificationId": "mock-notify-433cbac8-dac1-4c4f-aa60-86b8df545101",
+          "providerOrderNo": "mock-pay-433cbac8-dac1-4c4f-aa60-86b8df545101",
+          "providerTransactionNo": "mock-txn-433cbac8-dac1-4c4f-aa60-86b8df545101",
+          "status": "SUCCEEDED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "occurredAt": "2026-11-11T23:24:44.589725072",
+          "signature": "[redacted]"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538222298783746",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538222298783746",
+          "appointmentNo": "AP19f1f6461318466cb63f688ba4da760f",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "PENDING_PAYMENT",
+          "visitNumber": null,
+          "createdAt": "2026-11-11T23:24:44",
+          "paymentOrderId": "2120538222307172354",
+          "paymentStatus": "PAYING",
+          "workflowStatus": "PAYMENT_PROCESSING",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538222386864130",
+            "attemptNo": "433cbac8-dac1-4c4f-aa60-86b8df545101",
+            "channel": "MOCK",
+            "status": "PROCESSING",
+            "providerOrderNo": "mock-pay-433cbac8-dac1-4c4f-aa60-86b8df545101",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:44",
+            "completedAt": null
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:44",
+          "closedAt": null,
+          "serverTime": "2026-11-11T23:24:44",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": true,
+          "patient": {
+            "id": "2120538222193926146",
+            "name": "就诊验收2",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1021",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": null
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538222298783746",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538222298783746",
+          "appointmentNo": "AP19f1f6461318466cb63f688ba4da760f",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 4,
+          "createdAt": "2026-11-11T23:24:44",
+          "paymentOrderId": "2120538222307172354",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538222386864130",
+            "attemptNo": "433cbac8-dac1-4c4f-aa60-86b8df545101",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-433cbac8-dac1-4c4f-aa60-86b8df545101",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:44",
+            "completedAt": "2026-11-11T23:24:44"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:44",
+          "closedAt": null,
+          "serverTime": "2026-11-11T23:24:45",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": true,
+          "patient": {
+            "id": "2120538222193926146",
+            "name": "就诊验收2",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1021",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "NOT_CHECKED_IN",
+            "checkedInAt": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/patients",
+      "status": 201,
+      "expectedStatus": 201,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538224714702850",
+          "name": "就诊验收3",
+          "documentType": "RESIDENT_ID_CARD",
+          "documentNoMasked": "110105********103X",
+          "contactPhone": "[redacted]",
+          "contactEmail": "[redacted]",
+          "enabled": true,
+          "createdAt": "2026-11-11T23:24:45",
+          "updatedAt": "2026-11-11T23:24:45"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments",
+      "status": 201,
+      "expectedStatus": 201,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentOrderId": "2120538224811171841",
+          "paymentOrderId": "2120538224819560450",
+          "appointmentStatus": "PENDING_PAYMENT",
+          "paymentStatus": "UNPAID",
+          "amount": "10.00",
+          "currency": "CNY",
+          "paymentExpiresAt": "2026-11-11T23:39:45",
+          "serverTime": "2026-11-11T23:24:45"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/payments/2120538224819560450/attempts",
+      "status": 202,
+      "expectedStatus": 202,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "paymentOrderId": "2120538224819560450",
+          "paymentAttemptId": "2120538224899252225",
+          "channel": "MOCK",
+          "paymentStatus": "PAYING",
+          "attemptStatus": "PROCESSING",
+          "providerOrderNo": "mock-pay-80b0fcfa-1319-4b94-b7ba-7674247409f7",
+          "checkoutUrl": "/api/v1/mock-pay/attempts/80b0fcfa-1319-4b94-b7ba-7674247409f7",
+          "expiresAt": "2026-11-11T23:39:45"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/mock-pay/attempts/80b0fcfa-1319-4b94-b7ba-7674247409f7/complete",
+      "status": 202,
+      "expectedStatus": 202,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "notificationId": "mock-notify-80b0fcfa-1319-4b94-b7ba-7674247409f7",
+          "providerOrderNo": "mock-pay-80b0fcfa-1319-4b94-b7ba-7674247409f7",
+          "providerTransactionNo": "mock-txn-80b0fcfa-1319-4b94-b7ba-7674247409f7",
+          "status": "SUCCEEDED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "occurredAt": "2026-11-11T23:24:45.190086206",
+          "signature": "[redacted]"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538224811171841",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538224811171841",
+          "appointmentNo": "AP06179029ec7d4c85b3aac4bdf649fc44",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "PENDING_PAYMENT",
+          "visitNumber": null,
+          "createdAt": "2026-11-11T23:24:45",
+          "paymentOrderId": "2120538224819560450",
+          "paymentStatus": "PAYING",
+          "workflowStatus": "PAYMENT_PROCESSING",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538224899252225",
+            "attemptNo": "80b0fcfa-1319-4b94-b7ba-7674247409f7",
+            "channel": "MOCK",
+            "status": "PROCESSING",
+            "providerOrderNo": "mock-pay-80b0fcfa-1319-4b94-b7ba-7674247409f7",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:45",
+            "completedAt": null
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:45",
+          "closedAt": null,
+          "serverTime": "2026-11-11T23:24:45",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": true,
+          "patient": {
+            "id": "2120538224714702850",
+            "name": "就诊验收3",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********103X",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": null
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538224811171841",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538224811171841",
+          "appointmentNo": "AP06179029ec7d4c85b3aac4bdf649fc44",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 5,
+          "createdAt": "2026-11-11T23:24:45",
+          "paymentOrderId": "2120538224819560450",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538224899252225",
+            "attemptNo": "80b0fcfa-1319-4b94-b7ba-7674247409f7",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-80b0fcfa-1319-4b94-b7ba-7674247409f7",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:45",
+            "completedAt": "2026-11-11T23:24:45"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:45",
+          "closedAt": null,
+          "serverTime": "2026-11-11T23:24:45",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": true,
+          "patient": {
+            "id": "2120538224714702850",
+            "name": "就诊验收3",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********103X",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "NOT_CHECKED_IN",
+            "checkedInAt": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments/2120538217181732865/check-in",
+      "status": 409,
+      "expectedStatus": 409,
+      "response": {
+        "code": 4502,
+        "message": "当前日期或就诊进度不允许该操作",
+        "data": null
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/doctor/sessions",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "appointmentDate": "2026-11-13",
+            "sessionType": "MORNING_FIRST",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "confirmedCount": 4,
+            "notCheckedInCount": 4,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          },
+          {
+            "appointmentDate": "2026-11-13",
+            "sessionType": "MORNING_SECOND",
+            "startTime": "10:30:00",
+            "endTime": "12:00:00",
+            "confirmedCount": 0,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          },
+          {
+            "appointmentDate": "2026-11-13",
+            "sessionType": "AFTERNOON_FIRST",
+            "startTime": "14:00:00",
+            "endTime": "16:00:00",
+            "confirmedCount": 0,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          },
+          {
+            "appointmentDate": "2026-11-13",
+            "sessionType": "AFTERNOON_SECOND",
+            "startTime": "16:30:00",
+            "endTime": "18:00:00",
+            "confirmedCount": 0,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538217181732865",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538217181732865",
+          "appointmentNo": "APb9844c086fc3470098a18a3ef36d6676",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 2,
+          "createdAt": "2026-11-11T23:24:43",
+          "paymentOrderId": "2120538217198510081",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538217269813249",
+            "attemptNo": "fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:43",
+            "completedAt": "2026-11-11T23:24:43"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "NOT_CHECKED_IN",
+            "checkedInAt": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": true
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538219736064002",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538219736064002",
+          "appointmentNo": "AP9af7af5b775f42458080049c10a5a84c",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 3,
+          "createdAt": "2026-11-11T23:24:43",
+          "paymentOrderId": "2120538219752841218",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538219840921601",
+            "attemptNo": "78e50769-113d-4938-95ca-4e2d5678afb6",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-78e50769-113d-4938-95ca-4e2d5678afb6",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:43",
+            "completedAt": "2026-11-11T23:24:43"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538219639595009",
+            "name": "就诊验收1",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1013",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "NOT_CHECKED_IN",
+            "checkedInAt": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": true
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538222298783746",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538222298783746",
+          "appointmentNo": "AP19f1f6461318466cb63f688ba4da760f",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 4,
+          "createdAt": "2026-11-11T23:24:44",
+          "paymentOrderId": "2120538222307172354",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538222386864130",
+            "attemptNo": "433cbac8-dac1-4c4f-aa60-86b8df545101",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-433cbac8-dac1-4c4f-aa60-86b8df545101",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:44",
+            "completedAt": "2026-11-11T23:24:44"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:44",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538222193926146",
+            "name": "就诊验收2",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1021",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "NOT_CHECKED_IN",
+            "checkedInAt": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": true
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538224811171841",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538224811171841",
+          "appointmentNo": "AP06179029ec7d4c85b3aac4bdf649fc44",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 5,
+          "createdAt": "2026-11-11T23:24:45",
+          "paymentOrderId": "2120538224819560450",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538224899252225",
+            "attemptNo": "80b0fcfa-1319-4b94-b7ba-7674247409f7",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-80b0fcfa-1319-4b94-b7ba-7674247409f7",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:45",
+            "completedAt": "2026-11-11T23:24:45"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:45",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538224714702850",
+            "name": "就诊验收3",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********103X",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "NOT_CHECKED_IN",
+            "checkedInAt": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": true
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments/2120538219736064002/check-in",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538219736064002",
+          "appointmentNo": "AP9af7af5b775f42458080049c10a5a84c",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 3,
+          "createdAt": "2026-11-11T23:24:43",
+          "paymentOrderId": "2120538219752841218",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538219840921601",
+            "attemptNo": "78e50769-113d-4938-95ca-4e2d5678afb6",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-78e50769-113d-4938-95ca-4e2d5678afb6",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:43",
+            "completedAt": "2026-11-11T23:24:43"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538219639595009",
+            "name": "就诊验收1",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1013",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "WAITING",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments/2120538222298783746/check-in",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538222298783746",
+          "appointmentNo": "AP19f1f6461318466cb63f688ba4da760f",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 4,
+          "createdAt": "2026-11-11T23:24:44",
+          "paymentOrderId": "2120538222307172354",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538222386864130",
+            "attemptNo": "433cbac8-dac1-4c4f-aa60-86b8df545101",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-433cbac8-dac1-4c4f-aa60-86b8df545101",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:44",
+            "completedAt": "2026-11-11T23:24:44"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:44",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538222193926146",
+            "name": "就诊验收2",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1021",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "WAITING",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments/2120538224811171841/check-in",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538224811171841",
+          "appointmentNo": "AP06179029ec7d4c85b3aac4bdf649fc44",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 5,
+          "createdAt": "2026-11-11T23:24:45",
+          "paymentOrderId": "2120538224819560450",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538224899252225",
+            "attemptNo": "80b0fcfa-1319-4b94-b7ba-7674247409f7",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-80b0fcfa-1319-4b94-b7ba-7674247409f7",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:45",
+            "completedAt": "2026-11-11T23:24:45"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:45",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538224714702850",
+            "name": "就诊验收3",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********103X",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "WAITING",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/doctor/appointments/2120538222298783746/start-visit",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentId": "2120538222298783746",
+          "appointmentNo": "AP19f1f6461318466cb63f688ba4da760f",
+          "visitNumber": 4,
+          "appointmentDate": "2026-11-13",
+          "sessionType": "MORNING_FIRST",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "patient": {
+            "id": "2120538222193926146",
+            "name": "就诊验收2",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1021"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "visit": {
+            "status": "IN_PROGRESS",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": null
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/doctor/appointments/2120538224811171841/start-visit",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentId": "2120538224811171841",
+          "appointmentNo": "AP06179029ec7d4c85b3aac4bdf649fc44",
+          "visitNumber": 5,
+          "appointmentDate": "2026-11-13",
+          "sessionType": "MORNING_FIRST",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "patient": {
+            "id": "2120538224714702850",
+            "name": "就诊验收3",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********103X"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "visit": {
+            "status": "IN_PROGRESS",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": null
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/doctor/appointments/2120538224811171841/complete-visit",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentId": "2120538224811171841",
+          "appointmentNo": "AP06179029ec7d4c85b3aac4bdf649fc44",
+          "visitNumber": 5,
+          "appointmentDate": "2026-11-13",
+          "sessionType": "MORNING_FIRST",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "patient": {
+            "id": "2120538224714702850",
+            "name": "就诊验收3",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********103X"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "visit": {
+            "status": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": "2026-11-13T08:00:00"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/doctor/appointments?date=2026-11-13&sessionType=MORNING_FIRST",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "appointmentId": "2120538217181732865",
+            "visitNumber": 2,
+            "patientName": "验收就诊人",
+            "visitStatus": "NOT_CHECKED_IN",
+            "checkedInAt": null,
+            "canStartVisit": false,
+            "canCompleteVisit": false
+          },
+          {
+            "appointmentId": "2120538219736064002",
+            "visitNumber": 3,
+            "patientName": "就诊验收1",
+            "visitStatus": "WAITING",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "canStartVisit": true,
+            "canCompleteVisit": false
+          },
+          {
+            "appointmentId": "2120538222298783746",
+            "visitNumber": 4,
+            "patientName": "就诊验收2",
+            "visitStatus": "IN_PROGRESS",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "canStartVisit": false,
+            "canCompleteVisit": true
+          },
+          {
+            "appointmentId": "2120538224811171841",
+            "visitNumber": 5,
+            "patientName": "就诊验收3",
+            "visitStatus": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "canStartVisit": false,
+            "canCompleteVisit": false
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538217181732865",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538217181732865",
+          "appointmentNo": "APb9844c086fc3470098a18a3ef36d6676",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 2,
+          "createdAt": "2026-11-11T23:24:43",
+          "paymentOrderId": "2120538217198510081",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538217269813249",
+            "attemptNo": "fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:43",
+            "completedAt": "2026-11-11T23:24:43"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "NOT_CHECKED_IN",
+            "checkedInAt": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": true
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/doctor/appointments/2120538217181732865",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentId": "2120538217181732865",
+          "appointmentNo": "APb9844c086fc3470098a18a3ef36d6676",
+          "visitNumber": 2,
+          "appointmentDate": "2026-11-13",
+          "sessionType": "MORNING_FIRST",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "visit": {
+            "status": "NOT_CHECKED_IN",
+            "checkedInAt": null,
+            "startedAt": null,
+            "completedAt": null
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538219736064002",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538219736064002",
+          "appointmentNo": "AP9af7af5b775f42458080049c10a5a84c",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 3,
+          "createdAt": "2026-11-11T23:24:43",
+          "paymentOrderId": "2120538219752841218",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538219840921601",
+            "attemptNo": "78e50769-113d-4938-95ca-4e2d5678afb6",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-78e50769-113d-4938-95ca-4e2d5678afb6",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:43",
+            "completedAt": "2026-11-11T23:24:43"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538219639595009",
+            "name": "就诊验收1",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1013",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "WAITING",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/doctor/appointments/2120538219736064002",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentId": "2120538219736064002",
+          "appointmentNo": "AP9af7af5b775f42458080049c10a5a84c",
+          "visitNumber": 3,
+          "appointmentDate": "2026-11-13",
+          "sessionType": "MORNING_FIRST",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "patient": {
+            "id": "2120538219639595009",
+            "name": "就诊验收1",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1013"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "visit": {
+            "status": "WAITING",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": null,
+            "completedAt": null
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538222298783746",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538222298783746",
+          "appointmentNo": "AP19f1f6461318466cb63f688ba4da760f",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 4,
+          "createdAt": "2026-11-11T23:24:44",
+          "paymentOrderId": "2120538222307172354",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538222386864130",
+            "attemptNo": "433cbac8-dac1-4c4f-aa60-86b8df545101",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-433cbac8-dac1-4c4f-aa60-86b8df545101",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:44",
+            "completedAt": "2026-11-11T23:24:44"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:44",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538222193926146",
+            "name": "就诊验收2",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1021",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "IN_PROGRESS",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": null,
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/doctor/appointments/2120538222298783746",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentId": "2120538222298783746",
+          "appointmentNo": "AP19f1f6461318466cb63f688ba4da760f",
+          "visitNumber": 4,
+          "appointmentDate": "2026-11-13",
+          "sessionType": "MORNING_FIRST",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "patient": {
+            "id": "2120538222193926146",
+            "name": "就诊验收2",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1021"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "visit": {
+            "status": "IN_PROGRESS",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": null
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538224811171841",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538224811171841",
+          "appointmentNo": "AP06179029ec7d4c85b3aac4bdf649fc44",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 5,
+          "createdAt": "2026-11-11T23:24:45",
+          "paymentOrderId": "2120538224819560450",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538224899252225",
+            "attemptNo": "80b0fcfa-1319-4b94-b7ba-7674247409f7",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-80b0fcfa-1319-4b94-b7ba-7674247409f7",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:45",
+            "completedAt": "2026-11-11T23:24:45"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:45",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538224714702850",
+            "name": "就诊验收3",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********103X",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": "2026-11-13T08:00:00",
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/doctor/appointments/2120538224811171841",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentId": "2120538224811171841",
+          "appointmentNo": "AP06179029ec7d4c85b3aac4bdf649fc44",
+          "visitNumber": 5,
+          "appointmentDate": "2026-11-13",
+          "sessionType": "MORNING_FIRST",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "patient": {
+            "id": "2120538224714702850",
+            "name": "就诊验收3",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********103X"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "visit": {
+            "status": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": "2026-11-13T08:00:00"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/doctor/sessions",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "appointmentDate": "2026-11-13",
+            "sessionType": "MORNING_FIRST",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "confirmedCount": 4,
+            "notCheckedInCount": 1,
+            "waitingCount": 1,
+            "inProgressCount": 1,
+            "completedCount": 1
+          },
+          {
+            "appointmentDate": "2026-11-13",
+            "sessionType": "MORNING_SECOND",
+            "startTime": "10:30:00",
+            "endTime": "12:00:00",
+            "confirmedCount": 0,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          },
+          {
+            "appointmentDate": "2026-11-13",
+            "sessionType": "AFTERNOON_FIRST",
+            "startTime": "14:00:00",
+            "endTime": "16:00:00",
+            "confirmedCount": 0,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          },
+          {
+            "appointmentDate": "2026-11-13",
+            "sessionType": "AFTERNOON_SECOND",
+            "startTime": "16:30:00",
+            "endTime": "18:00:00",
+            "confirmedCount": 0,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/my",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "id": "2120538209254498305",
+            "appointmentNo": "AP0a6e33c6f6b242b1a0f953263840340e",
+            "scheduleId": "7",
+            "appointmentDate": "2026-11-13",
+            "startTime": "10:30:00",
+            "endTime": "12:00:00",
+            "status": "EXPIRED",
+            "visitNumber": null,
+            "createdAt": "2026-11-11T23:24:41",
+            "paymentOrderId": "2120538209267081217",
+            "paymentStatus": "REFUNDED",
+            "workflowStatus": "CANCELLED_REFUNDED",
+            "amount": 10.0,
+            "currency": "CNY",
+            "paymentAttemptCount": 1,
+            "latestPaymentAttempt": {
+              "id": "2120538209342578689",
+              "attemptNo": "0706876e-827e-40ef-8a7b-6d3239cdff2a",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "providerOrderNo": "mock-pay-0706876e-827e-40ef-8a7b-6d3239cdff2a",
+              "failureCode": null,
+              "createdAt": "2026-11-11T23:24:41",
+              "completedAt": "2026-11-11T23:24:41"
+            },
+            "refund": {
+              "id": "2120538211481673730",
+              "refundNo": "REF49deb0a8522647e5b2b2e040c2a286a8",
+              "amount": 10.0,
+              "currency": "CNY",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "reason": "APPOINTMENT_NOT_CONFIRMABLE",
+              "attemptCount": 1,
+              "lastFailureCode": null,
+              "completedAt": "2026-11-11T23:24:42"
+            },
+            "paymentExpiresAt": "2026-11-11T23:24:40",
+            "closedAt": "2026-11-11T23:24:41",
+            "serverTime": "2026-11-13T08:00:00",
+            "paymentExpired": true,
+            "canPay": false,
+            "canCancel": false,
+            "patient": {
+              "id": "2120538203147591682",
+              "name": "验收就诊人",
+              "documentType": "RESIDENT_ID_CARD",
+              "documentNoMasked": "110105********0010",
+              "contactPhone": "[redacted]",
+              "contactEmail": "[redacted]"
+            },
+            "doctor": {
+              "id": "1",
+              "doctorNo": "DOC000001",
+              "name": "张医生",
+              "title": "主任医师",
+              "department": {
+                "id": "1",
+                "name": "内科"
+              },
+              "hospital": {
+                "id": "1",
+                "name": "示例市第一人民医院",
+                "address": "示例市健康路 1 号"
+              }
+            },
+            "sessionType": "MORNING_SECOND",
+            "visit": null
+          },
+          {
+            "id": "2120538224811171841",
+            "appointmentNo": "AP06179029ec7d4c85b3aac4bdf649fc44",
+            "scheduleId": "6",
+            "appointmentDate": "2026-11-13",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "status": "CONFIRMED",
+            "visitNumber": 5,
+            "createdAt": "2026-11-11T23:24:45",
+            "paymentOrderId": "2120538224819560450",
+            "paymentStatus": "PAID",
+            "workflowStatus": "CONFIRMED",
+            "amount": 10.0,
+            "currency": "CNY",
+            "paymentAttemptCount": 1,
+            "latestPaymentAttempt": {
+              "id": "2120538224899252225",
+              "attemptNo": "80b0fcfa-1319-4b94-b7ba-7674247409f7",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "providerOrderNo": "mock-pay-80b0fcfa-1319-4b94-b7ba-7674247409f7",
+              "failureCode": null,
+              "createdAt": "2026-11-11T23:24:45",
+              "completedAt": "2026-11-11T23:24:45"
+            },
+            "refund": null,
+            "paymentExpiresAt": "2026-11-11T23:39:45",
+            "closedAt": null,
+            "serverTime": "2026-11-13T08:00:00",
+            "paymentExpired": false,
+            "canPay": false,
+            "canCancel": false,
+            "patient": {
+              "id": "2120538224714702850",
+              "name": "就诊验收3",
+              "documentType": "RESIDENT_ID_CARD",
+              "documentNoMasked": "110105********103X",
+              "contactPhone": "[redacted]",
+              "contactEmail": "[redacted]"
+            },
+            "doctor": {
+              "id": "1",
+              "doctorNo": "DOC000001",
+              "name": "张医生",
+              "title": "主任医师",
+              "department": {
+                "id": "1",
+                "name": "内科"
+              },
+              "hospital": {
+                "id": "1",
+                "name": "示例市第一人民医院",
+                "address": "示例市健康路 1 号"
+              }
+            },
+            "sessionType": "MORNING_FIRST",
+            "visit": {
+              "status": "COMPLETED",
+              "checkedInAt": "2026-11-13T08:00:00",
+              "startedAt": "2026-11-13T08:00:00",
+              "completedAt": "2026-11-13T08:00:00",
+              "canCheckIn": false
+            }
+          },
+          {
+            "id": "2120538222298783746",
+            "appointmentNo": "AP19f1f6461318466cb63f688ba4da760f",
+            "scheduleId": "6",
+            "appointmentDate": "2026-11-13",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "status": "CONFIRMED",
+            "visitNumber": 4,
+            "createdAt": "2026-11-11T23:24:44",
+            "paymentOrderId": "2120538222307172354",
+            "paymentStatus": "PAID",
+            "workflowStatus": "CONFIRMED",
+            "amount": 10.0,
+            "currency": "CNY",
+            "paymentAttemptCount": 1,
+            "latestPaymentAttempt": {
+              "id": "2120538222386864130",
+              "attemptNo": "433cbac8-dac1-4c4f-aa60-86b8df545101",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "providerOrderNo": "mock-pay-433cbac8-dac1-4c4f-aa60-86b8df545101",
+              "failureCode": null,
+              "createdAt": "2026-11-11T23:24:44",
+              "completedAt": "2026-11-11T23:24:44"
+            },
+            "refund": null,
+            "paymentExpiresAt": "2026-11-11T23:39:44",
+            "closedAt": null,
+            "serverTime": "2026-11-13T08:00:00",
+            "paymentExpired": false,
+            "canPay": false,
+            "canCancel": false,
+            "patient": {
+              "id": "2120538222193926146",
+              "name": "就诊验收2",
+              "documentType": "RESIDENT_ID_CARD",
+              "documentNoMasked": "110105********1021",
+              "contactPhone": "[redacted]",
+              "contactEmail": "[redacted]"
+            },
+            "doctor": {
+              "id": "1",
+              "doctorNo": "DOC000001",
+              "name": "张医生",
+              "title": "主任医师",
+              "department": {
+                "id": "1",
+                "name": "内科"
+              },
+              "hospital": {
+                "id": "1",
+                "name": "示例市第一人民医院",
+                "address": "示例市健康路 1 号"
+              }
+            },
+            "sessionType": "MORNING_FIRST",
+            "visit": {
+              "status": "IN_PROGRESS",
+              "checkedInAt": "2026-11-13T08:00:00",
+              "startedAt": "2026-11-13T08:00:00",
+              "completedAt": null,
+              "canCheckIn": false
+            }
+          },
+          {
+            "id": "2120538219736064002",
+            "appointmentNo": "AP9af7af5b775f42458080049c10a5a84c",
+            "scheduleId": "6",
+            "appointmentDate": "2026-11-13",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "status": "CONFIRMED",
+            "visitNumber": 3,
+            "createdAt": "2026-11-11T23:24:43",
+            "paymentOrderId": "2120538219752841218",
+            "paymentStatus": "PAID",
+            "workflowStatus": "CONFIRMED",
+            "amount": 10.0,
+            "currency": "CNY",
+            "paymentAttemptCount": 1,
+            "latestPaymentAttempt": {
+              "id": "2120538219840921601",
+              "attemptNo": "78e50769-113d-4938-95ca-4e2d5678afb6",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "providerOrderNo": "mock-pay-78e50769-113d-4938-95ca-4e2d5678afb6",
+              "failureCode": null,
+              "createdAt": "2026-11-11T23:24:43",
+              "completedAt": "2026-11-11T23:24:43"
+            },
+            "refund": null,
+            "paymentExpiresAt": "2026-11-11T23:39:43",
+            "closedAt": null,
+            "serverTime": "2026-11-13T08:00:00",
+            "paymentExpired": false,
+            "canPay": false,
+            "canCancel": false,
+            "patient": {
+              "id": "2120538219639595009",
+              "name": "就诊验收1",
+              "documentType": "RESIDENT_ID_CARD",
+              "documentNoMasked": "110105********1013",
+              "contactPhone": "[redacted]",
+              "contactEmail": "[redacted]"
+            },
+            "doctor": {
+              "id": "1",
+              "doctorNo": "DOC000001",
+              "name": "张医生",
+              "title": "主任医师",
+              "department": {
+                "id": "1",
+                "name": "内科"
+              },
+              "hospital": {
+                "id": "1",
+                "name": "示例市第一人民医院",
+                "address": "示例市健康路 1 号"
+              }
+            },
+            "sessionType": "MORNING_FIRST",
+            "visit": {
+              "status": "WAITING",
+              "checkedInAt": "2026-11-13T08:00:00",
+              "startedAt": null,
+              "completedAt": null,
+              "canCheckIn": false
+            }
+          },
+          {
+            "id": "2120538217181732865",
+            "appointmentNo": "APb9844c086fc3470098a18a3ef36d6676",
+            "scheduleId": "6",
+            "appointmentDate": "2026-11-13",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "status": "CONFIRMED",
+            "visitNumber": 2,
+            "createdAt": "2026-11-11T23:24:43",
+            "paymentOrderId": "2120538217198510081",
+            "paymentStatus": "PAID",
+            "workflowStatus": "CONFIRMED",
+            "amount": 10.0,
+            "currency": "CNY",
+            "paymentAttemptCount": 1,
+            "latestPaymentAttempt": {
+              "id": "2120538217269813249",
+              "attemptNo": "fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "providerOrderNo": "mock-pay-fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+              "failureCode": null,
+              "createdAt": "2026-11-11T23:24:43",
+              "completedAt": "2026-11-11T23:24:43"
+            },
+            "refund": null,
+            "paymentExpiresAt": "2026-11-11T23:39:43",
+            "closedAt": null,
+            "serverTime": "2026-11-13T08:00:00",
+            "paymentExpired": false,
+            "canPay": false,
+            "canCancel": false,
+            "patient": {
+              "id": "2120538203147591682",
+              "name": "验收就诊人",
+              "documentType": "RESIDENT_ID_CARD",
+              "documentNoMasked": "110105********0010",
+              "contactPhone": "[redacted]",
+              "contactEmail": "[redacted]"
+            },
+            "doctor": {
+              "id": "1",
+              "doctorNo": "DOC000001",
+              "name": "张医生",
+              "title": "主任医师",
+              "department": {
+                "id": "1",
+                "name": "内科"
+              },
+              "hospital": {
+                "id": "1",
+                "name": "示例市第一人民医院",
+                "address": "示例市健康路 1 号"
+              }
+            },
+            "sessionType": "MORNING_FIRST",
+            "visit": {
+              "status": "NOT_CHECKED_IN",
+              "checkedInAt": null,
+              "startedAt": null,
+              "completedAt": null,
+              "canCheckIn": true
+            }
+          },
+          {
+            "id": "2120538203495718913",
+            "appointmentNo": "APeab2bd0d4b024b52aaa03cc895f14ad0",
+            "scheduleId": "6",
+            "appointmentDate": "2026-11-13",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "status": "CANCELLED",
+            "visitNumber": 1,
+            "createdAt": "2026-11-11T23:24:40",
+            "paymentOrderId": "2120538203550244865",
+            "paymentStatus": "REFUNDED",
+            "workflowStatus": "CANCELLED_REFUNDED",
+            "amount": 10.0,
+            "currency": "CNY",
+            "paymentAttemptCount": 1,
+            "latestPaymentAttempt": {
+              "id": "2120538203688656897",
+              "attemptNo": "b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "providerOrderNo": "mock-pay-b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+              "failureCode": null,
+              "createdAt": "2026-11-11T23:24:40",
+              "completedAt": "2026-11-11T23:24:40"
+            },
+            "refund": {
+              "id": "2120538206184267777",
+              "refundNo": "REF8ddc805443ef4dd588bee91c009df0ca",
+              "amount": 10.0,
+              "currency": "CNY",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "reason": "APPOINTMENT_CANCELLED",
+              "attemptCount": 1,
+              "lastFailureCode": null,
+              "completedAt": "2026-11-11T23:24:40"
+            },
+            "paymentExpiresAt": "2026-11-11T23:39:40",
+            "closedAt": "2026-11-11T23:24:40",
+            "serverTime": "2026-11-13T08:00:00",
+            "paymentExpired": false,
+            "canPay": false,
+            "canCancel": false,
+            "patient": {
+              "id": "2120538203147591682",
+              "name": "验收就诊人",
+              "documentType": "RESIDENT_ID_CARD",
+              "documentNoMasked": "110105********0010",
+              "contactPhone": "[redacted]",
+              "contactEmail": "[redacted]"
+            },
+            "doctor": {
+              "id": "1",
+              "doctorNo": "DOC000001",
+              "name": "张医生",
+              "title": "主任医师",
+              "department": {
+                "id": "1",
+                "name": "内科"
+              },
+              "hospital": {
+                "id": "1",
+                "name": "示例市第一人民医院",
+                "address": "示例市健康路 1 号"
+              }
+            },
+            "sessionType": "MORNING_FIRST",
+            "visit": null
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/my?order=ASC",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "id": "2120538203495718913",
+            "appointmentNo": "APeab2bd0d4b024b52aaa03cc895f14ad0",
+            "scheduleId": "6",
+            "appointmentDate": "2026-11-13",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "status": "CANCELLED",
+            "visitNumber": 1,
+            "createdAt": "2026-11-11T23:24:40",
+            "paymentOrderId": "2120538203550244865",
+            "paymentStatus": "REFUNDED",
+            "workflowStatus": "CANCELLED_REFUNDED",
+            "amount": 10.0,
+            "currency": "CNY",
+            "paymentAttemptCount": 1,
+            "latestPaymentAttempt": {
+              "id": "2120538203688656897",
+              "attemptNo": "b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "providerOrderNo": "mock-pay-b3876ab8-f514-41d9-bc80-9ab7c0f629b9",
+              "failureCode": null,
+              "createdAt": "2026-11-11T23:24:40",
+              "completedAt": "2026-11-11T23:24:40"
+            },
+            "refund": {
+              "id": "2120538206184267777",
+              "refundNo": "REF8ddc805443ef4dd588bee91c009df0ca",
+              "amount": 10.0,
+              "currency": "CNY",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "reason": "APPOINTMENT_CANCELLED",
+              "attemptCount": 1,
+              "lastFailureCode": null,
+              "completedAt": "2026-11-11T23:24:40"
+            },
+            "paymentExpiresAt": "2026-11-11T23:39:40",
+            "closedAt": "2026-11-11T23:24:40",
+            "serverTime": "2026-11-13T08:00:00",
+            "paymentExpired": false,
+            "canPay": false,
+            "canCancel": false,
+            "patient": {
+              "id": "2120538203147591682",
+              "name": "验收就诊人",
+              "documentType": "RESIDENT_ID_CARD",
+              "documentNoMasked": "110105********0010",
+              "contactPhone": "[redacted]",
+              "contactEmail": "[redacted]"
+            },
+            "doctor": {
+              "id": "1",
+              "doctorNo": "DOC000001",
+              "name": "张医生",
+              "title": "主任医师",
+              "department": {
+                "id": "1",
+                "name": "内科"
+              },
+              "hospital": {
+                "id": "1",
+                "name": "示例市第一人民医院",
+                "address": "示例市健康路 1 号"
+              }
+            },
+            "sessionType": "MORNING_FIRST",
+            "visit": null
+          },
+          {
+            "id": "2120538217181732865",
+            "appointmentNo": "APb9844c086fc3470098a18a3ef36d6676",
+            "scheduleId": "6",
+            "appointmentDate": "2026-11-13",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "status": "CONFIRMED",
+            "visitNumber": 2,
+            "createdAt": "2026-11-11T23:24:43",
+            "paymentOrderId": "2120538217198510081",
+            "paymentStatus": "PAID",
+            "workflowStatus": "CONFIRMED",
+            "amount": 10.0,
+            "currency": "CNY",
+            "paymentAttemptCount": 1,
+            "latestPaymentAttempt": {
+              "id": "2120538217269813249",
+              "attemptNo": "fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "providerOrderNo": "mock-pay-fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+              "failureCode": null,
+              "createdAt": "2026-11-11T23:24:43",
+              "completedAt": "2026-11-11T23:24:43"
+            },
+            "refund": null,
+            "paymentExpiresAt": "2026-11-11T23:39:43",
+            "closedAt": null,
+            "serverTime": "2026-11-13T08:00:00",
+            "paymentExpired": false,
+            "canPay": false,
+            "canCancel": false,
+            "patient": {
+              "id": "2120538203147591682",
+              "name": "验收就诊人",
+              "documentType": "RESIDENT_ID_CARD",
+              "documentNoMasked": "110105********0010",
+              "contactPhone": "[redacted]",
+              "contactEmail": "[redacted]"
+            },
+            "doctor": {
+              "id": "1",
+              "doctorNo": "DOC000001",
+              "name": "张医生",
+              "title": "主任医师",
+              "department": {
+                "id": "1",
+                "name": "内科"
+              },
+              "hospital": {
+                "id": "1",
+                "name": "示例市第一人民医院",
+                "address": "示例市健康路 1 号"
+              }
+            },
+            "sessionType": "MORNING_FIRST",
+            "visit": {
+              "status": "NOT_CHECKED_IN",
+              "checkedInAt": null,
+              "startedAt": null,
+              "completedAt": null,
+              "canCheckIn": true
+            }
+          },
+          {
+            "id": "2120538219736064002",
+            "appointmentNo": "AP9af7af5b775f42458080049c10a5a84c",
+            "scheduleId": "6",
+            "appointmentDate": "2026-11-13",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "status": "CONFIRMED",
+            "visitNumber": 3,
+            "createdAt": "2026-11-11T23:24:43",
+            "paymentOrderId": "2120538219752841218",
+            "paymentStatus": "PAID",
+            "workflowStatus": "CONFIRMED",
+            "amount": 10.0,
+            "currency": "CNY",
+            "paymentAttemptCount": 1,
+            "latestPaymentAttempt": {
+              "id": "2120538219840921601",
+              "attemptNo": "78e50769-113d-4938-95ca-4e2d5678afb6",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "providerOrderNo": "mock-pay-78e50769-113d-4938-95ca-4e2d5678afb6",
+              "failureCode": null,
+              "createdAt": "2026-11-11T23:24:43",
+              "completedAt": "2026-11-11T23:24:43"
+            },
+            "refund": null,
+            "paymentExpiresAt": "2026-11-11T23:39:43",
+            "closedAt": null,
+            "serverTime": "2026-11-13T08:00:00",
+            "paymentExpired": false,
+            "canPay": false,
+            "canCancel": false,
+            "patient": {
+              "id": "2120538219639595009",
+              "name": "就诊验收1",
+              "documentType": "RESIDENT_ID_CARD",
+              "documentNoMasked": "110105********1013",
+              "contactPhone": "[redacted]",
+              "contactEmail": "[redacted]"
+            },
+            "doctor": {
+              "id": "1",
+              "doctorNo": "DOC000001",
+              "name": "张医生",
+              "title": "主任医师",
+              "department": {
+                "id": "1",
+                "name": "内科"
+              },
+              "hospital": {
+                "id": "1",
+                "name": "示例市第一人民医院",
+                "address": "示例市健康路 1 号"
+              }
+            },
+            "sessionType": "MORNING_FIRST",
+            "visit": {
+              "status": "WAITING",
+              "checkedInAt": "2026-11-13T08:00:00",
+              "startedAt": null,
+              "completedAt": null,
+              "canCheckIn": false
+            }
+          },
+          {
+            "id": "2120538222298783746",
+            "appointmentNo": "AP19f1f6461318466cb63f688ba4da760f",
+            "scheduleId": "6",
+            "appointmentDate": "2026-11-13",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "status": "CONFIRMED",
+            "visitNumber": 4,
+            "createdAt": "2026-11-11T23:24:44",
+            "paymentOrderId": "2120538222307172354",
+            "paymentStatus": "PAID",
+            "workflowStatus": "CONFIRMED",
+            "amount": 10.0,
+            "currency": "CNY",
+            "paymentAttemptCount": 1,
+            "latestPaymentAttempt": {
+              "id": "2120538222386864130",
+              "attemptNo": "433cbac8-dac1-4c4f-aa60-86b8df545101",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "providerOrderNo": "mock-pay-433cbac8-dac1-4c4f-aa60-86b8df545101",
+              "failureCode": null,
+              "createdAt": "2026-11-11T23:24:44",
+              "completedAt": "2026-11-11T23:24:44"
+            },
+            "refund": null,
+            "paymentExpiresAt": "2026-11-11T23:39:44",
+            "closedAt": null,
+            "serverTime": "2026-11-13T08:00:00",
+            "paymentExpired": false,
+            "canPay": false,
+            "canCancel": false,
+            "patient": {
+              "id": "2120538222193926146",
+              "name": "就诊验收2",
+              "documentType": "RESIDENT_ID_CARD",
+              "documentNoMasked": "110105********1021",
+              "contactPhone": "[redacted]",
+              "contactEmail": "[redacted]"
+            },
+            "doctor": {
+              "id": "1",
+              "doctorNo": "DOC000001",
+              "name": "张医生",
+              "title": "主任医师",
+              "department": {
+                "id": "1",
+                "name": "内科"
+              },
+              "hospital": {
+                "id": "1",
+                "name": "示例市第一人民医院",
+                "address": "示例市健康路 1 号"
+              }
+            },
+            "sessionType": "MORNING_FIRST",
+            "visit": {
+              "status": "IN_PROGRESS",
+              "checkedInAt": "2026-11-13T08:00:00",
+              "startedAt": "2026-11-13T08:00:00",
+              "completedAt": null,
+              "canCheckIn": false
+            }
+          },
+          {
+            "id": "2120538224811171841",
+            "appointmentNo": "AP06179029ec7d4c85b3aac4bdf649fc44",
+            "scheduleId": "6",
+            "appointmentDate": "2026-11-13",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "status": "CONFIRMED",
+            "visitNumber": 5,
+            "createdAt": "2026-11-11T23:24:45",
+            "paymentOrderId": "2120538224819560450",
+            "paymentStatus": "PAID",
+            "workflowStatus": "CONFIRMED",
+            "amount": 10.0,
+            "currency": "CNY",
+            "paymentAttemptCount": 1,
+            "latestPaymentAttempt": {
+              "id": "2120538224899252225",
+              "attemptNo": "80b0fcfa-1319-4b94-b7ba-7674247409f7",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "providerOrderNo": "mock-pay-80b0fcfa-1319-4b94-b7ba-7674247409f7",
+              "failureCode": null,
+              "createdAt": "2026-11-11T23:24:45",
+              "completedAt": "2026-11-11T23:24:45"
+            },
+            "refund": null,
+            "paymentExpiresAt": "2026-11-11T23:39:45",
+            "closedAt": null,
+            "serverTime": "2026-11-13T08:00:00",
+            "paymentExpired": false,
+            "canPay": false,
+            "canCancel": false,
+            "patient": {
+              "id": "2120538224714702850",
+              "name": "就诊验收3",
+              "documentType": "RESIDENT_ID_CARD",
+              "documentNoMasked": "110105********103X",
+              "contactPhone": "[redacted]",
+              "contactEmail": "[redacted]"
+            },
+            "doctor": {
+              "id": "1",
+              "doctorNo": "DOC000001",
+              "name": "张医生",
+              "title": "主任医师",
+              "department": {
+                "id": "1",
+                "name": "内科"
+              },
+              "hospital": {
+                "id": "1",
+                "name": "示例市第一人民医院",
+                "address": "示例市健康路 1 号"
+              }
+            },
+            "sessionType": "MORNING_FIRST",
+            "visit": {
+              "status": "COMPLETED",
+              "checkedInAt": "2026-11-13T08:00:00",
+              "startedAt": "2026-11-13T08:00:00",
+              "completedAt": "2026-11-13T08:00:00",
+              "canCheckIn": false
+            }
+          },
+          {
+            "id": "2120538209254498305",
+            "appointmentNo": "AP0a6e33c6f6b242b1a0f953263840340e",
+            "scheduleId": "7",
+            "appointmentDate": "2026-11-13",
+            "startTime": "10:30:00",
+            "endTime": "12:00:00",
+            "status": "EXPIRED",
+            "visitNumber": null,
+            "createdAt": "2026-11-11T23:24:41",
+            "paymentOrderId": "2120538209267081217",
+            "paymentStatus": "REFUNDED",
+            "workflowStatus": "CANCELLED_REFUNDED",
+            "amount": 10.0,
+            "currency": "CNY",
+            "paymentAttemptCount": 1,
+            "latestPaymentAttempt": {
+              "id": "2120538209342578689",
+              "attemptNo": "0706876e-827e-40ef-8a7b-6d3239cdff2a",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "providerOrderNo": "mock-pay-0706876e-827e-40ef-8a7b-6d3239cdff2a",
+              "failureCode": null,
+              "createdAt": "2026-11-11T23:24:41",
+              "completedAt": "2026-11-11T23:24:41"
+            },
+            "refund": {
+              "id": "2120538211481673730",
+              "refundNo": "REF49deb0a8522647e5b2b2e040c2a286a8",
+              "amount": 10.0,
+              "currency": "CNY",
+              "channel": "MOCK",
+              "status": "SUCCEEDED",
+              "reason": "APPOINTMENT_NOT_CONFIRMABLE",
+              "attemptCount": 1,
+              "lastFailureCode": null,
+              "completedAt": "2026-11-11T23:24:42"
+            },
+            "paymentExpiresAt": "2026-11-11T23:24:40",
+            "closedAt": "2026-11-11T23:24:41",
+            "serverTime": "2026-11-13T08:00:00",
+            "paymentExpired": true,
+            "canPay": false,
+            "canCancel": false,
+            "patient": {
+              "id": "2120538203147591682",
+              "name": "验收就诊人",
+              "documentType": "RESIDENT_ID_CARD",
+              "documentNoMasked": "110105********0010",
+              "contactPhone": "[redacted]",
+              "contactEmail": "[redacted]"
+            },
+            "doctor": {
+              "id": "1",
+              "doctorNo": "DOC000001",
+              "name": "张医生",
+              "title": "主任医师",
+              "department": {
+                "id": "1",
+                "name": "内科"
+              },
+              "hospital": {
+                "id": "1",
+                "name": "示例市第一人民医院",
+                "address": "示例市健康路 1 号"
+              }
+            },
+            "sessionType": "MORNING_SECOND",
+            "visit": null
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments/2120538217181732865/check-in",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538217181732865",
+          "appointmentNo": "APb9844c086fc3470098a18a3ef36d6676",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 2,
+          "createdAt": "2026-11-11T23:24:43",
+          "paymentOrderId": "2120538217198510081",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538217269813249",
+            "attemptNo": "fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:43",
+            "completedAt": "2026-11-11T23:24:43"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "WAITING",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": null,
+            "completedAt": null,
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments/2120538217181732865/check-in",
+      "status": 409,
+      "expectedStatus": 409,
+      "response": {
+        "code": 4502,
+        "message": "当前日期或就诊进度不允许该操作",
+        "data": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/doctor/appointments/2120538217181732865/start-visit",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentId": "2120538217181732865",
+          "appointmentNo": "APb9844c086fc3470098a18a3ef36d6676",
+          "visitNumber": 2,
+          "appointmentDate": "2026-11-13",
+          "sessionType": "MORNING_FIRST",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "visit": {
+            "status": "IN_PROGRESS",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": null
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/doctor/appointments/2120538219736064002/start-visit",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentId": "2120538219736064002",
+          "appointmentNo": "AP9af7af5b775f42458080049c10a5a84c",
+          "visitNumber": 3,
+          "appointmentDate": "2026-11-13",
+          "sessionType": "MORNING_FIRST",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "patient": {
+            "id": "2120538219639595009",
+            "name": "就诊验收1",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1013"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "visit": {
+            "status": "IN_PROGRESS",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": null
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/doctor/appointments/2120538217181732865/complete-visit",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentId": "2120538217181732865",
+          "appointmentNo": "APb9844c086fc3470098a18a3ef36d6676",
+          "visitNumber": 2,
+          "appointmentDate": "2026-11-13",
+          "sessionType": "MORNING_FIRST",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "visit": {
+            "status": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": "2026-11-13T08:00:00"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538217181732865",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538217181732865",
+          "appointmentNo": "APb9844c086fc3470098a18a3ef36d6676",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 2,
+          "createdAt": "2026-11-11T23:24:43",
+          "paymentOrderId": "2120538217198510081",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538217269813249",
+            "attemptNo": "fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-fd3ac0d5-3b0b-4f0c-bf1f-321e5339c1c1",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:43",
+            "completedAt": "2026-11-11T23:24:43"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538203147591682",
+            "name": "验收就诊人",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********0010",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": "2026-11-13T08:00:00",
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/doctor/appointments/2120538219736064002/complete-visit",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentId": "2120538219736064002",
+          "appointmentNo": "AP9af7af5b775f42458080049c10a5a84c",
+          "visitNumber": 3,
+          "appointmentDate": "2026-11-13",
+          "sessionType": "MORNING_FIRST",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "patient": {
+            "id": "2120538219639595009",
+            "name": "就诊验收1",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1013"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "visit": {
+            "status": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": "2026-11-13T08:00:00"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538219736064002",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538219736064002",
+          "appointmentNo": "AP9af7af5b775f42458080049c10a5a84c",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 3,
+          "createdAt": "2026-11-11T23:24:43",
+          "paymentOrderId": "2120538219752841218",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538219840921601",
+            "attemptNo": "78e50769-113d-4938-95ca-4e2d5678afb6",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-78e50769-113d-4938-95ca-4e2d5678afb6",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:43",
+            "completedAt": "2026-11-11T23:24:43"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:43",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538219639595009",
+            "name": "就诊验收1",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1013",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": "2026-11-13T08:00:00",
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/doctor/appointments/2120538222298783746/complete-visit",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentId": "2120538222298783746",
+          "appointmentNo": "AP19f1f6461318466cb63f688ba4da760f",
+          "visitNumber": 4,
+          "appointmentDate": "2026-11-13",
+          "sessionType": "MORNING_FIRST",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "patient": {
+            "id": "2120538222193926146",
+            "name": "就诊验收2",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1021"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "visit": {
+            "status": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": "2026-11-13T08:00:00"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538222298783746",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538222298783746",
+          "appointmentNo": "AP19f1f6461318466cb63f688ba4da760f",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 4,
+          "createdAt": "2026-11-11T23:24:44",
+          "paymentOrderId": "2120538222307172354",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538222386864130",
+            "attemptNo": "433cbac8-dac1-4c4f-aa60-86b8df545101",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-433cbac8-dac1-4c4f-aa60-86b8df545101",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:44",
+            "completedAt": "2026-11-11T23:24:44"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:44",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538222193926146",
+            "name": "就诊验收2",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********1021",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": "2026-11-13T08:00:00",
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/doctor/appointments?date=2026-11-13&sessionType=MORNING_FIRST",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "appointmentId": "2120538217181732865",
+            "visitNumber": 2,
+            "patientName": "验收就诊人",
+            "visitStatus": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "canStartVisit": false,
+            "canCompleteVisit": false
+          },
+          {
+            "appointmentId": "2120538219736064002",
+            "visitNumber": 3,
+            "patientName": "就诊验收1",
+            "visitStatus": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "canStartVisit": false,
+            "canCompleteVisit": false
+          },
+          {
+            "appointmentId": "2120538222298783746",
+            "visitNumber": 4,
+            "patientName": "就诊验收2",
+            "visitStatus": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "canStartVisit": false,
+            "canCompleteVisit": false
+          },
+          {
+            "appointmentId": "2120538224811171841",
+            "visitNumber": 5,
+            "patientName": "就诊验收3",
+            "visitStatus": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "canStartVisit": false,
+            "canCompleteVisit": false
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/doctor/sessions",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "appointmentDate": "2026-11-13",
+            "sessionType": "MORNING_FIRST",
+            "startTime": "08:00:00",
+            "endTime": "10:00:00",
+            "confirmedCount": 4,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 4
+          },
+          {
+            "appointmentDate": "2026-11-13",
+            "sessionType": "MORNING_SECOND",
+            "startTime": "10:30:00",
+            "endTime": "12:00:00",
+            "confirmedCount": 0,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          },
+          {
+            "appointmentDate": "2026-11-13",
+            "sessionType": "AFTERNOON_FIRST",
+            "startTime": "14:00:00",
+            "endTime": "16:00:00",
+            "confirmedCount": 0,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          },
+          {
+            "appointmentDate": "2026-11-13",
+            "sessionType": "AFTERNOON_SECOND",
+            "startTime": "16:30:00",
+            "endTime": "18:00:00",
+            "confirmedCount": 0,
+            "notCheckedInCount": 0,
+            "waitingCount": 0,
+            "inProgressCount": 0,
+            "completedCount": 0
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/2120538224811171841",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "id": "2120538224811171841",
+          "appointmentNo": "AP06179029ec7d4c85b3aac4bdf649fc44",
+          "scheduleId": "6",
+          "appointmentDate": "2026-11-13",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "status": "CONFIRMED",
+          "visitNumber": 5,
+          "createdAt": "2026-11-11T23:24:45",
+          "paymentOrderId": "2120538224819560450",
+          "paymentStatus": "PAID",
+          "workflowStatus": "CONFIRMED",
+          "amount": 10.0,
+          "currency": "CNY",
+          "paymentAttemptCount": 1,
+          "latestPaymentAttempt": {
+            "id": "2120538224899252225",
+            "attemptNo": "80b0fcfa-1319-4b94-b7ba-7674247409f7",
+            "channel": "MOCK",
+            "status": "SUCCEEDED",
+            "providerOrderNo": "mock-pay-80b0fcfa-1319-4b94-b7ba-7674247409f7",
+            "failureCode": null,
+            "createdAt": "2026-11-11T23:24:45",
+            "completedAt": "2026-11-11T23:24:45"
+          },
+          "refund": null,
+          "paymentExpiresAt": "2026-11-11T23:39:45",
+          "closedAt": null,
+          "serverTime": "2026-11-13T08:00:00",
+          "paymentExpired": false,
+          "canPay": false,
+          "canCancel": false,
+          "patient": {
+            "id": "2120538224714702850",
+            "name": "就诊验收3",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********103X",
+            "contactPhone": "[redacted]",
+            "contactEmail": "[redacted]"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "sessionType": "MORNING_FIRST",
+          "visit": {
+            "status": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": "2026-11-13T08:00:00",
+            "canCheckIn": false
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/doctor/appointments/2120538224811171841",
+      "status": 200,
+      "expectedStatus": 200,
+      "response": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "appointmentId": "2120538224811171841",
+          "appointmentNo": "AP06179029ec7d4c85b3aac4bdf649fc44",
+          "visitNumber": 5,
+          "appointmentDate": "2026-11-13",
+          "sessionType": "MORNING_FIRST",
+          "startTime": "08:00:00",
+          "endTime": "10:00:00",
+          "patient": {
+            "id": "2120538224714702850",
+            "name": "就诊验收3",
+            "documentType": "RESIDENT_ID_CARD",
+            "documentNoMasked": "110105********103X"
+          },
+          "doctor": {
+            "id": "1",
+            "doctorNo": "DOC000001",
+            "name": "张医生",
+            "title": "主任医师",
+            "department": {
+              "id": "1",
+              "name": "内科"
+            },
+            "hospital": {
+              "id": "1",
+              "name": "示例市第一人民医院",
+              "address": "示例市健康路 1 号"
+            }
+          },
+          "visit": {
+            "status": "COMPLETED",
+            "checkedInAt": "2026-11-13T08:00:00",
+            "startedAt": "2026-11-13T08:00:00",
+            "completedAt": "2026-11-13T08:00:00"
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/doctor/appointments/2120538224811171841/complete-visit",
+      "status": 409,
+      "expectedStatus": 409,
+      "response": {
+        "code": 4502,
+        "message": "当前日期或就诊进度不允许该操作",
+        "data": null
+      }
+    }
+  ]
+}

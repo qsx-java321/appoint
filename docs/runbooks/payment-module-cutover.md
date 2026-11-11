@@ -78,7 +78,7 @@ WHERE appointment.status = 'PENDING_PAYMENT'
 - Legacy 终态订单数量、状态和未知金额空值保持不变。
 - 新表、四时段约束、场次唯一约束、扫描索引和金额/状态约束存在；首次执行 V9 时 `booking_settings` 单行初始值为 `20 / 10.00 / CNY`，已到 V9 的库保留管理员设置，不强制改回默认。适用库存恒等式异常数为零。
 - V10 的 doctors.user_id 可空唯一关联及外键、DOCTOR 角色、visit_records 的预约一对一/外键/状态约束及两个查询索引存在；升级不改变历史订单、统一设置和就诊序号，不自动绑定医生或生成历史就诊记录。
-- 查询医生未来场次得到 D+1 至 D+7 共 28 项，且查询本身不生成 `schedules` 记录。
+- 查询医生场次得到今天至后天共 12 项，包含 `bookingClosesAt/availability/serverTime`，且查询本身不生成 `schedules` 记录。当天已截止项不可新下单；既有订单仍按自己的已存期限支付。
 - 在 dev/test 等价环境使用 [隔离验收脚本](../../scripts/compose_acceptance.py) 或正式 HTTP 示例完成 MockPay 冒烟，核对预约、支付尝试、通知、Outbox、Inbox 与库存，并验证医生绑定、四场概览、当天签到、接诊完成和双方查询一致性。curl 复测可追加 `--http-client curl --http-report /tmp/appoint-curl-report.json`；跨日只通过测试源码的 Clock 接线，不在业务接口修改时间。脚本需要预先缓存 Maven 依赖，成功清理本次资源，失败保留资源和日志；不在目标业务库生成冒烟资金记录。
 - 检查 Outbox 最老事件、DLQ、`PAID + PENDING_PAYMENT`、`REFUND_PENDING` 和长期 `CREATED/PROCESSING` 指标。
 - 全部通过后恢复写流量；先小流量观察，再完全开放。

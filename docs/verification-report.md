@@ -2,15 +2,17 @@
 
 ## 最新交付概况（2026-11-11）
 
-当前交付为新增 visit 的模块化单体，数据库最新迁移 V10，新增 7 个 API、扩展 2 个预约查询。最近常规测试 241 项通过；本次功能交付的 MySQL 36 项、消息可靠性 15 项通过；专项 curl 验收 92 次业务请求符合预期。两个集成 profile 重复执行的常规测试不重复累计。
+最新交付为三天预约窗口及场次截止：今天至后天十二项、场次开始前十五分钟停止新下单、锁后准入时间和预约/支付一致的截止快照。场次查询追加三个字段，没有新增 REST 路径、数据库迁移或事件版本；数据库仍为 V10。
 
-本文按阶段保留历史记录。下方 2026-11-09 的代码检查点和测试数量只对应当时基线；当前就诊实现、curl 记录和最终文档核对见后续 2026-11-11 章节，代码版本以 Git 提交历史为准。
+本轮完整 `./mvnw -o -Pmysql-it verify` 中常规 263 项、MySQL 37 项通过，零失败、零错误、零跳过；真实 Compose/curl 92 次业务请求符合预期。最新执行详情见文末“三天预约窗口与截止规则交付”章节及[场景证据](../.scratch/three-day-booking-time/verification/scenario-evidence.md)。本轮未重跑 `reliability-it` 专用 profile；此前的 15 项可靠性结果属于各自历史检查点。
+
+本文保留此前四模块、到院签到和专项 curl 的历史记录。旧的测试数量和二十八项目录只代表当时行为，不作为本轮结果重复累计。
 
 ## 2026-11-09 四模块历史基线
 
 验证日期：2026-11-09（Asia/Shanghai）。最终代码检查点：`a61b808`（09）；独立暂存树 `990dc71f121d17c7441621ebce9490727d3d4753` 导出为 `/tmp/booking-09-snapshot-8eo2fl37`。提交后逐字节核对源码、构建及验收文件与被测快照一致；测试后只补记issue状态和结果。10仅更新文档/HTTP示例，复用该代码基线。
 
-## 最终自动化结果
+## 2026-11-09 历史自动化结果
 
 以下命令在独立快照串行执行，均成功；两个集成profile分别运行，没有组合profile或并行Maven。
 
@@ -55,7 +57,7 @@ Compose使用 `mysql:8.4`、`redis:7.4.9`、`rabbitmq:4.3.2-management`，新建
 
 ## 文档与历史验证
 
-当前设计以 [模块设计](module-design.md)、[业务流程](business-flow.md)、[API](api.md) 及 [任务地图](../.scratch/booking-module-deepening/map.md) 为准。ADR0005取代旧半日场次/停诊写流程，ADR0006记录迟到释放和有界重试；无新增领域术语或部署架构决定。
+2026-11-09 交付时，设计以模块设计、业务流程、API 及[该阶段任务地图](../.scratch/booking-module-deepening/map.md) 为准，ADR0005取代旧半日场次/停诊写流程，ADR0006记录迟到释放和有界重试。现行设计见 [模块设计](module-design.md)、[业务流程](business-flow.md) 和 [API](api.md)；后续三天窗口与截止决定见 [ADR0007](adr/0007-three-day-booking-and-session-cutoffs.md)。
 
 2026-11-05四场次交付曾通过常规98、MySQL24；2026-11-08原代码基线也有98/24/可靠性9。这些是历史验证，不替代本报告。Flyway依赖曾提示只声明验证到MySQL8.1，V1–V9迁移已在本轮真实MySQL8.4验证；没有更改已有迁移文件。
 
@@ -202,7 +204,7 @@ python3 scripts/compose_acceptance.py --http-client curl --http-report .scratch/
 本轮验收应用进程已退出，成功运行的隔离数据库 `accept_131ba4a46ef3`、账号 `a_131ba4a46ef3` 和 vhost `accept-131ba4a46ef3` 由脚本清理。原有业务数据库、数据卷及前次失败诊断资源均未清理；Compose 依赖保留运行。脚本语法、脱敏字段、预期 HTTP 状态及 `git diff --check` 已检查。
 
 
-## 2026-11-11 提交前文档核对
+## 2026-11-11 到院功能提交前文档核对（历史记录）
 
 以当前源码和已执行的测试、curl 记录核对本次交付；本阶段仅修正文档，不重跑未改变的业务测试，不把历史记录当成新执行结果。
 
@@ -212,3 +214,52 @@ python3 scripts/compose_acceptance.py --http-client curl --http-report .scratch/
 - 就诊设计中的待实施措辞、模块依赖图和事务表已更新；改动说明的文件清单包含术语、源码、测试、脚本、迁移及脱敏 curl 记录。验证报告顶部区分最新交付和旧检查点，历史执行记录保留。
 - 检查正式 Markdown 的本地文件链接、章节锚点和代码围栏、14 段 JSON 示例、6 份 HTTP 示例中的 42 个请求和 18 个 JSON 请求体、脚本语法及 curl 记录脱敏，均通过。测试证据确认常规 241、MySQL 36、可靠性 15、curl 92 次符合预期。
 - 提交范围为本次就诊功能及其文档验收；实际 .env、compose.env、target/、scripts/__pycache__/ 不纳入提交。仅创建本地提交，不推送；提交标识以 Git 历史为准。
+
+
+## 2026-11-11 三天预约窗口与截止规则交付
+
+代码读取基线为 `5d49ff95d294ddfa0aef259f64d2907d93c50889`，以下验收在该基线之后的提交前工作区执行。被测实现与测试文件摘要见[代码清单](../.scratch/three-day-booking-time/verification/code-manifest.sha256)；设计和任务状态见[任务地图](../.scratch/three-day-booking-time/map.md)。最终交付提交以 Git 历史为准，仅作本地提交，不推送。
+
+### 实际实现
+
+- `BookingTimeRules` 集中日期、下单截止与支付 min；查询使用一次上海秒精度采样，返回今天至后天十二项，并增加 bookingClosesAt、availability、serverTime。
+- 创建在设置、场次、就诊人锁后、实际占号前采样准入时间，Java 和 SQL 同步检查三天及严格时刻条件；预约、支付共用创建时间与截止快照。
+- 支付入口继续读取本单持久化截止，停止新下单后旧单可支付；历史预约和跨日订单不重算期限。
+- 正常流程继续使用原 Controller、Service、支付确认、当天签到和医生接诊。旧创建夹具使用窗口内日期及独立测试医生，保留原测试目的。Compose 正常创建日期改为后天，补充十二项及新字段断言，报告目录在运行前初始化。
+- 新增 ADR 0007，说明替代 ADR 0005 的时间规则；数据库 V1～V10、现有退款与消息语义保留。
+
+### 实际执行结果
+
+| 命令 | 结果 | 日志 |
+| --- | --- | --- |
+| `./mvnw -o -Dtest=BookingTimeRulesTest test` | 纯规则 9 项通过 | `/tmp/three-day-01.log` |
+| `./mvnw -o -Dtest=SessionCatalogHttpTest,CatalogManagementIntegrationTest,ModuleDependencyTest test` | 聚焦 32 项通过 | `/tmp/three-day-02.log` |
+| `./mvnw -o test` | 阶段常规 258 项通过 | `/tmp/three-day-03-all.log` |
+| `./mvnw -o -Pmysql-it -Dtest=BookingTimeRulesTest -Dit.test=AppointmentLifecycleMySqlIT verify` | 规则 9 项、预约 MySQL 13 项通过 | `/tmp/three-day-03-mysql.log` |
+| `./mvnw -o -Dtest=OnDemandBookingHttpTest,PaymentAttemptIntegrationTest,AppointmentResponseAssemblerTest,VisitHttpTest test` | 正常链路聚焦 30 项通过 | `/tmp/three-day-04.log` |
+| `./mvnw -o -Pmysql-it -Dtest=BookingTimeRulesTest -Dit.test=PatientJourneyHttpMySqlIT verify` | 规则 9 项、真实 TCP/HTTP+MySQL 2 项通过 | `/tmp/three-day-04-mysql.log` |
+| `./mvnw -o -Pmysql-it verify` | 最终常规 263 项、MySQL 37 项通过 | `/tmp/three-day-final-mysql.log` |
+| `python3 scripts/compose_acceptance.py --http-client curl --http-report .scratch/three-day-booking-time/verification/curl-report.json` | 完整真实 HTTP 92 次符合预期 | `/tmp/three-day-final-compose.log` |
+
+以上成功执行均零失败、零错误、零跳过；不同阶段及 profile 的重复常规测试不累计相加。最终常规比旧 241 项增加 22 项：纯规则 9、目录 2、创建/支付时间 10、当天就诊 1；MySQL 增加同日 SQL 资格 1 项。原零点创建用例按新规则改写，不以删除原覆盖绕过窗口变化。
+
+### HTTP、资源与限制
+
+成功运行编号 `e34a8b021efb`，状态分布为 200×63、201×12、202×13、403×1、409×3，均与每个请求的 expectedStatus 相同。完整脱敏结果见[curl 报告](../.scratch/three-day-booking-time/verification/curl-report.json)。第一阶段采用真实 MySQL、RabbitMQ 和 dev/MockPay；第二阶段沿用测试源码专用业务 Clock 构造就诊日，不修改宿主系统时间。
+
+首次 Spring 聚焦测试受沙箱 JVM 附加限制影响；允许该操作后复测通过。创建时间测试初版对 MyBatis 代理的真实委托及测试事务可见性做了校正，最终测试通过。首次 Compose/curl 在写报告时因父目录不存在退出；补充报告目录初始化后从头重跑完整验收通过，不以局部请求代替最终结果。
+
+首次失败保留隔离数据库 `accept_e286a01ad92f`、账号 `a_e286a01ad92f`、RabbitMQ vhost `accept-e286a01ad92f` 和应用日志 `/tmp/appoint-accept-e286a01ad92f.log`。成功运行的数据库、账号和 vhost 已由脚本清理，验收应用进程退出。Compose 三依赖保留运行，既有业务库和数据卷未删除，实际配置凭据未写入文档或报告。
+
+本轮未重跑可靠性专用 profile，未接入真实支付渠道、未实现前端页面或部署生产。秒级截止和跨零点的精确场景由受控 Clock 的 HTTP/规则测试验证，真实 Compose 正常创建使用后天，避免执行时刻影响。文档链接、围栏、JSON、接口字段及任务依赖另做静态检查，不能代替业务验收。
+
+最终静态核对通过：29 份 Markdown、205 个本地链接/锚点、16 段 JSON 示例、18 个 HTTP JSON 请求体；场次示例与 14 个公开 DTO 字段一致。五项任务均 resolved、依赖图一致，十八个场景均已关联证据；29 个代码/测试文件摘要与被测实现匹配，92 次 curl 状态及敏感字段脱敏检查通过。Python 语法与 `git diff --check` 通过；数据库迁移与 pom.xml 未变。
+
+
+### 三天预约提交前文档收口
+
+对照现有实现、任务状态和被测代码摘要复核，修正设计文档仍将改造前代码称为“当前实现”的表述；ADR 0001、0005 补充当前适用范围与 ADR 0007 的替代关系。到院设计明确 V10 已落地，到院改动说明和旧验收章节明确历史范围；历史七天窗口及旧测试数字保留为带日期的记录。
+
+本阶段仅修正文档，未改变已验收的业务源码、测试和脚本。重新检查 29 份 Markdown、205 个本地链接/锚点、16 段 JSON 示例、42 个 HTTP 请求及 18 个 JSON 请求体；38 个 REST 路径均有 API 文档覆盖，场次示例与 14 个公开 DTO 字段一致。五项任务状态与依赖、十八个场景证据、29 个被测文件摘要、curl 的 92 项预期状态与敏感字段脱敏均通过核对。现有 Maven 报告及最终执行日志确认常规 263 项、MySQL 37 项通过，未将目录中保留的旧可靠性 XML 计入本轮结果。
+
+交付范围包含三天预约实现、测试、现行文档、任务与脱敏验收证据。实际 `.env`、`compose.env`、`target/` 和原有 `scripts/__pycache__/` 不纳入提交；详细本地提交以 Git 历史为准，不推送。

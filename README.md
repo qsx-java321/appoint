@@ -7,7 +7,7 @@
 - 账号注册、JWT 登录、当前用户查询及管理员角色访问控制。
 - 本人就诊人的新增、查询、资料修改与启停，以及证件校验和脱敏。
 - 医院、科室、医生目录管理和查询。
-- 每位医生 D+1 至 D+7 的 28 个固定预约场次查询。
+- 每位医生今天、明天、后天的 12 个固定预约场次查询，返回下单截止与可预约状态。
 - 管理员统一预约设置，默认每时段 20 个号源、挂号费 10.00 CNY。
 - 预约幂等创建、库存暂占、跨账号同证件防重复、费用和就诊资料快照。
 - 支付尝试、MockPay 回调、Transactional Outbox、RabbitMQ/Inbox、迟到支付关闭释放与退款补偿、有界重试和受控 DLQ 重放。
@@ -28,9 +28,9 @@
 | `AFTERNOON_FIRST` | 14:00–16:00 |
 | `AFTERNOON_SECOND` | 16:30–18:00 |
 
-用户按 `Asia/Shanghai` 服务端日期只能创建明天至第 7 天的预约。查询未生成场次不会写库；首次下单在事务中生成场次并复制当时统一设置。设置更新不改变已生成场次和订单费用快照。
+用户按 `Asia/Shanghai` 服务端日期可以创建今天、明天、后天的预约，必须严格早于场次开始前 15 分钟。四场下单截止依次为当天 07:45、10:15、13:45、16:15。查询未生成场次不会写库；首次下单在事务中生成场次并复制当时统一设置。设置更新不改变已生成场次和订单费用快照。
 
-当前配置的支付截止为创建时间加 15 分钟，允许跨零点。本系统确认收款的服务端时间 `paidAt` 必须严格早于截止时间；不使用渠道上报的发生时间判定资格。扫描延迟不会延长支付资格，截止后确认的收款进入退款补偿。
+订单创建时间在锁后实际占号前采样；支付截止取创建时间加 15 分钟与场次开始时间的较早者，允许跨零点。停止新下单后，原订单仍可在自己的截止前支付；历史预约及截止不随三天入口滚动重算。本系统确认收款的服务端时间 `paidAt` 必须严格早于支付截止；不使用渠道上报的发生时间判定资格。扫描延迟不会延长支付资格，截止后确认的收款进入退款补偿。
 
 ## 技术栈
 
@@ -98,7 +98,7 @@ Maven 命令串行运行；两个集成 profile 均重复运行常规测试，�
 1. [http/auth.http](http/auth.http)：注册普通用户、登录并查询当前用户；管理员需先按下文授予角色后重新登录。
 2. [http/admin-catalog.http](http/admin-catalog.http)：维护医院、科室和医生目录。
 3. [http/admin-schedule.http](http/admin-schedule.http)：读取和更新统一预约设置。
-4. [http/appointment.http](http/appointment.http)：维护就诊人、查询 28 个场次并创建预约、正式 MockPay 支付、轮询确认和退款。
+4. [http/appointment.http](http/appointment.http)：维护就诊人、查询三天 12 个场次并创建预约、正式 MockPay 支付、轮询确认和退款。
 5. [http/visit.http](http/visit.http)：绑定医生账号、用户签到和医生看板及接诊。当天签到须使用当天已确认预约，不能修改宿主系统时间。
 
 `.http` 文件适用于 IntelliJ IDEA HTTP Client，环境变量位于 `http/http-client.env.json`。
@@ -146,6 +146,7 @@ WHERE u.email = 'student@example.com';
 - [docs/module-design.md](docs/module-design.md)：预约支付及就诊模块 interface、代码入口、MANDATORY、锁序与事件恢复。
 - [docs/verification-report.md](docs/verification-report.md)：带日期和代码检查点的历史验证基线，以及后续文档核对记录；不代表每次文档更新都重跑了业务验收。
 - [docs/adr/0005-four-session-on-demand-booking.md](docs/adr/0005-four-session-on-demand-booking.md)：四时段、按需生成和历史兼容决策。
+- [docs/adr/0007-three-day-booking-and-session-cutoffs.md](docs/adr/0007-three-day-booking-and-session-cutoffs.md)：三天窗口、锁后准入与下单/支付截止决策，替代 ADR 0005 的对应时间规则。
 
 到院签到与门诊接诊：
 
@@ -156,7 +157,7 @@ WHERE u.email = 'student@example.com';
 
 ## 当前进度
 
-2026-11-11：已完成到院签到、医生看板和门诊接诊后端，新增 7 个 API、扩展 2 个预约查询接口。数据库最新迁移为 V10；常规测试 241 项、MySQL 集成 36 项、消息可靠性 15 项均通过，另有本轮 92 次真实 curl 业务请求通过。完整记录见 [验证报告](docs/verification-report.md)，历史测试数量按各自日期和检查点理解。
+2026-11-11：已完成今天、明天、后天的三天预约窗口，扩展场次截止/可预约状态，采用锁后准入时间及支付截止快照，保留当天签到与医生接诊。未新增 REST 路径或数据库迁移，最新仍为 V10；本轮常规 263 项、MySQL 集成 37 项及真实 curl 92 次请求通过。详细证据见[验证报告](docs/verification-report.md)，消息可靠性专用 profile 的旧结果按历史检查点理解。
 
 ## 当前边界
 

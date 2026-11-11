@@ -8,5 +8,6 @@ public interface CatalogService {
     List<HospitalResponse> listHospitals();
     List<DepartmentResponse> listDepartments(Long hospitalId);
     List<DoctorResponse> listDoctors(Long departmentId);
+    /** 上海时间今天至后天的十二项场次快照，含截止与可预约状态；查询不生成场次。 */
     List<ScheduleResponse> listSchedules(Long doctorId);
 }

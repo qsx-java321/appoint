@@ -29,7 +29,7 @@ public final class CreateAppointmentResponse implements AppointmentCreationResul
     private final String currency;
     /** 持久化支付截止；等于截止即失去及时支付资格，扫描延迟不延长。 */
     private final LocalDateTime paymentExpiresAt;
-    /** 本次查询统一的秒精度服务端时间，列表各行共享。 */
+    /** 创建结果组装时采样的秒精度服务端时间，供客户端计算剩余支付时间。 */
     private final LocalDateTime serverTime;
 
     @JsonCreator

@@ -10,6 +10,8 @@ import com.qsx.appoint.appointment.service.AppointmentService;
 import com.qsx.appoint.coordination.application.BookingCoordinator;
 import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
 import com.qsx.appoint.catalog.entity.Schedule;
+import com.qsx.appoint.catalog.mapper.DoctorMapper;
+import com.qsx.appoint.support.BookingTestDoctors;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.payment.entity.PaymentOrder;
@@ -85,6 +87,7 @@ class AppointmentLifecycleMySqlIT {
     @Autowired private PaymentNotificationIngress paymentNotificationIngress;
     @Autowired private MockPaymentGateway mockPaymentGateway;
     @Autowired private ScheduleMapper scheduleMapper;
+    @Autowired private DoctorMapper doctorMapper;
     @Autowired private UserMapper userMapper;
     @Autowired private PatientMapper patientMapper;
     @Autowired private PatientService patientService;
@@ -141,8 +144,27 @@ class AppointmentLifecycleMySqlIT {
     }
 
     @Test
+    void sameDaySqlAdmissionUsesStrictApplicationTimeThreshold() {
+        Long id = createSchedule(1);
+        var schedule = scheduleMapper.selectById(id);
+        var today = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        schedule.setAppointmentDate(today);
+        schedule.setSessionType("AFTERNOON_FIRST");
+        schedule.setStartTime(LocalTime.of(14, 0));
+        schedule.setEndTime(LocalTime.of(16, 0));
+        scheduleMapper.updateById(schedule);
+        assertThat(scheduleMapper.holdOneBookableSession(id, today, today.plusDays(2), today,
+                LocalTime.of(14, 0))).isZero();
+        assertThat(scheduleMapper.holdOneBookableSession(id, today.plusDays(1), today.plusDays(2), today,
+                LocalTime.of(13, 59, 59))).isZero();
+        assertThat(scheduleMapper.holdOneBookableSession(id, today, today.plusDays(2), today,
+                LocalTime.of(13, 59, 59))).isEqualTo(1);
+        assertInventory(scheduleMapper.selectById(id), 1, 0, 1, 0);
+    }
+
+    @Test
     void concurrentFirstBookingCreatesOneSessionAndNeverOversellsDefaultCapacity() throws Exception {
-        LocalDate appointmentDate = LocalDate.now().plusDays(7);
+        LocalDate appointmentDate = LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(2);
         int contenders = 21;
         CountDownLatch ready = new CountDownLatch(contenders);
         CountDownLatch start = new CountDownLatch(1);
@@ -426,8 +448,8 @@ class AppointmentLifecycleMySqlIT {
     private Long createSchedule(int capacity) {
         int sequence = SCHEDULE_SEQUENCE.getAndIncrement();
         Schedule schedule = new Schedule();
-        schedule.setDoctorId(1L + (sequence % 4) / 2);
-        schedule.setAppointmentDate(LocalDate.now().plusDays(2L + sequence / 4));
+        schedule.setDoctorId(BookingTestDoctors.copyOf(doctorMapper, 1L + (sequence % 4) / 2));
+        schedule.setAppointmentDate(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(2));
         boolean morning = sequence % 2 == 0;
         schedule.setSessionType(morning ? "MORNING_FIRST" : "AFTERNOON_FIRST");
         schedule.setStartTime(morning ? LocalTime.of(8, 0) : LocalTime.of(14, 0));

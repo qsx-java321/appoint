@@ -101,6 +101,24 @@ class VisitHttpTest {
     }
 
     @Test
+    void sameDayBookingCanBePaidCheckedInAndCompletedWithoutChangingInventory() throws Exception {
+        bind(1, 81002, admin, 200);
+        var appointment = create("2026-11-12", "AFTERNOON_FIRST", true);
+        long id = appointment.getAppointmentOrderId();
+        var facts = jdbc.queryForMap("SELECT * FROM appointment_orders WHERE id=?", id);
+        var inventory = jdbc.queryForMap("SELECT * FROM schedules WHERE id=?", facts.get("schedule_id"));
+        assertThat(getUser(id).path("visit").path("canCheckIn").asBoolean()).isTrue();
+        action("/appointments/" + id + "/check-in", owner, 200);
+        action("/doctor/appointments/" + id + "/start-visit", doctor, 200);
+        action("/doctor/appointments/" + id + "/complete-visit", doctor, 200);
+        assertThat(getUser(id).path("visit").path("status").asText()).isEqualTo("COMPLETED");
+        assertThat(getData("/doctor/appointments/" + id, doctor).path("visit").path("status").asText())
+                .isEqualTo("COMPLETED");
+        assertThat(jdbc.queryForMap("SELECT * FROM appointment_orders WHERE id=?", id)).isEqualTo(facts);
+        assertThat(jdbc.queryForMap("SELECT * FROM schedules WHERE id=?", facts.get("schedule_id"))).isEqualTo(inventory);
+    }
+
+    @Test
     void bindingPreservesRolesRequiresReloginAndRejectsRebinding() throws Exception {
         String oldToken = token(81002L, "USER");
         bind(1, 81002, owner, 403);
@@ -145,11 +163,11 @@ class VisitHttpTest {
 
     @Test
     void allAppointmentsUseStableVisitTimeOrderingIncludingCancelledAndExpired() throws Exception {
-        var later = create("2026-11-15", "MORNING_FIRST", false);
-        var early = create("2026-11-13", "AFTERNOON_SECOND", false);
-        var closed = create("2026-11-14", "MORNING_FIRST", false);
+        var later = create("2026-11-14", "MORNING_FIRST", false);
+        var early = create("2026-11-12", "AFTERNOON_SECOND", false);
+        var closed = create("2026-11-13", "MORNING_FIRST", false);
         lifecycle.cancelOwned(81001L, closed.getAppointmentOrderId());
-        var tie = create("2026-11-14", "MORNING_FIRST", false);
+        var tie = create("2026-11-13", "MORNING_FIRST", false);
         clock.set("2026-11-12T00:16:00Z");
         lifecycle.expireIfDue(later.getAppointmentOrderId());
         var desc = getData("/appointments/my", owner);

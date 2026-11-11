@@ -73,9 +73,15 @@ public interface ScheduleMapper extends BaseMapper<Schedule> {
             WHERE id = #{scheduleId} AND session_type IN (
                     'MORNING_FIRST', 'MORNING_SECOND', 'AFTERNOON_FIRST', 'AFTERNOON_SECOND')
               AND status = 'OPEN' AND available_capacity > 0
-              AND appointment_date > #{today}
+              AND appointment_date BETWEEN #{firstBookableDate} AND #{lastBookableDate}
+              AND (appointment_date > #{earliestStartDate}
+                   OR (appointment_date = #{earliestStartDate} AND start_time > #{earliestStartTime}))
             """)
-    int holdOneFutureSession(@Param("scheduleId") Long scheduleId, @Param("today") LocalDate today);
+    int holdOneBookableSession(@Param("scheduleId") Long scheduleId,
+                              @Param("firstBookableDate") LocalDate firstBookableDate,
+                              @Param("lastBookableDate") LocalDate lastBookableDate,
+                              @Param("earliestStartDate") LocalDate earliestStartDate,
+                              @Param("earliestStartTime") java.time.LocalTime earliestStartTime);
 
     @Update("""
             UPDATE schedules

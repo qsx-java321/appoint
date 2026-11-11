@@ -2,7 +2,7 @@
 
 日期：2026-11-11。状态：已实现；源码包含 V10、就诊模块及本文接口。实际验证结果见 [验证报告](../verification-report.md)。
 
-需求以 [spec.md](../../.scratch/visit-workflow/spec.md) 为准；请求响应见 [API](api.md)，实施范围及前后变化见 [改动说明](change-scope.md)。既有行为以 [现行模块设计](../module-design.md) 和 ADR 0003、0004、0005 为基础。
+需求以 [spec.md](../../.scratch/visit-workflow/spec.md) 为准；请求响应见 [API](api.md)，实施范围及前后变化见 [改动说明](change-scope.md)。既有行为以 [现行模块设计](../module-design.md) 和 ADR 0003、0004、0005 为基础；公共预约目录与截止规则现按 [ADR 0007](../adr/0007-three-day-booking-and-session-cutoffs.md) 执行。
 
 阅读顺序：第 1–7 节说明总体设计；第 8 节将 API 对应到 Controller / Service；第 9–14 节给出迁移、业务方法、SQL、DTO 和既有文件的具体改造；第 15 节给出实施单元及验证。文中的 Java、SQL 用于说明实现，省略常规 import、访问器与错误映射；具体源码及验证记录为最终依据。
 
@@ -45,9 +45,9 @@ Controller 不访问 Mapper。`visit` 业务 Service 不依赖 `bookingquery`，
 
 ### 2.2 就诊记录
 
-新增 `visit_records`，通过新增 Flyway 迁移创建，迁移使用下一可用版本 V10，不改写已执行迁移。
+已通过 Flyway 迁移 `V10__visit_workflow.sql` 新增 `visit_records`，未改写先前已执行的迁移。
 
-| 字段 | 类型建议 | 约束及说明 |
+| 字段 | 字段类型 | 约束及说明 |
 | --- | --- | --- |
 | `id` | BIGINT | 主键 |
 | `appointment_order_id` | BIGINT | 非空、唯一，外键关联预约，保留历史不级联删除 |
@@ -574,7 +574,7 @@ GROUP BY s.session_type
 
 `listSessions` 按以下步骤组装：解析医生 ID → 默认日期补今天 → 查询聚合结果并按类型建 Map → 按 `AppointmentSession.values()` 顺序遍历 → 使用枚举起止时间构造四项，缺失项填零。
 
-不使用当前 D+1 至 D+7 的公共预约目录查询代替医生当天查询，也不生成空场次。就诊表一对一约束保证聚合不会因关联产生重复计数。
+不使用今天至后天的公共可预约目录代替医生当天查询；医生看板和名单不因新下单截止而隐藏已确认预约，也不生成空场次。就诊表一对一约束保证聚合不会因关联产生重复计数。
 
 ## 13. 返回 DTO 与字段来源
 
@@ -661,7 +661,7 @@ DTO 的 ID 使用 Long，以复用项目现有字符串 ID 序列化；人数使
 | `bookingquery/application/AppointmentResponseAssembler.java` | 构造两个新字段、计算签到标记 | 脱敏、资金检查、原 workflow |
 | `architecture/ModuleDependencyTest.java` | 扩充 visit 和新只读 Mapper 的约束 | 既有四模块约束 |
 
-当前 `AppointmentLifecycleCase` 的生产构造点在 `DefaultAppointmentLifecycle.view()`，测试构造点包括 `BookingLifecyclePolicyTest`；实施时重新搜索全部构造处。`AppointmentResponse` 使用 Lombok 全参构造，新增字段后也要更新现有 Assembler 的构造调用，不能只添加 DTO 字段。
+`AppointmentLifecycleCase` 的生产构造点 `DefaultAppointmentLifecycle.view()` 与 `BookingLifecyclePolicyTest` 等测试构造点已同步传入 `doctorId`。`AppointmentResponse` 使用 Lombok 全参构造，现有 Assembler 已同步构造新增的 `sessionType` 和 `visit` 字段。
 
 不因增加字段重写整个预约响应，不迁移既有接口所在包，不把用户列表改成分页对象。创建接口继续返回 `AppointmentCreationResult`，没有新增就诊字段；查询及取消响应增加字段的影响见 API 文档。
 

@@ -11,8 +11,8 @@ import java.time.LocalDateTime;
  * @param status 暂占结果的预约状态字符串
  * @param amount 场次费用快照，单位元
  * @param currency 费用币种，当前CNY
- * @param paymentExpiresAt 按外层创建时间计算的支付截止，必须严格早于才可及时支付
- * @param createdAt 外层创建事务采样的服务端时间
+ * @param paymentExpiresAt 准入时计算并持久化的支付截止，必须严格早于才可及时支付
+ * @param createdAt 锁后实际占号前采样的预约准入时间
  */
 public record AppointmentHold(
         Long appointmentOrderId,

@@ -1,6 +1,6 @@
 # 核心模块代码设计与事务契约
 
-本文对应预约支付核心模块及新增 visit 就诊模块的当前实现。业务结果见 [业务流程](business-flow.md)，HTTP 字段见 [API](api.md)，历史实测覆盖与后续文档核对见 [验证报告](verification-report.md)。系统仍是一个 Spring Boot 应用、同一 MySQL，原四模块改造保留既有数据库和事件版本；本次就诊新增 V10 迁移，事件契约仍为 v1；Redis 仅作为本地依赖运行。
+本文对应预约支付核心模块及新增 visit 就诊模块的当前实现。业务结果见 [业务流程](business-flow.md)，HTTP 字段见 [API](api.md)，历史实测覆盖与后续文档核对见 [验证报告](verification-report.md)。系统仍是一个 Spring Boot 应用、同一 MySQL，原四模块改造保留既有数据库和事件版本；数据库最新为 V10；本轮三天窗口不新增迁移，事件契约仍为 v1；Redis 仅作为本地依赖运行。
 
 已新增 `visit` 就诊模块，详细接口与实现见 [到院签到与门诊接诊设计](visit/design.md)，前后行为见 [改动范围](visit/change-scope.md)。预约支付既有事务及消息恢复契约继续适用。
 
@@ -36,12 +36,22 @@ flowchart LR
 
 ## 主方法与内部规则
 
-- [AppointmentHoldServiceImpl](../src/main/java/com/qsx/appoint/appointment/application/AppointmentHoldServiceImpl.java) 保留创建步骤，用 private 方法封装按需场次、占号、有效占用和快照构造。日期在实际占号前重新读取，不能只使用请求开始时的日期。
+- [AppointmentHoldServiceImpl](../src/main/java/com/qsx/appoint/appointment/application/AppointmentHoldServiceImpl.java) 保留创建步骤，用 private 方法封装按需场次、占号、有效占用和快照构造。在锁后实际占号前采样准入时间，复验三天日期及场次开始前十五分钟截止，同时计算预约/支付创建时间和截止快照。
 - [PaymentNotificationServiceImpl](../src/main/java/com/qsx/appoint/payment/application/PaymentNotificationServiceImpl.java) 表达幂等短路、锁定上下文、锁下复验、纯 Policy 决策、private execute。资金结果、通知审计、成功 Outbox 和必要迟到退款保持同一事务；不另开 Executor 事务。
 - [BookingLifecyclePolicy](../src/main/java/com/qsx/appoint/coordination/application/BookingLifecyclePolicy.java) 只判断预约与支付组合事实，返回动作及关闭/退款原因，不读 Clock、数据库或渠道。Coordinator 保留归属校验、完整性、入口短路和事务顺序；事件 Processor 保留格式校验及 Inbox。
 - [BookingWorkflowProjector](../src/main/java/com/qsx/appoint/bookingquery/application/BookingWorkflowProjector.java) 负责组合状态，`AppointmentResponseAssembler` 负责支付关联完整性、可操作标记、脱敏及 DTO，查询主方法负责账号归属及一次列表时间采样。可操作标记不替代写入口权限校验；SQL、DTO 以及既有权限差异保持兼容。
 
 纯 Policy 与单一内部 Assembler 不额外增加 interface。类型化的预约/支付状态和关闭/退款原因在 Java 层使用，持久化 Entity、Mapper、HTTP 和事件继续使用既有字符串；未知存储状态转为 `INTERNAL_ERROR`。
+
+## 三天场次与时间规则
+
+[BookingTimeRules](../src/main/java/com/qsx/appoint/catalog/model/BookingTimeRules.java) 是无 Spring/数据库/Clock 依赖的共享纯规则，供 catalog 查询与 appointment 暂占调用。它集中表达上海时间 D～D+2、开始前十五分钟下单截止及支付 min 计算；payment 不反向引用该规则。
+
+`CatalogServiceImpl` 一次采样 serverTime，返回十二项；`ScheduleAvailability` 按 STARTED、CUTOFF_REACHED、FULL、AVAILABLE 的优先级派生，bookable 只在 AVAILABLE 为 true。新增 bookingClosesAt、availability、serverTime 均不持久化，GET 不创建场次。
+
+创建事务先登记 requestRegisteredAt；`CreateAppointmentHoldCommand` 不携带外层时间。暂占实现锁定设置、场次、就诊人并读取资料后，采样 acceptedAt，使用同一采样执行 Java 资格与 `holdOneBookableSession` 条件占号。SQL 比较三天范围及场次日期/开始时间是否严格晚于 acceptedAt 加十五分钟，不用数据库当前时区判定资格。
+
+acceptedAt 同时保存为预约/支付创建时间；支付截止取创建时间加配置时限与场次开始的较早者，经 `AppointmentHold`、`CreatePaymentOrderCommand` 原样复制。创建响应 serverTime 在结果组装时采样。支付尝试与详情只使用已存截止，不能再套用新下单截止；我的预约不按三天入口过滤历史。决策见 [ADR 0007](adr/0007-three-day-booking-and-session-cutoffs.md)。
 
 ## 深生命周期 interface
 
@@ -61,7 +71,7 @@ flowchart LR
 | 用例 | 事务范围与顺序 |
 | --- | --- |
 | 创建 | `BookingCreationTransaction`：幂等登记→预约暂占→支付单→幂等回执，同库提交；两个创建写 interface 都要求 MANDATORY |
-| 创建内部锁 | 统一设置→场次生成/锁定→就诊人锁定→最终日期复验及条件占号；失败回滚场次、库存、订单与幂等键 |
+| 创建内部锁 | 统一设置→场次生成/锁定→就诊人锁定→锁后准入时间、日期/截止复验及条件占号；失败回滚场次、库存、订单与幂等键 |
 | 取消/过期/对账 | 外层 Coordinator 事务；先 `AppointmentLifecycle.lock`（场次→预约），再支付父记录，必要时退款子记录；Policy 不获取锁 |
 | 成功事件 | Processor 事务：校验→Inbox登记→预约内部加锁→Policy→完整确认或关闭退款；不为普通确认重读支付单 |
 | 尝试 T1/T2 | T1 payment→attempt，事务外调用渠道，T2 先只读定位再 payment→attempt，锁后复验关联 |

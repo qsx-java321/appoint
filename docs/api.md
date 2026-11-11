@@ -76,9 +76,9 @@
 | `GET /api/v1/hospitals` | 查询医院 | 登录 |
 | `GET /api/v1/hospitals/{hospitalId}/departments` | 查询科室 | 登录 |
 | `GET /api/v1/departments/{departmentId}/doctors` | 查询医生 | 登录 |
-| `GET /api/v1/doctors/{doctorId}/schedules` | 查询未来 7 天的 28 个场次 | 登录 |
+| `GET /api/v1/doctors/{doctorId}/schedules` | 查询今天、明天、后天的 12 个场次 | 登录 |
 
-场次查询按 `Asia/Shanghai` 返回 D+1 至 D+7，每天依开始时间排序。未生成场次使用当前统一预约设置计算展示值，但 GET 不写数据库；已生成场次返回自身容量和费用快照。
+场次查询按 `Asia/Shanghai` 返回 D 至 D+2，每天依开始时间排序；每次查询统一采样秒精度 `serverTime`，十二项完全相同。未生成场次使用当前统一预约设置计算展示值，但 GET 不写数据库；已生成场次返回自身容量和费用快照。
 
 以上 GET 均返回 **200** 和数组。医院项为 `id/name/address`，科室项为 `id/name`，医生项为 `id/doctorNo/name/title/introduction`。父级 ID 不存在或没有下级时，科室、医生数组为空；医生不存在时场次数组为空。场次项字段如下：
 
@@ -94,7 +94,10 @@
   "availableCapacity": 20,
   "registrationFee": "10.00",
   "feeCurrency": "CNY",
-  "bookable": true
+  "bookable": true,
+  "bookingClosesAt": "2026-11-11T07:45:00",
+  "availability": "AVAILABLE",
+  "serverTime": "2026-11-11T07:30:00"
 }
 ```
 
@@ -107,7 +110,7 @@
 | `AFTERNOON_FIRST` | 14:00–16:00 |
 | `AFTERNOON_SECOND` | 16:30–18:00 |
 
-`bookable` 只由日期窗口和剩余量决定；约满为 `false`。新响应不包含供用户下单的 `scheduleId`、开放/截止/关闭状态或 `releaseAt`。
+`bookingClosesAt` 为场次开始前 15 分钟。`availability` 按时间、库存顺序计算：已到场次开始为 `STARTED`，未开始但已到下单截止为 `CUTOFF_REACHED`，未截止且无余量为 `FULL`，其余为 `AVAILABLE`。`bookable` 仅在 `AVAILABLE` 时为 true。当天已截止场次继续返回，不因为不可预约从数组移除。响应不提供供用户下单的内部 `scheduleId` 或 `releaseAt`；查询结果是时间快照，创建仍须复验资格。
 
 ## 管理员医院、科室与医生目录
 
@@ -174,7 +177,7 @@
 }
 ```
 
-请求不接受 `scheduleId`。按服务端 `Asia/Shanghai` 日期，只允许为 D+1 至 D+7 创建新订单；就诊日 `00:00:00` 起当天新订单失败。系统在实际占号 UPDATE 中再次校验日期，随后原子暂占库存、创建预约单和支付单。
+请求不接受 `scheduleId` 或客户端指定的价格、创建时间、截止。按服务端 `Asia/Shanghai` 日期，只允许为今天至后天（D 至 D+2）创建新订单，且必须严格早于场次开始前 15 分钟；恰好截止已不可创建。系统在场次、就诊人锁定后，实际占号前采样准入时间，Java 与条件 UPDATE 使用同一采样校验日期和时刻，并原子暂占库存、创建预约单和支付单。
 
 幂等摘要为规范化后的 `doctorId + appointmentDate + sessionType + patientId`。同键同内容返回原订单；同键不同内容返回冲突。已取消或过期后重新预约必须使用新键。
 
@@ -182,11 +185,11 @@
 
 首次创建返回 **201**，data 字段为 `appointmentOrderId`、`paymentOrderId`、`appointmentStatus`、`paymentStatus`、`amount`、`currency`、`paymentExpiresAt`、`serverTime`。幂等重放返回 **200**，data 仅含 `appointmentOrderId`、`appointmentNo`、`replayed=true`；需查询详情获取最新支付状态，不能将重放回执当首次创建响应。详情仍可返回内部 `scheduleId` 以关联历史记录。
 
-示例日期只用于说明；实际请求必须改为服务端明天至第 7 天。
+示例日期只用于说明；实际请求必须改为服务端今天、明天或后天，今天还须选择尚未到下单截止的场次。创建响应 `serverTime` 在结果组装时采样；预约、支付创建时间均为锁后准入时刻。
 
 ## 支付时间边界
 
-`paymentExpiresAt = orderCreatedAt + 15 分钟`，不再与开诊时间取较早值。订单在 23:59:59 创建时可跨零点支付到次日 00:14:59；恰好到截止时刻即不能发起有效新支付；已经发生的渠道成功回调仍记录收款事实并按迟到支付退款。
+`paymentExpiresAt = min(orderCreatedAt + 15 分钟, sessionStartsAt)`，预约与支付单保存相同的创建时间和支付截止，后续不重算。订单在 23:59:59 创建次日场次时可跨零点支付，截止为次日 00:14:59，须严格早于截止。停止创建新订单不禁止原单支付：10:14 创建的 10:30 场订单可在 10:29 前支付，即使该场 10:15 已停止接新单。支付入口只检查本单持久化截止和状态，不再检查新下单窗口或截止。已经发生的渠道成功回调仍记录收款事实并按既有规则处理。
 
 截止前本系统已经确认收款的支付，即使消息稍后消费，预约仍待支付时可继续确认。若预约仍待支付，截止时刻或之后本系统才确认的收款会使预约 EXPIRED、释放暂占、删除有效占用并进入原路全额退款；已关闭预约保持终态，只确保退款。paidAt 使用本系统处理可信通知时确认收款的服务端时间，不使用渠道上报的 occurredAt 判断截止资格。过期扫描延迟只影响状态落库时间，不延长支付资格。
 
@@ -264,7 +267,7 @@
 | 医疗目录资源仍被引用，无法删除 | `409 / 4402` |
 | 号源约满或场次不可用 | `409 / 4002` |
 | 同场有效预约重复 | `409 / 4204` |
-| 日期不在 D+1 至 D+7 | `409 / 4202` |
+| 日期不在今天至后天，或已到场次下单截止 | `409 / 4202` |
 | 幂等键同键不同内容 | `409 / 4103` |
 | 支付已到截止时刻 | `409 / 4004` |
 | 支付通知签名无效 | `400 / 4302` |
