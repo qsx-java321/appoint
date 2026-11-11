@@ -60,9 +60,10 @@ public class AppointmentController {
      * @return HTTP200及列表，空账号数据返回空列表
      */
     @GetMapping("/my") 
-    public Result<List<AppointmentResponse>> mine(Authentication authentication) 
+    public Result<List<AppointmentResponse>> mine(Authentication authentication,
+            @RequestParam(defaultValue = "DESC") AppointmentTimeOrder order)
         {
-         return Result.success(appointmentService.listMine((Long) authentication.getPrincipal())); 
+         return Result.success(appointmentService.listMine((Long) authentication.getPrincipal(), order));
         }
 
     /**

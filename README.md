@@ -12,6 +12,8 @@
 - 预约幂等创建、库存暂占、跨账号同证件防重复、费用和就诊资料快照。
 - 支付尝试、MockPay 回调、Transactional Outbox、RabbitMQ/Inbox、迟到支付关闭释放与退款补偿、有界重试和受控 DLQ 重放。
 - 待支付 15 分钟超时、用户主动取消、已支付退款、就诊序号和库存守恒。
+- 管理员绑定医生账号；用户当天签到，医生四场看板、开始及完成接诊，双方共用就诊进度。
+- 我的全部预约按就诊日期、开始时间和 ID 排序，默认 DESC，可切换 ASC。
 
 新流程不提供医院关门、医生停诊、管理员手工创建/修改/调整/关闭场次。历史 `CLOSED`、`CANCELLED_BY_HOSPITAL`、旧 `MORNING`/`AFTERNOON` 数据继续可读。
 
@@ -63,7 +65,13 @@ docker compose --env-file compose.env up -d --wait mysql redis rabbitmq
 python3 scripts/compose_acceptance.py
 ```
 
-验收入口会创建独立数据库、数据库账号和 RabbitMQ vhost，启动 dev profile，验证预约、支付、异步确认、取消退款、迟到支付释放退款及库存守恒；成功后删除验收资源，失败时保留资源标识和日志。Redis 只检查健康状态。
+使用 curl 发起所有业务 HTTP 请求并保存脱敏结果（含注册、预约、签到、医生看板与接诊）：
+
+```bash
+python3 scripts/compose_acceptance.py --http-client curl --http-report /tmp/appoint-curl-report.json
+```
+
+验收入口会创建独立数据库、数据库账号和 RabbitMQ vhost，启动 dev profile，验证预约、支付、异步确认、取消退款、迟到支付释放退款及库存守恒及医生绑定、当天签到、四状态看板和接诊完成；成功后删除验收资源，失败时保留资源标识和日志。Redis 只检查健康状态。
 
 常规测试：
 
@@ -91,12 +99,13 @@ Maven 命令串行运行；两个集成 profile 均重复运行常规测试，�
 2. [http/admin-catalog.http](http/admin-catalog.http)：维护医院、科室和医生目录。
 3. [http/admin-schedule.http](http/admin-schedule.http)：读取和更新统一预约设置。
 4. [http/appointment.http](http/appointment.http)：维护就诊人、查询 28 个场次并创建预约、正式 MockPay 支付、轮询确认和退款。
+5. [http/visit.http](http/visit.http)：绑定医生账号、用户签到和医生看板及接诊。当天签到须使用当天已确认预约，不能修改宿主系统时间。
 
 `.http` 文件适用于 IntelliJ IDEA HTTP Client，环境变量位于 `http/http-client.env.json`。
 
 ## 本地开发管理员初始化
 
-Flyway 创建 `USER`、`ADMIN` 角色和演示医疗目录，不创建账号。注册接口只赋予 `USER`，也不提供自助授予管理员角色的 HTTP 接口。
+Flyway 创建 `USER`、`ADMIN`、`DOCTOR` 角色和演示医疗目录，不创建账号。注册接口只赋予 `USER`，也不提供自助授予管理员角色的 HTTP 接口。
 
 1. 先用 `http/auth.http` 注册目标账号。下例沿用 `student@example.com`；如需同时演示普通用户权限，另注册一个不授予 `ADMIN` 的账号。
 2. 在确认过的本地开发数据库中，由有权限的维护者通过数据库客户端执行以下 SQL。先核对目标邮箱对应的用户 ID 和现有角色；邮箱应与注册后保存的小写邮箱一致。
@@ -134,13 +143,25 @@ WHERE u.email = 'student@example.com';
 - [GLOSSARY.md](GLOSSARY.md)：领域术语。
 - [docs/api.md](docs/api.md)：REST API 契约和边界。
 - [docs/business-flow.md](docs/business-flow.md)：端到端业务流程。
-- [docs/module-design.md](docs/module-design.md)：四模块 interface、代码入口、MANDATORY、锁序与事件恢复。
+- [docs/module-design.md](docs/module-design.md)：预约支付及就诊模块 interface、代码入口、MANDATORY、锁序与事件恢复。
 - [docs/verification-report.md](docs/verification-report.md)：带日期和代码检查点的历史验证基线，以及后续文档核对记录；不代表每次文档更新都重跑了业务验收。
 - [docs/adr/0005-four-session-on-demand-booking.md](docs/adr/0005-four-session-on-demand-booking.md)：四时段、按需生成和历史兼容决策。
 
+到院签到与门诊接诊：
+
+- [.scratch/visit-workflow/spec.md](.scratch/visit-workflow/spec.md)：用户“我的预约”、医生看板、状态与按钮需求。
+- [docs/visit/design.md](docs/visit/design.md)：新增 visit 模块、数据表、Service 和查询组合设计。
+- [docs/visit/api.md](docs/visit/api.md)：新增 7 个接口、扩展 2 个查询接口的现行契约。
+- [docs/visit/change-scope.md](docs/visit/change-scope.md)：实施前后行为对照、代码改动范围与验收说明。
+
+## 当前进度
+
+2026-11-11：已完成到院签到、医生看板和门诊接诊后端，新增 7 个 API、扩展 2 个预约查询接口。数据库最新迁移为 V10；常规测试 241 项、MySQL 集成 36 项、消息可靠性 15 项均通过，另有本轮 92 次真实 curl 业务请求通过。完整记录见 [验证报告](docs/verification-report.md)，历史测试数量按各自日期和检查点理解。
+
 ## 当前边界
 
-- 不开发签到、叫号或精确到分钟的就诊安排；每个场次仅维护独立就诊序号。
+- 已实现当天签到与正常接诊主线；自动叫号、爽约、状态回退、病历处方、实时推送和精确到分钟的就诊安排不在当前范围内。
+- 签到仅按上海时区就诊日期判断，当天 00:00 至次日 00:00 前均可签到，不限制在预约时段或提前若干分钟。医生开始/完成按归属和状态校验，没有额外的当天或场次时间限制，不自动结束就诊。
 - 已确认预约只能在开诊前严格超过 24 小时主动取消。
 - dev/test 使用 MockPay；真实支付渠道尚未接入。
 - 退款结果队列已声明，尚无对应监听器，未实现短信或邮件通知；Outbox 发布失败耗尽、消费进入 DLQ 等情况可能需要人工恢复，详见模块设计与切换手册。

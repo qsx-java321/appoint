@@ -1,5 +1,7 @@
 # REST API
 
+本文记录当前已实现的接口。到院签到、医生看板及接诊的 7 个新增接口与原预约查询扩展见 [就诊 API 契约](visit/api.md)。
+
 所有响应使用统一结构：
 
 ```json
@@ -192,14 +194,14 @@
 
 | 方法与路径 | 用途 |
 | --- | --- |
-| `GET /api/v1/appointments/my` | 查询当前账号预约列表 |
+| `GET /api/v1/appointments/my?order=DESC` | 查询当前账号全部预约，支持 DESC/ASC 就诊时间排序 |
 | `GET /api/v1/appointments/{id}` | 查询预约详情 |
 | `POST /api/v1/appointments/{id}/cancel` | 主动取消 |
 | `POST /api/v1/payments/{id}/attempts` | 发起支付尝试 |
 
 查询返回 **200**。取消在无需退款时返回 **200**；进入或仍处于异步退款流程时返回 **202**，message 为“退款申请已受理”，data 仍是预约详情。202 不代表渠道已经退款。重复已关闭订单的取消不重复释放，退款已经完成时返回200。
 
-详情字段保持原契约：`id`、`appointmentNo`、`scheduleId`、`appointmentDate`、`startTime`、`endTime`、`status`、`visitNumber`、`createdAt`、`paymentOrderId`、`paymentStatus`、`workflowStatus`、`amount`、`currency`、`paymentAttemptCount`、`latestPaymentAttempt`、`refund`、`paymentExpiresAt`、`closedAt`、`serverTime`、`paymentExpired`、`canPay`、`canCancel`、`patient`、`doctor`。尝试/退款摘要可为 null；退款状态用于摘要，不决定 workflow。列表各项共享截断到秒的 serverTime。
+详情和列表元素字段为：`id`、`appointmentNo`、`scheduleId`、`appointmentDate`、`startTime`、`endTime`、`status`、`visitNumber`、`createdAt`、`paymentOrderId`、`paymentStatus`、`workflowStatus`、`amount`、`currency`、`paymentAttemptCount`、`latestPaymentAttempt`、`refund`、`paymentExpiresAt`、`closedAt`、`serverTime`、`paymentExpired`、`canPay`、`canCancel`、`patient`、`doctor`、`sessionType`、`visit`。尝试/退款摘要可为 null；退款状态用于摘要，不决定 workflow。列表按就诊日期、场次开始时间、预约 ID 同向排序，默认 DESC，可指定 ASC；列表各项共享截断到秒的 serverTime。
 
 嵌套对象字段：
 
@@ -209,6 +211,7 @@
 | `doctor`（创建快照） | `id/doctorNo/name/title/department/hospital`；`department` 为 `id/name`，`hospital` 为 `id/name/address` |
 | `latestPaymentAttempt` | `id/attemptNo/channel/status/providerOrderNo/failureCode/createdAt/completedAt` |
 | `refund` | `id/refundNo/amount/currency/channel/status/reason/attemptCount/lastFailureCode/completedAt` |
+| `visit` | `status/checkedInAt/startedAt/completedAt/canCheckIn`；仅已确认预约非 null，未签到时计算 NOT_CHECKED_IN |
 
 `visitNumber` 在确认前可为 null，按同场次确认顺序分配、取消后不复用；尝试处理中的 `completedAt`、尚未成功退款的 `completedAt` 和无失败时的失败代码可为 null。详情顶层及退款摘要的 `amount` 为 JSON 数值，区别于首次创建响应的字符串金额；单位均为元。`canPay/canCancel` 是展示标记，不代替操作入口的权限、时间和状态复验。
 
@@ -269,8 +272,16 @@
 | 已确认取消已到24小时边界 | `409 / 4205` |
 | 支付渠道不可用 | `503 / 4301` |
 | 需要沿原键重试的并发冲突 | `503 / 5001` |
+| 医生档案或账号已绑定，不支持换绑 | `409 / 4501` |
+| 签到日期、就诊状态或重复动作不满足资格 | `409 / 4502` |
 | 查询状态组合或关联完整性异常 | `500 / 1002` |
 
 ## 历史兼容
 
-V9 保留旧 `MORNING`、`AFTERNOON`、空时段及历史关闭状态供读取。旧半日场次不会拆分，也不接受新预约；旧活跃订单继续按自身费用和时间快照完成支付、过期或取消。
+V9 保留旧 `MORNING`、`AFTERNOON`、空时段及历史关闭状态供读取。旧半日场次不会拆分，也不接受新预约；旧活跃订单继续按自身费用和时间快照完成支付、过期或取消。V10 只扩展医生账号关联、角色、就诊记录和查询索引，不重写历史预约或回填就诊事实。
+
+## 到院签到与门诊接诊
+
+`GET /api/v1/appointments/my` 支持可选 `order=DESC|ASC`，按就诊日期、开始时间、ID 同向排序，默认 DESC，仍返回全部预约数组。原详情、列表及取消响应追加 `sessionType` 和 `visit`；创建响应不变。已确认且无记录时计算 NOT_CHECKED_IN，其他预约的 visit 为 null。
+
+新增管理员医生绑定、用户签到及五个医生接口的路径、字段和权限见 [就诊 API](visit/api.md#2-接口总览)。医生详情仅包含预约快照、脱敏证件及就诊进度。正常动作均返回 200 和最新详情，重复动作返回 409，不覆盖原时间。

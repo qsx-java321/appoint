@@ -211,6 +211,7 @@ class ModuleDependencyTest {
     @Test
     void queryMapperHasOnlyNonLockingStaticReadMethodsIncludingInheritedSurface() {
         assertReadOnly(BookingQueryMapper.class);
+        assertReadOnly(com.qsx.appoint.bookingquery.persistence.DoctorVisitQueryMapper.class);
     }
 
     @Test
@@ -218,6 +219,18 @@ class ModuleDependencyTest {
         for (Class<?> fixture : com.qsx.appoint.architecture.fixture.WritableQueryFixtures.class.getDeclaredClasses()) {
             assertThatThrownBy(() -> assertReadOnly(fixture)).as(fixture.getName()).isInstanceOf(AssertionError.class);
         }
+    }
+
+    @Test
+    void visitBusinessLayersOnlyUseStableExternalInterfaces() {
+        noClasses().that().resideInAnyPackage("..visit.application..", "..visit.domain..", "..visit.entity..", "..visit.mapper..")
+                .should().dependOnClassesThat().resideInAnyPackage("..bookingquery..", "..appointment.mapper..",
+                        "..appointment.entity..", "..payment..", "..catalog.mapper..", "..catalog.entity..",
+                        "..user.mapper..", "..user.entity..")
+                .check(productionClasses);
+        noClasses().that().resideInAnyPackage("..appointment..", "..payment..")
+                .should().dependOnClassesThat().resideInAnyPackage("..visit.application..", "..visit.entity..", "..visit.mapper..")
+                .check(productionClasses);
     }
 
     private void assertReadOnly(Class<?> mapper) {

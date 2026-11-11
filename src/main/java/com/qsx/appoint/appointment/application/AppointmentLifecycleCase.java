@@ -15,6 +15,7 @@ import java.time.LocalTime;
  * @param paymentExpiresAt 支付截止，等于此刻已属迟到
  * @param appointmentDate 凭证就诊日期
  * @param startTime 凭证开诊时刻，用于协调层24小时取消判断
+ * @param doctorId 预约快照的医生ID，用于就诊归属校验
  * @param visitNumber 已分配的就诊序号，未确认时为null
  */
 public record AppointmentLifecycleCase(
@@ -25,5 +26,6 @@ public record AppointmentLifecycleCase(
         LocalDateTime paymentExpiresAt,
         LocalDate appointmentDate,
         LocalTime startTime,
-        Integer visitNumber) {
+        Integer visitNumber,
+        Long doctorId) {
 }

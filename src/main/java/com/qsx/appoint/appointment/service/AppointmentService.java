@@ -20,7 +20,9 @@ public interface AppointmentService {
     /**
      * 查询本人全部预约，使用同一次秒精度serverTime计算各行展示标记。
      * @param userId 已认证账号ID
-     * @return 按预约ID降序的详情列表，无记录为空列表；任一非法组合会使本次查询失败
+     * @return 默认按就诊日期、开始时间、ID降序的详情列表，无记录为空列表；任一非法组合会使本次查询失败
      */
     List<AppointmentResponse> listMine(Long userId);
+
+    List<AppointmentResponse> listMine(Long userId, AppointmentTimeOrder order);
 }

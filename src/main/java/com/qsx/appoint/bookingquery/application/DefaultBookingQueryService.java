@@ -35,9 +35,14 @@ public class DefaultBookingQueryService implements AppointmentService {
     /** {@inheritDoc} */
     @Override
     public List<AppointmentResponse> listMine(Long userId) {
+        return listMine(userId, AppointmentTimeOrder.DESC);
+    }
+    @Override
+    public List<AppointmentResponse> listMine(Long userId, AppointmentTimeOrder order) {
         // 一次列表共享时间采样，不能逐行取时导致同一次响应对截止边界判断不同。
         LocalDateTime serverTime = now();
-        return mapper.selectByUserId(userId).stream()
+        var records = order == AppointmentTimeOrder.ASC ? mapper.selectByUserIdAsc(userId) : mapper.selectByUserId(userId);
+        return records.stream()
                 .map(record -> assembler.assemble(record, serverTime))
                 .toList();
     }

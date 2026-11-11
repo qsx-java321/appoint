@@ -16,6 +16,12 @@ import java.time.LocalTime;
 @Getter
 @Setter
 public class BookingQueryRecord {
+    private String sessionType;
+    private Long visitRecordId;
+    private String visitStatus;
+    private LocalDateTime checkedInAt;
+    private LocalDateTime startedAt;
+    private LocalDateTime completedAt;
     /** 本地记录主键。 */
     private Long id;
     /** 预约业务编号，用于凭证识别。 */

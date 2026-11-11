@@ -24,7 +24,7 @@ class CatalogManagementMySqlIT {
         DriverManagerDataSource dataSource = new DriverManagerDataSource(
                 MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword());
         Flyway flyway = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(9);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(10);
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         jdbc.update("INSERT INTO hospitals (id, name, address) VALUES (901, '甲医院', '甲地址')");
         jdbc.update("INSERT INTO hospitals (id, name, address) VALUES (902, '乙医院', '乙地址')");

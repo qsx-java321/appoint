@@ -1,0 +1,97 @@
+package com.qsx.appoint.visit;
+
+import com.qsx.appoint.appointment.dto.CreateAppointmentRequest;
+import com.qsx.appoint.appointment.dto.CreateAppointmentResponse;
+import com.qsx.appoint.appointment.service.AppointmentService;
+import com.qsx.appoint.catalog.service.DoctorAccountService;
+import com.qsx.appoint.common.BusinessException;
+import com.qsx.appoint.common.ErrorCode;
+import com.qsx.appoint.coordination.application.BookingCoordinator;
+import com.qsx.appoint.support.FormalPaymentTestSupport;
+import com.qsx.appoint.visit.application.VisitService;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.*;
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Testcontainers
+@SpringBootTest
+@ActiveProfiles("test")
+@Import({FormalPaymentTestSupport.class, VisitHttpTest.TimeConfig.class})
+class VisitWorkflowMySqlIT {
+    @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
+            .withDatabaseName("appoint").withUsername("appoint").withPassword("appoint-test");
+    @DynamicPropertySource
+    static void properties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
+        registry.add("spring.datasource.username", MYSQL::getUsername);
+        registry.add("spring.datasource.password", MYSQL::getPassword);
+        registry.add("spring.datasource.driver-class-name", MYSQL::getDriverClassName);
+    }
+    @Autowired DoctorAccountService doctors;
+    @Autowired VisitService visits;
+    @Autowired BookingCoordinator bookings;
+    @Autowired AppointmentService appointments;
+    @Autowired FormalPaymentTestSupport payments;
+    @Autowired JdbcTemplate jdbc;
+    @Autowired VisitHttpTest.MutableClock clock;
+
+    @Test
+    void concurrentBindingCheckInStartAndCompletionKeepOneIdentityAndOneVisit() throws Exception {
+        jdbc.update("INSERT INTO users(id,email,password_hash) VALUES(90001,'owner-mysql@example.com','hash'),(90002,'doctor-mysql@example.com','hash')");
+        var binding = race(() -> doctors.bindAccount(1L, 90002L), () -> doctors.bindAccount(2L, 90002L));
+        assertThat(binding.stream().filter(BusinessException.class::isInstance).map(BusinessException.class::cast)
+                .map(BusinessException::getErrorCode)).containsExactly(ErrorCode.DOCTOR_ACCOUNT_ALREADY_BOUND);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_roles WHERE user_id=90002", Integer.class)).isEqualTo(1);
+        Long doctorId = doctors.requireDoctorId(90002L);
+        jdbc.update("INSERT INTO patients(id,user_id,name,document_type,document_no,contact_phone,contact_email,enabled) VALUES(90003,90001,'MySQL就诊人','RESIDENT_ID_CARD','110105199001010010','13800138000','p@example.com',TRUE)");
+        clock.set("2026-11-12T00:00:00Z");
+        var request = new CreateAppointmentRequest();
+        request.setDoctorId(doctorId); request.setPatientId(90003L);
+        request.setAppointmentDate(LocalDate.of(2026,11,13)); request.setSessionType("MORNING_FIRST");
+        var created = (CreateAppointmentResponse) bookings.create(90001L, UUID.randomUUID().toString(), request);
+        payments.pay(90001L, created.getPaymentOrderId());
+        Long id = created.getAppointmentOrderId();
+        var facts = jdbc.queryForMap("SELECT * FROM appointment_orders WHERE id=?", id);
+        var inventory = jdbc.queryForMap("SELECT * FROM schedules WHERE id=?", facts.get("schedule_id"));
+        clock.set("2026-11-13T00:00:00Z");
+        assertOneConflict(race(() -> { visits.checkIn(90001L,id); return "OK"; }, () -> { visits.checkIn(90001L,id); return "OK"; }));
+        var checkedIn = appointments.getOwned(90001L,id).getVisit().checkedInAt();
+        assertOneConflict(race(() -> { visits.startVisit(90002L,id); return "OK"; }, () -> { visits.startVisit(90002L,id); return "OK"; }));
+        var started = appointments.getOwned(90001L,id).getVisit().startedAt();
+        assertOneConflict(race(() -> { visits.completeVisit(90002L,id); return "OK"; }, () -> { visits.completeVisit(90002L,id); return "OK"; }));
+        var completed = appointments.getOwned(90001L,id);
+        assertThat(completed.getVisit().status()).isEqualTo("COMPLETED");
+        assertThat(completed.getVisit().checkedInAt()).isEqualTo(checkedIn);
+        assertThat(completed.getVisit().startedAt()).isEqualTo(started);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM visit_records WHERE appointment_order_id=?",Integer.class,id)).isEqualTo(1);
+        assertThat(jdbc.queryForMap("SELECT * FROM appointment_orders WHERE id=?",id)).isEqualTo(facts);
+        assertThat(jdbc.queryForMap("SELECT * FROM schedules WHERE id=?",facts.get("schedule_id"))).isEqualTo(inventory);
+    }
+    private void assertOneConflict(List<Object> results) {
+        assertThat(results.stream().filter("OK"::equals).count()).isEqualTo(1);
+        assertThat(results.stream().filter(BusinessException.class::isInstance).map(BusinessException.class::cast)
+                .map(BusinessException::getErrorCode)).containsExactly(ErrorCode.VISIT_STATE_ERROR);
+    }
+    private List<Object> race(Callable<?> left, Callable<?> right) throws Exception {
+        var gate = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            Callable<Object> a = () -> { gate.await(); try { return left.call(); } catch (BusinessException error) { return error; } };
+            Callable<Object> b = () -> { gate.await(); try { return right.call(); } catch (BusinessException error) { return error; } };
+            var first = executor.submit(a); var second = executor.submit(b); gate.countDown();
+            return List.of(first.get(15,TimeUnit.SECONDS),second.get(15,TimeUnit.SECONDS));
+        }
+    }
+}

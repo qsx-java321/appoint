@@ -1,6 +1,8 @@
-# 四模块代码设计与事务契约
+# 核心模块代码设计与事务契约
 
-本文对应四模块改造完成后的实现。业务结果见 [业务流程](business-flow.md)，HTTP 字段见 [API](api.md)，历史实测覆盖与后续文档核对见 [验证报告](verification-report.md)。系统仍是一个 Spring Boot 应用、同一 MySQL，四模块改造没有新增数据库迁移或事件版本；Redis 仅作为本地依赖运行。
+本文对应预约支付核心模块及新增 visit 就诊模块的当前实现。业务结果见 [业务流程](business-flow.md)，HTTP 字段见 [API](api.md)，历史实测覆盖与后续文档核对见 [验证报告](verification-report.md)。系统仍是一个 Spring Boot 应用、同一 MySQL，原四模块改造保留既有数据库和事件版本；本次就诊新增 V10 迁移，事件契约仍为 v1；Redis 仅作为本地依赖运行。
+
+已新增 `visit` 就诊模块，详细接口与实现见 [到院签到与门诊接诊设计](visit/design.md)，前后行为见 [改动范围](visit/change-scope.md)。预约支付既有事务及消息恢复契约继续适用。
 
 ## 模块职责与入口
 
@@ -9,7 +11,8 @@
 | appointment | 预约暂占、有效占用、库存、凭证快照、就诊序号 | `AppointmentHoldService`、`AppointmentCreationRequestService`、`AppointmentLifecycle` |
 | payment | 支付单、尝试、通知验签与审计、退款、Outbox、渠道调用 | `PaymentOrderCreationService`、`PaymentAttemptService`、`PaymentNotificationIngress`、`PaymentLifecycle`、`PaymentRefundOperations`、`RefundWorker` |
 | coordination | 同库创建、取消、过期、确认与对账的跨模块规则 | `BookingCoordinator`、`BookingLifecycleCoordinator`、`PaymentSucceededProcessor` |
-| bookingquery | 预约/支付/最近尝试/退款的只读联查及响应 | `AppointmentService`（现有查询入口），由 `DefaultBookingQueryService` 实现 |
+| bookingquery | 预约/支付/退款/就诊组合，以及医生四场概览、名单和详情 | `AppointmentService`、`DoctorVisitQueryService` |
+| visit | 当天签到、开始与完成接诊，共享一份就诊记录 | `VisitService`、纯规则 `VisitRules` |
 
 appointment 和 payment 写模块互不引用；coordination 使用稳定 application interface、业务事实和事件，不接触写模块 Mapper、Entity 或 implementation。HTTP Adapter 可以调用 coordination。bookingquery 可读取两侧数据及稳定类型，写模块不能反向依赖它。
 
@@ -18,6 +21,10 @@ flowchart LR
     HTTP[HTTP Adapter] --> C[coordination]
     HTTP --> P[payment interface]
     HTTP --> Q[bookingquery]
+    HTTP --> V[visit interface]
+    V --> A
+    V --> D[catalog 医生身份 interface]
+    V --> VD[(visit_records)]
     C --> A[appointment interface]
     C --> P
     P --> O[Outbox / RabbitMQ]
@@ -60,7 +67,9 @@ flowchart LR
 | 尝试 T1/T2 | T1 payment→attempt，事务外调用渠道，T2 先只读定位再 payment→attempt，锁后复验关联 |
 | 通知 | 先幂等只读短路；只读定位 attempt，再 payment→attempt→notification 复验；资金/审计/Outbox原子提交 |
 | 退款请求/worker | 请求 payment→refund→成功attempt；worker claim、complete、fail 都先 payment 再子记录，渠道退款在两段本地事务之间 |
-| 查询 | `DefaultBookingQueryService` 无写事务，不获取行锁；Mapper 只声明静态只读 SELECT |
+| 医生绑定 | `DoctorAccountService` 同库事务，医生→用户加锁，角色授予和首次条件绑定一起提交 |
+| 签到/开始/完成 | `VisitService` 各自事务，读取稳定预约事实，只写 visit_records；唯一键和原状态条件 UPDATE 防止重复 |
+| 查询 | 用户与医生组合查询无写事务，不获取行锁；Mapper 只声明静态只读 SELECT |
 
 只读定位用于找到父记录，不代替锁下复验。不能持有 payment 子记录再反向等待父记录，也不能在支付路径反向锁预约。条件 UPDATE 行数、唯一约束和 InnoDB 行锁仍是最终防线；应用 Policy 不代替数据库约束。
 
@@ -109,6 +118,16 @@ flowchart LR
 
 ## 兼容边界与验证
 
-旧 dev/test 同步模拟成功端点及 compat 支付尝试已删除，开发支付走真实 attempt→签名通知→Outbox→Inbox。正式 HTTP、schema V1–V9 与事件 v1 保持兼容。查询仍保留“到期待支付可取消”和“待确认已付 canCancel=false、写入口可取消退款”的历史差异。
+旧 dev/test 同步模拟成功端点及 compat 支付尝试已删除，开发支付走真实 attempt→签名通知→Outbox→Inbox。正式 HTTP、schema V1–V10 与事件 v1 保持兼容。查询仍保留“到期待支付可取消”和“待确认已付 canCancel=false、写入口可取消退款”的历史差异。
 
 [架构测试](../src/test/java/com/qsx/appoint/architecture/ModuleDependencyTest.java) 用生产依赖及故意违规 fixture 固定上述约束；静态 SQL 检查不是任意动态 SQL 的完整证明。接口行为用快速事务测试，锁/约束用 MySQL，传输及故障窗口用 RabbitMQ，实际 HTTP 链路用隔离 Compose；覆盖对照见 [baseline](../.scratch/booking-module-deepening/baseline.md)。
+
+## 就诊写入与医生身份
+
+`VisitService` 的三个动作各有本地事务，只读取 `AppointmentLifecycle.find()` 的稳定事实，通过 `DoctorAccountService` 解析医生，只写本模块 visit_records；不反向访问 bookingquery 或外部 Mapper。`AppointmentLifecycleCase` 追加 doctorId，其 find/lock 写授权含义不变。签到的一对一唯一键和两个带原状态条件的 UPDATE 防止并发重复操作与覆盖首次时间。
+
+`VisitRules` 是查询和写入共享的纯规则：已确认、当天、未签到才可签到；WAITING 可开始，IN_PROGRESS 可完成。当天签到不校验场次起止时间，医生动作不另限日期或时间；时间推进不自动结束就诊。医生名单不按状态重排，也不强制队首或跨行互斥。
+
+医生账号绑定按医生→用户加锁，在同库事务中增加角色并条件绑定。账号唯一约束和首次绑定条件防止换绑；角色授予不覆盖原角色。查询 Mapper 只读，医生查询按登录身份限定范围，详情用快照和既有脱敏方式。
+
+真实 HTTP 就诊验收由 scripts/compose_acceptance.py 使用测试源码中的 VisitAcceptanceApplication 替换业务 Clock；生产启动类和配置不接受该受控时间，JWT 继续使用系统时间。验收先完成支付、退款及 Outbox 发布，再重启到就诊日，避免 MockPay 内存事实丢失影响资金操作。

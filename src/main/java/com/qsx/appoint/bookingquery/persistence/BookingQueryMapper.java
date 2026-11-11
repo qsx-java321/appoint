@@ -20,7 +20,9 @@ public interface BookingQueryMapper {
                    a.doctor_name, a.doctor_title, a.department_id, a.department_name,
                    a.hospital_id, a.hospital_name, a.hospital_address, a.appointment_date,
                    a.start_time, a.end_time, a.status, a.visit_number, a.created_at,
-                   a.payment_expires_at, a.closed_at, s.status AS schedule_status,
+                   a.payment_expires_at, a.closed_at, s.status AS schedule_status, s.session_type,
+                   v.id AS visit_record_id, v.status AS visit_status,
+                   v.checked_in_at, v.started_at, v.completed_at,
                    p.id AS payment_order_id, p.user_id AS payment_user_id, p.status AS payment_status,
                    p.amount, p.currency,
                    (SELECT COUNT(*) FROM payment_attempts pac WHERE pac.payment_order_id = p.id)
@@ -41,6 +43,7 @@ public interface BookingQueryMapper {
             LEFT JOIN payment_attempts pa ON pa.id = (
                 SELECT MAX(pa2.id) FROM payment_attempts pa2 WHERE pa2.payment_order_id = p.id)
             LEFT JOIN payment_refunds r ON r.payment_order_id = p.id
+            LEFT JOIN visit_records v ON v.appointment_order_id = a.id
             """;
 
     /**
@@ -52,10 +55,12 @@ public interface BookingQueryMapper {
     BookingQueryRecord selectById(@Param("id") Long id);
 
     /**
-     * 按账号读取预约及支付摘要，预约ID降序；不加锁、不产生任何写入。
+     * 按账号读取预约及支付摘要，就诊日期、开始时间、ID降序；不加锁、不产生任何写入。
      * @param userId 账号用户主键
      * @return 组合行列表，无预约时为空
      */
-    @Select(PROJECTION + " WHERE a.user_id = #{userId} ORDER BY a.id DESC")
+    @Select(PROJECTION + " WHERE a.user_id = #{userId} ORDER BY a.appointment_date DESC, a.start_time DESC, a.id DESC")
     List<BookingQueryRecord> selectByUserId(@Param("userId") Long userId);
+    @Select(PROJECTION + " WHERE a.user_id = #{userId} ORDER BY a.appointment_date ASC, a.start_time ASC, a.id ASC")
+    List<BookingQueryRecord> selectByUserIdAsc(@Param("userId") Long userId);
 }

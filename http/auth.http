@@ -1,5 +1,5 @@
 # 选择 HTTP Client 的 local 环境；首次运行先注册，后续运行可直接登录。
-# Flyway 只创建 USER、ADMIN 角色，不会创建演示账号。
+# Flyway 创建 USER、ADMIN、DOCTOR 角色，不会创建演示账号。
 # 注册仅赋予 USER；本地管理员授权步骤见 ../README.md#本地开发管理员初始化，授权后重新登录。
 
 ### 注册用户

@@ -34,7 +34,9 @@ public enum ErrorCode {
     DEPARTMENT_NAME_EXISTS(4401, "同一医院已存在该科室", HttpStatus.CONFLICT),
     CATALOG_RESOURCE_IN_USE(4402, "该资源仍被下级资源引用，不能删除", HttpStatus.CONFLICT),
     PAYMENT_CHANNEL_UNAVAILABLE(4301, "支付渠道暂不可用", HttpStatus.SERVICE_UNAVAILABLE),
-    PAYMENT_SIGNATURE_INVALID(4302, "支付通知签名无效", HttpStatus.BAD_REQUEST);
+    PAYMENT_SIGNATURE_INVALID(4302, "支付通知签名无效", HttpStatus.BAD_REQUEST),
+    DOCTOR_ACCOUNT_ALREADY_BOUND(4501, "医生档案或账号已绑定，不支持换绑", HttpStatus.CONFLICT),
+    VISIT_STATE_ERROR(4502, "当前日期或就诊进度不允许该操作", HttpStatus.CONFLICT);
 
     private final int code;
     private final String message;

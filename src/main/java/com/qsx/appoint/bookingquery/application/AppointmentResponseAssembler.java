@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
+import com.qsx.appoint.visit.domain.VisitRules;
+import com.qsx.appoint.visit.domain.VisitStatus;
 
 /**
  * 把只读组合行转换为预约详情：校验支付关联、脱敏、组装摘要与可操作标记。
@@ -76,7 +78,14 @@ class AppointmentResponseAssembler {
                 record.getPaymentExpiresAt(), record.getClosedAt(), serverTime, paymentExpired,
                 pendingAndUnpaid && !paymentExpired,
                 pendingAndCancellable || (confirmedAndPaid && serverTime.isBefore(cancellationDeadline)),
-                patient, doctor);
+                patient, doctor, record.getSessionType(), visit(record, appointment, serverTime));
+    }
+    private AppointmentVisitResponse visit(BookingQueryRecord record, AppointmentStatus status, LocalDateTime now) {
+        if (status != AppointmentStatus.CONFIRMED) return null;
+        VisitStatus progress = record.getVisitRecordId() == null
+                ? VisitStatus.NOT_CHECKED_IN : VisitStatus.fromStored(record.getVisitStatus());
+        return new AppointmentVisitResponse(progress.name(), record.getCheckedInAt(), record.getStartedAt(),
+                record.getCompletedAt(), VisitRules.canCheckIn(status, record.getAppointmentDate(), progress, now.toLocalDate()));
     }
     /** 支付单必须存在且与预约账号相同；不能把LEFT JOIN缺失结果当作零金额未付单。 */
     private void ensurePaymentIntegrity(BookingQueryRecord record) {

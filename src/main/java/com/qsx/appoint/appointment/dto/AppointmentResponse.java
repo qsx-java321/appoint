@@ -63,4 +63,8 @@ public class AppointmentResponse {
     private final AppointmentPatientResponse patient;
     /** 创建时医生、科室和医院凭证，不随目录更新。 */
     private final AppointmentDoctorResponse doctor;
+    /** 关联场次类型，历史记录可为空或旧类型。 */
+    private final String sessionType;
+    /** 已确认预约的就诊进度，其余预约为空。 */
+    private final AppointmentVisitResponse visit;
 }
