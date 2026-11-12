@@ -40,11 +40,11 @@ class DefaultPaymentSucceededProcessor implements PaymentSucceededProcessor {
      */
     @Override
     @Transactional
-    public String process(PaymentSucceededEvent event) {
+    public PaymentSucceededResult process(PaymentSucceededEvent event) {
         validate(event);
         // Inbox登记和业务变更同事务；后续失败会撤销本次登记，成功后重投才被判为重复。
         if (inboxMapper.insertIgnore(CONSUMER, event.eventId(), "PaymentSucceeded", now()) == 0) {
-            return "DUPLICATE";
+            return PaymentSucceededResult.DUPLICATE;
         }
 
         AppointmentLifecycleCase appointment = appointments.lock(event.appointmentOrderId());
@@ -53,20 +53,20 @@ class DefaultPaymentSucceededProcessor implements PaymentSucceededProcessor {
         }
         // 以已提交的成功事件判断资格；正常确认不重读资金，已确认预约优先幂等短路。
         return switch (policy.decidePaymentConfirmation(appointment,event)) {
-            case ALREADY_CONFIRMED -> "ALREADY_CONFIRMED";
+            case ALREADY_CONFIRMED -> PaymentSucceededResult.ALREADY_CONFIRMED;
             case REFUND_CLOSED -> {
                 refunds.requestFullRefund(event.paymentOrderId(),RefundReason.APPOINTMENT_NOT_CONFIRMABLE);
-                yield "REFUND_REQUIRED";
+                yield PaymentSucceededResult.REFUND_REQUIRED;
             }
             case EXPIRE_AND_REFUND -> {
                 // 迟到收款必须同时释放暂占并确保退款；任一步失败都回滚，避免残留占号。
                 appointments.closePending(appointment,AppointmentCloseReason.PAYMENT_EXPIRED,now());
                 refunds.requestFullRefund(event.paymentOrderId(),RefundReason.APPOINTMENT_NOT_CONFIRMABLE);
-                yield "REFUND_REQUIRED";
+                yield PaymentSucceededResult.REFUND_REQUIRED;
             }
             case CONFIRM -> {
                 appointments.confirm(appointment);
-                yield "CONFIRMED";
+                yield PaymentSucceededResult.CONFIRMED;
             }
         };
     }
@@ -79,8 +79,8 @@ class DefaultPaymentSucceededProcessor implements PaymentSucceededProcessor {
     private void validate(PaymentSucceededEvent event) {
         try {
             if (event == null || event.eventVersion() != 1 || event.eventId() == null
-                    || event.occurredAt() == null || event.paymentOrderId() == null
-                    || event.appointmentOrderId() == null || event.paymentAttemptId() == null
+                    || event.occurredAt() == null || (event.paymentOrderId() == null || event.paymentOrderId() <= 0)
+                    || (event.appointmentOrderId() == null || event.appointmentOrderId() <= 0) || (event.paymentAttemptId() == null || event.paymentAttemptId() <= 0)
                     || event.amount() == null || event.amount().signum() <= 0
                     || !"CNY".equals(event.currency()) || event.channel() == null
                     || event.paidAt() == null) {

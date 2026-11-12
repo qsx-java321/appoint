@@ -2,7 +2,7 @@
 
 Type: refactor/fix
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 Blocked by: 02
 
 依据：[spec 第 6.3、7.3、7.4 节](../spec.md)。责任场景：S05～S08、S13～S15、S22～S23。
@@ -45,11 +45,13 @@ Blocked by: 02
 
 ## 完成条件
 
-- [ ] 合法旧 v1、文本/数字整数 ID 和无 Rabbit 元数据均通过。
-- [ ] 非法矩阵逐项拒绝并可追溯，退款类型/聚合校验明确。
-- [ ] 返回 enum 的调用方、装饰器和断言迁移完整。
-- [ ] Inbox 原子性、迟到退款、正常确认和退款分段行为保持；门禁成功。
+- [x] 合法旧 v1、文本/数字整数 ID 和无 Rabbit 元数据均通过。
+- [x] 非法矩阵逐项拒绝并可追溯，退款类型/聚合校验明确。
+- [x] 返回 enum 的调用方、装饰器和断言迁移完整。
+- [x] Inbox 原子性、迟到退款、正常确认和退款分段行为保持；门禁成功。
 
 ## Comments
 
 - 2026-11-12：任务已定义，依赖 02；非法输入收紧已获用户确认，尚未实施。
+
+- 2026-11-12：完成双Codec严格输入矩阵、退款envelope关联校验及内部结果enum；聚焦68项、MySQL10项、PaymentConfirmationReliabilityIT7项通过，零失败/错误/跳过。命令见/tmp/messaging-03-unit.log（-Dtest=MessageConsumerContractTest,PaymentSucceededEventCodecTest,PaymentSucceededListenerTest,PaymentSucceededProcessorIntegrationTest,AppointmentLifecycleIntegrationTest）、/tmp/messaging-03-mysql.log（-Dtest=MessageConsumerContractTest -Dit.test=LatePaymentMySqlIT,PaymentParentLockMySqlIT）、/tmp/messaging-03-reliability.log（-Dtest=MessageConsumerContractTest -Dit.test=PaymentConfirmationReliabilityIT），均 ./mvnw -o 对应profile。新增拒绝浮点/越界/非正ID、错误类型与版本形态、缺字段及聚合不符；合法数字/文本ID和额外字段兼容。

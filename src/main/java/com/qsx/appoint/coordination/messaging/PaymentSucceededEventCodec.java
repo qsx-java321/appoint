@@ -56,23 +56,14 @@ public class PaymentSucceededEventCodec {
         if (value == null || value.isBlank()) throw invalid();
         return value;
     }
-    /** 按现有JsonNode整数可转换语义读取版本，再由入口比较是否为1。 */
+    /** 仅接受整数版本1，禁止隐式小数或文本转换。 */
     private int integer(JsonNode node, String field) {
-        if (!node.required(field).canConvertToInt()) throw invalid();
-        return node.required(field).intValue();
+        com.qsx.appoint.common.messaging.MessageJsonFields.versionOne(node);
+        return 1;
     }
-    /** 兼容JSON数值或可解析Long文本ID；其他形态归为无效契约。 */
+    /** 委托共享严格整数读取，保持文本与数字ID兼容。 */
     private Long number(JsonNode node, String field) {
-        JsonNode value = node.required(field);
-        if (value.canConvertToLong()) return value.longValue();
-        if (value.isTextual()) {
-            try {
-                return Long.valueOf(value.textValue());
-            } catch (NumberFormatException exception) {
-                throw invalid();
-            }
-        }
-        throw invalid();
+        return com.qsx.appoint.common.messaging.MessageJsonFields.positiveId(node, field);
     }
     /** 金额要求JSON数值，不能把文本金额隐式转成资金事实。 */
     private BigDecimal decimal(JsonNode node, String field) {

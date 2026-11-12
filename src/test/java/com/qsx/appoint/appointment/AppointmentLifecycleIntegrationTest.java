@@ -293,8 +293,8 @@ class AppointmentLifecycleIntegrationTest {
 
         RefundRequestedEvent event = new RefundRequestedEvent(UUID.randomUUID().toString(), 1,
                 refund.getId(), refund.getRefundNo());
-        assertThat(refundWorker.process(event)).isEqualTo("SUCCEEDED");
-        assertThat(refundWorker.process(event)).isEqualTo("ALREADY_SUCCEEDED");
+        assertThat(refundWorker.process(event).name()).isEqualTo("SUCCEEDED");
+        assertThat(refundWorker.process(event).name()).isEqualTo("ALREADY_SUCCEEDED");
         assertThat(paymentRefundMapper.selectById(refund.getId()).getStatus()).isEqualTo("SUCCEEDED");
         assertThat(paymentOrderMapper.selectById(created.paymentId()).getStatus()).isEqualTo("REFUNDED");
     }

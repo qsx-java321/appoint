@@ -86,7 +86,7 @@ class PaymentSucceededListenerTest {
     void ackFailureAfterCommittedProcessingPropagatesForRedelivery() throws IOException {
         PaymentSucceededEvent event = mock(PaymentSucceededEvent.class);
         when(codec.read(any())).thenReturn(event);
-        when(processor.process(event)).thenReturn("CONFIRMED");
+        when(processor.process(event)).thenReturn(com.qsx.appoint.coordination.application.PaymentSucceededResult.CONFIRMED);
         doThrow(new IOException("ACK lost")).when(channel).basicAck(7, false);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> listener.consume(message(0), channel))
                 .isInstanceOf(IOException.class);

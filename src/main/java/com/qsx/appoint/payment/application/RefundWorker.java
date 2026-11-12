@@ -12,5 +12,5 @@ public interface RefundWorker {
      * @throws com.qsx.appoint.common.BusinessException 事件或关联无效、条件更新冲突
      * @throws RuntimeException 渠道失败，记录失败后向上传播供监听器安排重试
      */
-    String process(RefundRequestedEvent event);
+    RefundExecutionResult process(RefundRequestedEvent event);
 }

@@ -153,6 +153,7 @@ class PaymentConfirmationReliabilityIT {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("refundId", 22_006L);
         payload.put("refundNo", "REF22006");
+        payload.put("paymentOrderId", 22_004L);
         Map<String, Object> envelope = new LinkedHashMap<>();
         envelope.put("eventId", eventId);
         envelope.put("eventType", "RefundRequested");
@@ -335,10 +336,10 @@ class PaymentConfirmationReliabilityIT {
         public FailureWindow failOnce(String eventId) { window=new FailureWindow(eventId); return window; }
         @Override
         @org.springframework.transaction.annotation.Transactional
-        public String process(com.qsx.appoint.coordination.application.PaymentSucceededEvent event) {
+        public com.qsx.appoint.coordination.application.PaymentSucceededResult process(com.qsx.appoint.coordination.application.PaymentSucceededEvent event) {
             FailureWindow current=window;
             if (current != null && current.eventId.equals(event.eventId())) current.calls.incrementAndGet();
-            String result=delegate.process(event);
+            var result=delegate.process(event);
             if (current != null && current.eventId.equals(event.eventId()) && current.armed.compareAndSet(true,false)) {
                 org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
                         new org.springframework.transaction.support.TransactionSynchronization() {

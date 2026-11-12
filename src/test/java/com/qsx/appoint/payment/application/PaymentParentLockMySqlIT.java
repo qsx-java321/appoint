@@ -102,7 +102,7 @@ class PaymentParentLockMySqlIT {
             await().atMost(Duration.ofSeconds(10)).until(() -> parentIsLocked(context.paymentId()));
             assertThat(future.isDone()).isFalse();
             child.rollback();
-            assertThat(future.get(10, TimeUnit.SECONDS)).isEqualTo("SUCCEEDED");
+            assertThat(future.get(10, TimeUnit.SECONDS).name()).isEqualTo("SUCCEEDED");
         }
         assertThat(status("payment_orders", context.paymentId())).isEqualTo("REFUNDED");
     }
@@ -132,7 +132,7 @@ class PaymentParentLockMySqlIT {
                     child.rollback();
                 }
                 if (failure) assertThatThrownBy(() -> future.get(10, TimeUnit.SECONDS)).hasCauseInstanceOf(IllegalStateException.class);
-                else assertThat(future.get(10, TimeUnit.SECONDS)).isEqualTo("SUCCEEDED");
+                else assertThat(future.get(10, TimeUnit.SECONDS).name()).isEqualTo("SUCCEEDED");
             } finally { release.countDown(); }
         }
         assertThat(status("payment_refunds", event.refundId())).isEqualTo(failure ? "FAILED" : "SUCCEEDED");
@@ -164,7 +164,7 @@ class PaymentParentLockMySqlIT {
             try {
                 assertThat(entered.await(10, TimeUnit.SECONDS)).isTrue();
                 refunds.requestFullRefund(context.paymentId(), RefundReason.APPOINTMENT_CANCELLED);
-                assertThat(pool.submit(() -> worker.process(event)).get(10, TimeUnit.SECONDS)).isEqualTo("SUCCEEDED");
+                assertThat(pool.submit(() -> worker.process(event)).get(10, TimeUnit.SECONDS).name()).isEqualTo("SUCCEEDED");
                 release.countDown();
                 assertThatThrownBy(() -> first.get(10, TimeUnit.SECONDS)).hasCauseInstanceOf(IllegalStateException.class);
             } finally { release.countDown(); }

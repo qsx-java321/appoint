@@ -11,5 +11,5 @@ public interface PaymentSucceededProcessor {
      * @return DUPLICATE、ALREADY_CONFIRMED、CONFIRMED或REFUND_REQUIRED；后者不代表渠道退款已完成
      * @throws com.qsx.appoint.common.BusinessException 契约无效为VALIDATION_ERROR；关联或写入不满足预期为完整性错误
      */
-    String process(PaymentSucceededEvent event);
+    PaymentSucceededResult process(PaymentSucceededEvent event);
 }

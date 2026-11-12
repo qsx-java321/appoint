@@ -39,10 +39,10 @@ class DefaultRefundWorker implements RefundWorker {
     private final TransactionTemplate transactionTemplate;
     /** {@inheritDoc} */
     @Override
-    public String process(RefundRequestedEvent event) {
+    public RefundExecutionResult process(RefundRequestedEvent event) {
         validate(event);
         RefundWork work = transactionTemplate.execute(status -> claim(event));
-        if (work == null) return "ALREADY_SUCCEEDED";
+        if (work == null) return RefundExecutionResult.ALREADY_SUCCEEDED;
         try {
             // claim事务已结束；渠道退款不能持有数据库行锁，重试沿用同一refundNo。
             GatewayRefundSubmission submission = gatewayRegistry.require(PaymentChannel.valueOf(work.channel()))
@@ -52,7 +52,7 @@ class DefaultRefundWorker implements RefundWorker {
                 throw new IllegalStateException("渠道未确认退款成功: " + submission.status());
             }
             transactionTemplate.executeWithoutResult(status -> complete(work, submission.providerRefundNo()));
-            return "SUCCEEDED";
+            return RefundExecutionResult.SUCCEEDED;
         } catch (RuntimeException exception) {
             transactionTemplate.executeWithoutResult(status -> fail(work, exception));
             throw exception;
@@ -143,7 +143,7 @@ class DefaultRefundWorker implements RefundWorker {
     private void validate(RefundRequestedEvent event) {
         try {
             if (event == null || event.eventVersion() != 1 || event.eventId() == null
-                    || event.refundId() == null || event.refundNo() == null || event.refundNo().isBlank()) {
+                    || (event.refundId() == null || event.refundId() <= 0) || event.refundNo() == null || event.refundNo().isBlank()) {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR);
             }
             UUID.fromString(event.eventId());

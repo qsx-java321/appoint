@@ -45,8 +45,8 @@ class PaymentSucceededProcessorIntegrationTest {
                 11_004L, 11_003L, 11_005L, new BigDecimal("50.00"), "CNY", "MOCK",
                 LocalDateTime.of(2098, 12, 1, 8, 0));
 
-        assertThat(processor.process(event)).isEqualTo("CONFIRMED");
-        assertThat(processor.process(event)).isEqualTo("DUPLICATE");
+        assertThat(processor.process(event).name()).isEqualTo("CONFIRMED");
+        assertThat(processor.process(event).name()).isEqualTo("DUPLICATE");
 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT status FROM appointment_orders WHERE id = 11003", String.class)).isEqualTo("CONFIRMED");
@@ -72,7 +72,7 @@ class PaymentSucceededProcessorIntegrationTest {
                 11_004L, 11_003L, 11_005L, new BigDecimal("50.00"), "CNY", "MOCK",
                 LocalDateTime.of(2098, 12, 1, 8, 15).plusSeconds(lateSeconds));
 
-        assertThat(processor.process(event)).isEqualTo("REFUND_REQUIRED");
+        assertThat(processor.process(event).name()).isEqualTo("REFUND_REQUIRED");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT status FROM appointment_orders WHERE id = 11003", String.class))
                 .isEqualTo("EXPIRED");
@@ -82,12 +82,12 @@ class PaymentSucceededProcessorIntegrationTest {
                 "SELECT available_capacity FROM schedules WHERE id = 4", Integer.class)).isEqualTo(2);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM appointment_active_claims WHERE appointment_order_id = 11003", Integer.class)).isZero();
-        assertThat(processor.process(event)).isEqualTo("DUPLICATE");
+        assertThat(processor.process(event).name()).isEqualTo("DUPLICATE");
         PaymentSucceededEvent duplicateFact = new PaymentSucceededEvent(
                 "00000000-0000-0000-0000-000000001104", 1, event.occurredAt(), event.paymentOrderId(),
                 event.appointmentOrderId(), event.paymentAttemptId(), event.amount(), event.currency(),
                 event.channel(), event.paidAt());
-        assertThat(processor.process(duplicateFact)).isEqualTo("REFUND_REQUIRED");
+        assertThat(processor.process(duplicateFact).name()).isEqualTo("REFUND_REQUIRED");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT available_capacity FROM schedules WHERE id = 4", Integer.class)).isEqualTo(2);
         assertThat(jdbcTemplate.queryForObject(
@@ -139,7 +139,7 @@ class PaymentSucceededProcessorIntegrationTest {
             PaymentSucceededEvent event = new PaymentSucceededEvent(java.util.UUID.randomUUID().toString(), 1,
                     LocalDateTime.of(2098, 12, 1, 8, 15), 11004L, 11003L, 11005L,
                     new BigDecimal("50.00"), "CNY", "MOCK", LocalDateTime.of(2098, 12, 1, 8, 15));
-            assertThat(processor.process(event)).isEqualTo("REFUND_REQUIRED");
+            assertThat(processor.process(event).name()).isEqualTo("REFUND_REQUIRED");
         }
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=11003", String.class)).isEqualTo(status);
         assertThat(jdbcTemplate.queryForObject("SELECT available_capacity FROM schedules WHERE id=4", Integer.class)).isEqualTo(2);
@@ -303,7 +303,7 @@ class PaymentSucceededProcessorIntegrationTest {
                 "00000000-0000-0000-0000-000000001106", 1, LocalDateTime.of(2098, 12, 1, 8, 0),
                 11_004L, 11_003L, 11_005L, new BigDecimal("50.00"), "CNY", "MOCK",
                 LocalDateTime.of(2098, 12, 1, 8, 0));
-        assertThat(processor.process(event)).isEqualTo("ALREADY_CONFIRMED");
+        assertThat(processor.process(event).name()).isEqualTo("ALREADY_CONFIRMED");
         assertThat(jdbcTemplate.queryForObject("SELECT next_visit_number FROM schedules WHERE id=4", Integer.class)).isEqualTo(1);
     }
 
