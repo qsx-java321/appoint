@@ -40,13 +40,15 @@ class OutboxPublishTransaction {
         int published = 0;
         for (PaymentOutboxEvent event : events) {
             try {
-                publisher.publish(event);
-                // 只有Broker确认且未return后才标已发布；此后崩溃仍可能重发，依赖消费者幂等。
-                requireOne(outboxMapper.markPublished(event.getEventId(), now()));
-                published++;
-            } catch (Exception exception) {
+                publisher.publish(new OutboxMessage(event.getEventId(), event.getEventType(),
+                        event.getEventVersion(), event.getPayload()));
+            } catch (OutboxPublicationException exception) {
                 recordFailure(event, exception);
+                continue;
             }
+            // 数据库写失败必须传播并回滚整批，不能误记为Broker失败；已发送消息允许原ID重投。
+            requireOne(outboxMapper.markPublished(event.getEventId(), now()));
+            published++;
         }
         return published;
     }

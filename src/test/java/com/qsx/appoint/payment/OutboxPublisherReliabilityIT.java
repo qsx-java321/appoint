@@ -64,7 +64,7 @@ class OutboxPublisherReliabilityIT {
 
     @Autowired private OutboxPublisher publisher;
     @Autowired private OutboxMessagePublisher messagePublisher;
-    @Autowired private PaymentOutboxEventMapper outboxMapper;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean private PaymentOutboxEventMapper outboxMapper;
     @Autowired private RabbitTemplate rabbitTemplate;
     @Autowired private RabbitAdmin rabbitAdmin;
     @Autowired private JdbcTemplate jdbcTemplate;
@@ -175,8 +175,8 @@ class OutboxPublisherReliabilityIT {
         outboxMapper.insert(event);
         PaymentOutboxEvent stored = outboxMapper.selectById(event.getEventId());
 
-        messagePublisher.publish(stored);
-        messagePublisher.publish(stored);
+        messagePublisher.publish(new com.qsx.appoint.payment.application.OutboxMessage(stored.getEventId(), stored.getEventType(), stored.getEventVersion(), stored.getPayload()));
+        messagePublisher.publish(new com.qsx.appoint.payment.application.OutboxMessage(stored.getEventId(), stored.getEventType(), stored.getEventVersion(), stored.getPayload()));
 
         assertThat(outboxMapper.selectById(event.getEventId()).getStatus()).isEqualTo("PENDING");
         Message first = rabbitTemplate.receive(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE, 5_000);
@@ -260,6 +260,31 @@ class OutboxPublisherReliabilityIT {
         assertThat(restored.getMessageProperties().getExpiration()).isNull();
         assertThat(new String(restored.getBody(), java.nio.charset.StandardCharsets.UTF_8)).contains(eventId);
         assertThat(replay.replayOne(dlq)).isNull();
+    }
+
+    @Test
+    void databaseMarkFailureRollsBackAfterBrokerAcceptedThenReusesOriginalEvent() {
+        // 本类共享隔离容器；清除前面传输用例留下的待发夹具，避免批量发布读到无关消息。
+        jdbcTemplate.update("DELETE FROM payment_outbox_events");
+        rabbitAdmin.purgeQueue(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE);
+        PaymentOutboxEvent event = pendingEvent();
+        outboxMapper.insert(event);
+        org.mockito.Mockito.doThrow(new IllegalStateException("mark failed"))
+                .when(outboxMapper).markPublished(org.mockito.ArgumentMatchers.eq(event.getEventId()), org.mockito.ArgumentMatchers.any());
+        try {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> publisher.publishDue())
+                    .isInstanceOf(IllegalStateException.class);
+            assertThat(outboxMapper.selectById(event.getEventId()).getStatus()).isEqualTo("PENDING");
+            assertThat(outboxMapper.selectById(event.getEventId()).getPublishAttempts()).isZero();
+            Message first = rabbitTemplate.receive(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE, 5000);
+            assertThat(first).isNotNull();
+            assertThat(first.getMessageProperties().getMessageId()).isEqualTo(event.getEventId());
+        } finally { org.mockito.Mockito.reset(outboxMapper); }
+        assertThat(publisher.publishDue()).isEqualTo(1);
+        Message retry = rabbitTemplate.receive(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE,5000);
+        assertThat(retry).isNotNull();
+        assertThat(retry.getMessageProperties().getMessageId()).isEqualTo(event.getEventId());
+        assertThat(retry.getBody()).isEqualTo(outboxMapper.selectById(event.getEventId()).getPayload().getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     private void forceDue(String eventId) {

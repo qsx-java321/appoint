@@ -2,7 +2,7 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 Blocked by: 03
 
 依据：[spec 第 5、7.2、11 节](../spec.md)。责任场景：S04、S09～S12、S28。
@@ -39,11 +39,13 @@ Blocked by: 03
 
 ## 完成条件
 
-- [ ] 发布接口无 Entity/AMQP 参数，异常契约明确。
-- [ ] Rabbit sender 已迁移，原实现删除且仅注册一个 Adapter。
-- [ ] 原文、ID、状态与退避保持；数据库标记失败不能伪装发布成功。
-- [ ] 聚焦及真实发布门禁成功，场景证据和注释更新。
+- [x] 发布接口无 Entity/AMQP 参数，异常契约明确。
+- [x] Rabbit sender 已迁移，原实现删除且仅注册一个 Adapter。
+- [x] 原文、ID、状态与退避保持；数据库标记失败不能伪装发布成功。
+- [x] 聚焦及真实发布门禁成功，场景证据和注释更新。
 
 ## Comments
 
 - 2026-11-12：任务已定义，依赖 03；仍采用持锁发布，未做租约优化。
+
+- 2026-11-12：发布接口改为不可变OutboxMessage和明确异常，Rabbit sender迁至messaging；数据库标记异常传播回滚整批。./mvnw -o clean test 常规291项通过；./mvnw -o -Preliability-it -Dtest=ConfirmedMessagePublisherTest -Dit.test=OutboxPublisherReliabilityIT verify：确认单测5项、可靠性9项通过。日志/tmp/messaging-04-unit.log、/tmp/messaging-04-reliability.log。新增故障测试修正隔离夹具及MySQL JSON规范化的期望，异常摘要保留底层原因，最终完整重跑通过。
