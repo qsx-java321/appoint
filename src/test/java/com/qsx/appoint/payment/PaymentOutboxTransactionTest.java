@@ -22,7 +22,8 @@ import static org.assertj.core.api.Assertions.*;
 class PaymentOutboxTransactionTest {
     @Autowired PaymentOutbox outbox;
     @Autowired PaymentOutboxEventMapper events;
-    @Autowired ObjectMapper mapper;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean ObjectMapper mapper;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Autowired TransactionTemplate transactions;
 
     @ParameterizedTest
@@ -47,6 +48,22 @@ class PaymentOutboxTransactionTest {
             return eventId;
         });
         assertThat(events.selectById(rolledBack)).isNull();
+    }
+
+    @Test
+    void serializationFailureRollsBackTheCallersBusinessWrite() throws Exception {
+        String email = "outbox-rollback-" + java.util.UUID.randomUUID() + "@example.com";
+        int before = jdbc.queryForObject("SELECT COUNT(*) FROM payment_outbox_events",Integer.class);
+        org.mockito.Mockito.doThrow(new com.fasterxml.jackson.core.JsonProcessingException("serialize failed") {})
+                .when(mapper).writeValueAsString(org.mockito.ArgumentMatchers.any(PaymentEventEnvelope.class));
+        try {
+            assertThatThrownBy(() -> transactions.executeWithoutResult(status -> {
+                jdbc.update("INSERT INTO users(email,password_hash) VALUES (?,?)",email,"test");
+                outbox.recordRefundFailed(new RefundFailedPayload(71L,"REF71",51L,null,"failed"),LocalDateTime.now());
+            })).isInstanceOf(com.qsx.appoint.common.BusinessException.class);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE email=?",Integer.class,email)).isZero();
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM payment_outbox_events",Integer.class)).isEqualTo(before);
+        } finally { org.mockito.Mockito.reset(mapper); }
     }
 
     @Test

@@ -92,9 +92,21 @@ WHERE appointment.status = 'PENDING_PAYMENT'
 - RabbitMQ 不可用：不回退已提交的支付结果，恢复 Broker、绑定及发布配置后，尚处于 PENDING 的到期 Outbox 可继续发布；已 PUBLISHED 只说明发布获确认，不证明消费完成。
 - Outbox FAILED：当前发布器不会自动领取，对账也只计数报告。先核实 last_error、发布确认的不确定窗口、原事件及业务结果，再制定单独受控修复方案；当前无通用 Outbox FAILED 恢复接口。它不是 RabbitMQ DLQ，不能调用 DLQ 重放服务恢复，也不能重新生成 eventId 或改写 payload。
 - 消费或退款异常：定位对应队列、eventId/refundNo、业务结果及重试计数，必要时停用消费者。支付成功 Inbox 与业务同事务；退款 worker 为分段事务，渠道可能已退款，即使本地保存或 ACK 失败仍须按原 refundNo 幂等重试，不能推断整次操作已经回滚。
-- DLQ：修复根因后可由受控运维调用 `DeadLetterReplayService.replayOne`，仅允许登记队列；当前没有 REST 重放接口。它保留原正文/eventId、清除重试计数/TTL，确认转发成功后才 ACK 原 DLQ 消息，失败则保留。退款结果队列目前没有监听器，重放这类结果消息不会自动通知用户。
+- DLQ：修复根因后可由受控运维调用 `DeadLetterReplayService.replayOne(ReplayTarget)`，应用接口由 RabbitDeadLetterReplayService 实现，仅允许登记逻辑目标；当前没有 REST 重放接口。它保留原正文/eventId、清除重试计数/TTL，确认转发成功后才 ACK 原 DLQ 消息，失败则保留。退款结果队列目前没有监听器，重放这类结果消息不会自动通知用户。
 - 对账：当前每 5 分钟执行，按 5 分钟滞留阈值恢复已付待确认（按 paidAt 确认或关闭退款）、为已关闭已付缺退款的预约补申请。长期 Outbox、退款、支付尝试及关联异常仅报告人工项，不自动重置 FAILED、重放 DLQ 或查询渠道资金结果。
 - 任何无法证明安全的资金/库存不一致转人工处理，不擅自修改支付成功事实或重新占用号源。
+
+### 6.1 受控重放 Java 契约
+
+通过已注入的 DeadLetterReplayService 调用，不手动 new 接口，不向接口传任意物理队列：
+
+```java
+ReplayResult result = replayService.replayOne(ReplayTarget.PAYMENT_SUCCEEDED);
+```
+
+目标 PAYMENT_SUCCEEDED、REFUND_REQUESTED、REFUND_RESULT 分别映射原支付成功、退款执行、退款结果 DLQ。EMPTY 表示未领取消息；REPLAYED 表示转发已获确认，尚不证明消费者完成。REPLAYED 的 eventId 也可能为空，因为原文缺ID时不伪造；应按原文/队列定位，不能误报成空队列。
+
+转发失败保留原消息并传播异常，修复根因后再调用。退款结果仍无监听器。OutboxPublicationException 的超时/连接失败不表示 Broker 一定未收到；数据库发布标记失败回滚整批可能产生重发，应核对原事件与 Inbox，不能创建新ID或清除幂等凭证。
 
 ## 7. 收尾记录
 

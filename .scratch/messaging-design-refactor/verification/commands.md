@@ -35,3 +35,16 @@ DLQ重放拆为应用接口、三个逻辑目标与Rabbit适配器；EMPTY与无
 ## 任务08
 
 完整 ./mvnw -o -Pmysql-it verify：常规318+MySQL38通过；完整 ./mvnw -o -Preliability-it verify：常规318+可靠性16通过，全部零失败/错误/跳过。日志/tmp/messaging-08-mysql.log、/tmp/messaging-08-reliability.log。S12实际证明整批发布标记回滚及原ID重发只确认一次；S24证明同refundNo与同providerRefundNo收敛。首次MySQL新用例的代理故障注入方式已修正后全量重跑；新spy发现旧退款夹具实际失败于未注册WECHAT渠道，已改为注册Mock渠道注入失败并验证实际refund三次调用，可靠性完整重跑成功。
+
+## 任务09最终验收
+
+- `./mvnw -o clean test`：318项通过（收口补充测试前），日志 `/tmp/messaging-09-unit.log`。
+- 补充重放结果路由/ACK-NACK异常断言后，`./mvnw -o -Preliability-it verify`：常规322、可靠性16项通过，日志 `/tmp/messaging-09-reliability.log`。
+- 再补充序列化失败回滚调用方业务写入的直接断言后，`./mvnw -o test`：最终常规323项通过，日志 `/tmp/messaging-09-unit-final.log`。新增的是普通测试，生产代码、MySQL及可靠性测试未变，已通过的完整MySQL38/可靠性16继续有效。各命令均零失败/错误/跳过，重复常规不累计。
+- `python3 scripts/compose_acceptance.py --http-client curl --http-report .scratch/messaging-design-refactor/verification/curl-report.json`：92次真实业务请求，全部expectedStatus一致，日志 `/tmp/messaging-09-compose.log`。运行951cb43e2b90，200×63、201×12、202×13、403×1、409×3均符合预期；仍使用MockPay与测试专用就诊日Clock。
+- 递归检查报告中的Token、密码、签名、证件及联系方式均脱敏。只读确认本次隔离数据库/账号/vhost均已清理；检查vhost捕获时初次工具返回None，改用capture=True后复核成功，没有新增/删除资源。验收应用已退出，Compose三依赖健康保留运行，既有数据卷与旧失败资源未清理。
+- `git diff --check`、Markdown链接/锚点/围栏与任务状态检查通过；相关源码与测试摘要见 code-manifest.sha256。
+
+## 任务09
+
+正式设计、README、恢复手册、逐场景证据同步；最终常规323、完整MySQL38、可靠性16、隔离curl92全部成功，零失败/错误/跳过。四条重放普通测试及序列化失败回滚断言在收口补齐并重验。命令、源摘要、资源清理及限制见verification/；九项完成，每步验收后单独提交，不推送。

@@ -2,9 +2,9 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 
-日期：2026-11-12。方案已确认，实施完成数 **8 / 9**。
+日期：2026-11-12。方案已确认，实施完成数 **9 / 9**。
 
 ## 入口与当前状态
 
@@ -13,7 +13,7 @@ Status: ready-for-agent
 - [场景清单](scenarios.md)：S01～S32 的验证责任。
 - [验收证据约定](verification/README.md)：实际执行记录位置。
 
-当前只有方案文档，不代表代码、测试或业务验收已经完成。正式 README/设计/API/runbook 仍描述已实现的现状，实施收口后再同步。
+九项代码、测试与文档改造已完成；最终常规323、MySQL38、可靠性16、真实curl92均通过。正式README/设计/runbook已同步，逐场景与源摘要见verification。
 
 ## 任务与依赖
 
@@ -27,7 +27,7 @@ Status: ready-for-agent
 | 06 | [DLQ 重放接口与适配器](issues/06-dead-letter-replay.md) | refactor | resolved | 05 |
 | 07 | [架构约束与注释复核](issues/07-architecture-and-comments.md) | test/docs | resolved | 06 |
 | 08 | [真实事务与 Rabbit 故障窗口门禁](issues/08-reliability-gates.md) | test | resolved | 07 |
-| 09 | [正式文档同步与完整验收](issues/09-documentation-and-acceptance.md) | docs/test | ready-for-agent | 08 |
+| 09 | [正式文档同步与完整验收](issues/09-documentation-and-acceptance.md) | docs/test | resolved | 08 |
 
 ```mermaid
 flowchart LR
@@ -51,7 +51,7 @@ flowchart LR
 4. 根据实际结果更新场景证据及 Comments；实现、注释和本任务门禁都完成才 resolved。
 5. Maven 串行运行。最后四类业务验收都成功才把整个 map/spec 标为 resolved。
 6. 未运行、环境阻塞、意外跳过分别记录；不引用历史通过替代本轮。
-7. 无默认提交或推送授权，不暂存凭据、缓存、target 或历史失败资源。
+7. 用户已授权每步验收后单独提交 Git，不推送；不暂存凭据、缓存、target 或历史失败资源。
 
 ## 每阶段交付
 
@@ -94,3 +94,19 @@ flowchart LR
 - 2026-11-12：07 新增AMQP/contract/common依赖约束正反例及Entity入参/record成员泄漏负例，补足四类wire字段与接口事务/失败说明；./mvnw -o test 常规318项通过，含新增架构3项和全部Codec/Listener/重放契约测试。日志/tmp/messaging-07-unit.log。S29接口与技术说明完成，正式runbook由09收口。
 
 - 2026-11-12：08 完整 ./mvnw -o -Pmysql-it verify：常规318+MySQL38通过；完整 ./mvnw -o -Preliability-it verify：常规318+可靠性16通过，全部零失败/错误/跳过。日志/tmp/messaging-08-mysql.log、/tmp/messaging-08-reliability.log。S12实际证明整批发布标记回滚及原ID重发只确认一次；S24证明同refundNo与同providerRefundNo收敛。首次MySQL新用例的代理故障注入方式已修正后全量重跑；新spy发现旧退款夹具实际失败于未注册WECHAT渠道，已改为注册Mock渠道注入失败并验证实际refund三次调用，可靠性完整重跑成功。
+
+## 分步提交记录
+
+- 01：`5c83d16 test: 固定消息改造方案与v1契约基线并完成第一步验收`
+- 02：`22d6331 refactor: 类型化支付事件并封装事务内Outbox写入`
+- 03：`9c1a1b5 refactor: 明确消息消费契约并收紧非法输入校验`
+- 04：`a03047d refactor: 隔离Rabbit发布适配器并明确Outbox发布失败契约`
+- 05：`6f50f09 refactor: 统一Rabbit消费失败转发与确认处理`
+- 06：`e9f61fd refactor: 分离受控死信重放接口与Rabbit实现`
+- 07：`c1cbf0a test: 固定消息接口依赖方向并完善事务契约注释`
+- 08：`88b66ba test: 验证发布回滚重发和退款落库失败的真实恢复窗口`
+- 09：本轮最终提交，见 Git 日志。
+
+- 2026-11-12：09 正式设计、README、恢复手册、逐场景证据同步；最终常规323、完整MySQL38、可靠性16、隔离curl92全部成功，零失败/错误/跳过。四条重放普通测试及序列化失败回滚断言在收口补齐并重验。命令、源摘要、资源清理及限制见verification/；九项完成，每步验收后单独提交，不推送。
+
+- 2026-11-12：最终静态门禁通过：23份Markdown、95个链接/锚点、九项resolved状态/依赖、32场景证据、被测源码摘要一致；生产JAR无测试注入类。只保留原scripts/__pycache__/未跟踪，实际凭据未暂存。

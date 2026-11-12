@@ -9,7 +9,7 @@
 | 模块 | 拥有的知识 | 调用者使用的 interface |
 | --- | --- | --- |
 | appointment | 预约暂占、有效占用、库存、凭证快照、就诊序号 | `AppointmentHoldService`、`AppointmentCreationRequestService`、`AppointmentLifecycle` |
-| payment | 支付单、尝试、通知验签与审计、退款、Outbox、渠道调用 | `PaymentOrderCreationService`、`PaymentAttemptService`、`PaymentNotificationIngress`、`PaymentLifecycle`、`PaymentRefundOperations`、`RefundWorker` |
+| payment | 支付单、尝试、通知验签与审计、退款、Outbox、渠道调用 | `PaymentOrderCreationService`、`PaymentAttemptService`、`PaymentNotificationIngress`、`PaymentLifecycle`、`PaymentRefundOperations`、`RefundWorker`、`PaymentOutbox`、`DeadLetterReplayService` |
 | coordination | 同库创建、取消、过期、确认与对账的跨模块规则 | `BookingCoordinator`、`BookingLifecycleCoordinator`、`PaymentSucceededProcessor` |
 | bookingquery | 预约/支付/退款/就诊组合，以及医生四场概览、名单和详情 | `AppointmentService`、`DoctorVisitQueryService` |
 | visit | 当天签到、开始与完成接诊，共享一份就诊记录 | `VisitService`、纯规则 `VisitRules` |
@@ -122,9 +122,53 @@ acceptedAt 同时保存为预约/支付创建时间；支付截止取创建时�
 
 支付成功处理首次加两次 TTL 重试合计三次，两次间隔一秒；永久无效消息直接 DLQ，耗尽也进入 DLQ。转发到 `appoint.domain-events.retry` 确认成功后才 ACK 原消息；失败 NACK/requeue。退款执行保留三次处理及渠道 refundNo 幂等。Broker 故障或确认不确定可带来额外投递，三次计数不构成绝对物理投递上限。
 
-`DeadLetterReplayService.replayOne` 仅允许已登记 DLQ，原正文及 eventId 保持不变，重置对应重试计数和 TTL，确认目标发布成功后 ACK 原 DLQ 消息；失败 NACK/requeue 保留原消息，没有开放 REST 重放接口。该服务处理 RabbitMQ DLQ，不处理数据库中的 Outbox FAILED；退款结果事件即使重放，目前也没有监听器处理。
+`DeadLetterReplayService.replayOne(ReplayTarget)` 仅允许三个逻辑目标映射的已登记 DLQ，原正文及 eventId 保持不变，重置对应重试计数和 TTL，确认目标发布成功后 ACK 原 DLQ 消息；失败 NACK/requeue 保留原消息，没有开放 REST 重放接口。该服务处理 RabbitMQ DLQ，不处理数据库中的 Outbox FAILED；退款结果事件即使重放，目前也没有监听器处理。
 
 对账当前每 5 分钟扫描一次，按 5 分钟滞留阈值、每类最多 100 个候选处理已付待确认和已关闭已付缺退款：前者按 paidAt 恢复确认或关闭退款，后者确保退款。长期 PENDING/FAILED Outbox、PENDING/FAILED 退款、CREATED/PROCESSING 尝试及可关联记录中的账号/金额/币种不一致仅计数并输出人工项；不会自动重置 Outbox、重放 DLQ、查询渠道或修复历史库存。关联统计不覆盖所有缺失关联，不能当作完整数据库一致性证明。不得删除 Inbox、生成新 eventId 绕过幂等或直接修改库存来补偿；运维处理见 [切换与恢复手册](runbooks/payment-module-cutover.md#6-失败处理与前向恢复)。
+
+## 消息代码契约与阅读入口（2026-11-12）
+
+本轮保持业务、数据库 V1～V10 和 Rabbit 拓扑不变，整理的是代码职责、输入校验、接口和注释。没有新增消息框架、租约状态、真实渠道或通知消费者。
+
+| 职责 | 接口/实现 | 契约 |
+| --- | --- | --- |
+| 记录事件 | [PaymentOutbox](../src/main/java/com/qsx/appoint/payment/application/PaymentOutbox.java) / DefaultPaymentOutbox | 四个明确业务事实；MANDATORY 加入调用方事务，序列化/写入失败一起回滚 |
+| wire 结构 | [PaymentEventEnvelope](../src/main/java/com/qsx/appoint/payment/contract/event/PaymentEventEnvelope.java) 与四个 payload record | 原六字段 envelope、版本1、原 payload；支付拥有契约，不依赖消费者实现 |
+| 发布 | [OutboxMessagePublisher](../src/main/java/com/qsx/appoint/payment/application/OutboxMessagePublisher.java) / messaging.RabbitOutboxMessageSender | 接收不可变 OutboxMessage，无 Entity/AMQP 入参；确认失败可能已送达 |
+| 支付消费 | PaymentSucceededProcessor / DefaultPaymentSucceededProcessor | 返回 PaymentSucceededResult；Inbox 与确认/补偿同事务 |
+| 退款消费 | RefundWorker / DefaultRefundWorker | 返回 RefundExecutionResult；仍分段事务与渠道 refundNo 幂等 |
+| 失败传输 | [RabbitConsumerFailureHandler](../src/main/java/com/qsx/appoint/common/messaging/RabbitConsumerFailureHandler.java) | 两个监听器共享失败分类/重试/确认，正常成功 ACK 留在监听器 |
+| 重放 | [DeadLetterReplayService](../src/main/java/com/qsx/appoint/payment/application/DeadLetterReplayService.java) / messaging.RabbitDeadLetterReplayService | ReplayTarget 控制三个逻辑目标；ReplayResult 区分 EMPTY 与 REPLAYED，可空 eventId |
+
+### 事件写入与发布
+
+PaymentNotificationServiceImpl、DefaultPaymentRefundOperations、DefaultRefundWorker 不再分别拼 Map/envelope 或初始化 Outbox Entity，分别调用 PaymentOutbox 的成功收款、退款申请、退款成功/失败方法。事件 ID 创建一次，occurredAt/paidAt 沿用用例给定事实，支付聚合ID从载荷取得。
+
+写入器正常返回只表示在当前事务中登记；事务可能尚未提交，消息尚未发送。业务入口原有状态/通知/退款唯一约束继续负责幂等，不能对该写入器重复调用后期待自动合并所有业务事件。
+
+发布仍持有本批数据库行锁等待 Broker，不引入租约。只在 publisher 调用周围捕获 OutboxPublicationException；数据库 markPublished、影响行数检查或失败进度写入异常传播并回滚整批，不被累计为 Broker 失败。已经发送的消息可能重发，原正文和事件 ID 不变。
+
+### 输入校验与兼容
+
+生产 ObjectMapper 继续将 Long 写成文本。两个 Codec 接受正 Long 范围的整数数字与十进制文本，允许额外未知字段和缺 Rabbit 元数据；拒绝浮点/小数/越界/非正 ID、错误事件类型、非整数或非1版本、错误结构/时间。文本 ID 不隐式清洗空白/正号，前导零文本仍可解析。
+
+退款 Codec 新增 envelope 类型、版本、时间、支付聚合关联校验，但只向 Worker 提供必要退款标识，不将金额/渠道等未使用字段新增为消费必填。PaymentSucceeded 保留金额/CNY及支付聚合校验。Processor/Worker 仍做必要入口复验，不把 Codec 当唯一保护。
+
+重试头只在进入失败处理后检查。Integer/Long 非负 int 范围计数兼容；先比较耗尽再递增，防止溢出；非法类型/负数/越界拒绝，避免热重投。正常成功不增加头校验门槛。公开 HTTP/资金审计状态字符串不变，enum 仅替换 Java 内部结果。
+
+### 三条代码阅读路径
+
+1. 正常确认：PaymentNotificationServiceImpl → PaymentOutbox → OutboxPublishTransaction → messaging.RabbitOutboxMessageSender → PaymentSucceededListener → PaymentSucceededProcessor → AppointmentLifecycle；最后由 Listener ACK。
+2. Broker 已收到、DB标记失败：发布事务回滚 → 原 Outbox 保持待发 → 再发同 eventId → Inbox 或已确认业务事实短路；确认名额与序号不重复推进。
+3. 业务已提交、ACK丢失：Listener 抛确认异常 → Broker重投 → Processor 的 Inbox 去重 → 再ACK，不撤销已提交业务。
+
+退款渠道成功、本地落库失败时，重试仍用原 refundNo；退款成功状态与原渠道幂等结果保证收敛，不能用预约 Inbox 声称外部退款恰好一次。
+
+### 依赖与测试
+
+application/domain 不依赖 Spring AMQP 或 Rabbit Client；contract 包不依赖 Spring/Jackson/持久化；common messaging 不反向引用业务模块。应用接口检查入参、返回值及 record/泛型中的 Entity 泄漏，架构测试有违规负例。保留本模块 Inbox Mapper 和 Spring 事务，不全面 Repository 化。
+
+方案与阶段记录见 [任务地图](../.scratch/messaging-design-refactor/map.md)，最终执行结果见 [验证报告](verification-report.md)。固定旧 JSON 样本与新生产 Outbox 的契约测试分别验证兼容，真实 MySQL/Rabbit 继续验证事务和故障窗口。
 
 ## 兼容边界与验证
 

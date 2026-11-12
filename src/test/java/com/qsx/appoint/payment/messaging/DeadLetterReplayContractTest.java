@@ -23,6 +23,39 @@ class DeadLetterReplayContractTest {
     final RabbitDeadLetterReplayService service=new RabbitDeadLetterReplayService(template,new ObjectMapper(),publisher);
 
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"RefundFailed","Unknown"})
+    void resultReplaySelectsFailureRouteOrPreservesUnsupportedMessage(String type) throws Exception {
+        when(template.execute(any())).thenAnswer(call -> ((ChannelCallback<?>)call.getArgument(0)).doInRabbit(channel));
+        when(channel.basicGet(anyString(),eq(false))).thenReturn(new GetResponse(new Envelope(7,false,"",""),
+                new AMQP.BasicProperties(),("{\"eventType\":\""+type+"\"}").getBytes(StandardCharsets.UTF_8),0));
+        if (type.equals("Unknown")) {
+            assertThatThrownBy(() -> service.replayOne(ReplayTarget.REFUND_RESULT)).isInstanceOf(IllegalArgumentException.class);
+            verify(channel).basicNack(7,false,true);
+            verifyNoInteractions(publisher);
+        } else {
+            assertThat(service.replayOne(ReplayTarget.REFUND_RESULT).status()).isEqualTo(ReplayResult.Status.REPLAYED);
+            verify(publisher).publish(eq(RabbitEventTopology.DOMAIN_EXCHANGE),eq(RabbitEventTopology.REFUND_FAILED_ROUTING_KEY),any(),any());
+            verify(channel).basicAck(7,false);
+        }
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans={false,true})
+    void confirmationIoFailurePropagatesWithoutFabricatingSuccess(boolean ackFailure) throws Exception {
+        when(template.execute(any())).thenAnswer(call -> ((ChannelCallback<?>)call.getArgument(0)).doInRabbit(channel));
+        when(channel.basicGet(anyString(),eq(false))).thenReturn(new GetResponse(new Envelope(7,false,"",""),
+                new AMQP.BasicProperties(),"{}".getBytes(StandardCharsets.UTF_8),0));
+        if (ackFailure) doThrow(new java.io.IOException("ack lost")).when(channel).basicAck(7,false);
+        else {
+            doThrow(new IllegalStateException("send uncertain")).when(publisher).publish(anyString(),anyString(),any(),any());
+            doThrow(new java.io.IOException("nack lost")).when(channel).basicNack(7,false,true);
+        }
+        assertThatThrownBy(() -> service.replayOne(ReplayTarget.PAYMENT_SUCCEEDED)).isInstanceOf(java.io.IOException.class);
+        verify(channel).basicNack(7,false,true);
+        verify(publisher,times(1)).publish(anyString(),anyString(),any(),any());
+    }
+
+    @ParameterizedTest
     @EnumSource(ReplayTarget.class)
     void logicalTargetsKeepOriginalBodyAndDistinguishEmptyFromMissingId(ReplayTarget target) throws Exception {
         when(template.execute(any())).thenAnswer(call -> ((ChannelCallback<?>)call.getArgument(0)).doInRabbit(channel));
