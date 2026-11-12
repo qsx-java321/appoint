@@ -1,7 +1,7 @@
 # 03 整理时钟与业务夹具
 
 Type: test/refactor
-Status: ready-for-agent
+Status: resolved
 Blocked by: 02
 
 ## 工作内容
@@ -15,3 +15,5 @@ Blocked by: 02
 ## Comments
 
 - 尚未验收，相关命令与结果写入 verification/commands.md。
+
+- 聚焦常规41、就诊MySQL1通过；可变钟统一为support配置，所有使用者每例重置，原UTC时点转换为等价上海时间。保留FormalPaymentTestSupport等已有夹具，不机械再抽象一次性SQL。

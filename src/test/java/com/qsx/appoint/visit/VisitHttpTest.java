@@ -7,15 +7,14 @@ import com.qsx.appoint.appointment.dto.CreateAppointmentResponse;
 import com.qsx.appoint.coordination.application.BookingCoordinator;
 import com.qsx.appoint.security.JwtTokenProvider;
 import com.qsx.appoint.support.FormalPaymentTestSupport;
+import com.qsx.appoint.support.MutableAppointmentClock;
+import com.qsx.appoint.support.AppointmentClockTestConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:visit-http;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({FormalPaymentTestSupport.class, VisitHttpTest.TimeConfig.class})
+@Import({FormalPaymentTestSupport.class, AppointmentClockTestConfiguration.class})
 @Transactional
 class VisitHttpTest {
     @Autowired MockMvc mvc;
@@ -41,12 +40,12 @@ class VisitHttpTest {
     @Autowired com.qsx.appoint.coordination.application.BookingLifecycleCoordinator lifecycle;
     @Autowired org.springframework.security.crypto.password.PasswordEncoder passwords;
     @Autowired FormalPaymentTestSupport payments;
-    @Autowired MutableClock clock;
+    @Autowired MutableAppointmentClock clock;
     String owner, doctor, otherDoctor, admin, stranger;
 
     @BeforeEach
     void setup() {
-        clock.set("2026-11-12T00:00:00Z");
+        clock.set("2026-11-12T08:00:00");
         for (long id = 81001; id <= 81005; id++) {
             jdbc.update("INSERT INTO users(id,email,password_hash) VALUES(?,?, 'unused')", id, id + "@visit.example.com");
             jdbc.update("INSERT INTO user_roles(user_id,role_id) SELECT ?,id FROM roles WHERE code='USER'", id);
@@ -69,19 +68,19 @@ class VisitHttpTest {
         assertThat(detail.path("visit").path("canCheckIn").asBoolean()).isFalse();
         action("/appointments/" + id + "/check-in", owner, 409);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM visit_records", Integer.class)).isZero();
-        clock.set("2026-11-12T16:00:00Z"); // 上海零点，仍在UTC的前一天。
+        clock.set("2026-11-13T00:00:00"); // 上海零点，仍在UTC的前一天。
         assertThat(getUser(id).path("visit").path("canCheckIn").asBoolean()).isTrue();
         assertRow(id, "NOT_CHECKED_IN", false, false);
         var waiting = action("/appointments/" + id + "/check-in", owner, 200).path("visit");
         assertThat(waiting.path("checkedInAt").asText()).isEqualTo("2026-11-13T00:00:00");
         assertRow(id, "WAITING", true, false);
         action("/appointments/" + id + "/check-in", owner, 409);
-        clock.set("2026-11-13T00:15:00Z");
+        clock.set("2026-11-13T08:15:00");
         var started = action("/doctor/appointments/" + id + "/start-visit", doctor, 200).path("visit");
         assertThat(started.path("startedAt").asText()).isEqualTo("2026-11-13T08:15:00");
         assertRow(id, "IN_PROGRESS", false, true);
         action("/doctor/appointments/" + id + "/start-visit", doctor, 409);
-        clock.set("2026-11-13T00:28:00Z");
+        clock.set("2026-11-13T08:28:00");
         var completed = action("/doctor/appointments/" + id + "/complete-visit", doctor, 200).path("visit");
         assertThat(completed.path("completedAt").asText()).isEqualTo("2026-11-13T08:28:00");
         assertRow(id, "COMPLETED", false, false);
@@ -152,10 +151,10 @@ class VisitHttpTest {
         action("/doctor/appointments/" + id + "/start-visit", doctor, 409);
         action("/doctor/appointments/" + id + "/complete-visit", doctor, 409);
         mvc.perform(get("/api/v1/doctor/appointments/" + id).header("Authorization", otherDoctor)).andExpect(status().isNotFound());
-        clock.set("2026-11-13T00:00:00Z");
+        clock.set("2026-11-13T08:00:00");
         action("/appointments/" + pending.getAppointmentOrderId() + "/check-in", owner, 409);
         action("/doctor/appointments/" + pending.getAppointmentOrderId() + "/start-visit", doctor, 409);
-        clock.set("2026-11-13T16:00:00Z");
+        clock.set("2026-11-14T00:00:00");
         action("/appointments/" + id + "/check-in", owner, 409);
         assertThat(getUser(id).path("visit").path("canCheckIn").asBoolean()).isFalse();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM visit_records", Integer.class)).isZero();
@@ -168,7 +167,7 @@ class VisitHttpTest {
         var closed = create("2026-11-13", "MORNING_FIRST", false);
         lifecycle.cancelOwned(81001L, closed.getAppointmentOrderId());
         var tie = create("2026-11-13", "MORNING_FIRST", false);
-        clock.set("2026-11-12T00:16:00Z");
+        clock.set("2026-11-12T08:16:00");
         lifecycle.expireIfDue(later.getAppointmentOrderId());
         var desc = getData("/appointments/my", owner);
         var asc = getData("/appointments/my?order=ASC", owner);
@@ -214,7 +213,7 @@ class VisitHttpTest {
         var second = createFor(81012L, "2026-11-13", "MORNING_FIRST", true);
         jdbc.update("INSERT INTO patients(id,user_id,name,document_type,document_no,contact_phone,contact_email,enabled) VALUES(81013,81001,'就诊人丙','RESIDENT_ID_CARD','110105199001010037','13800138000','p@example.com',TRUE)");
         var third = createFor(81013L, "2026-11-13", "MORNING_FIRST", true);
-        clock.set("2026-11-13T00:00:00Z");
+        clock.set("2026-11-13T08:00:00");
         action("/appointments/" + second.getAppointmentOrderId() + "/check-in", owner, 200);
         action("/appointments/" + third.getAppointmentOrderId() + "/check-in", owner, 200);
         action("/doctor/appointments/" + third.getAppointmentOrderId() + "/start-visit", doctor, 200);
@@ -277,15 +276,4 @@ class VisitHttpTest {
                 .andExpect(status().is(expected)).andReturn().getResponse().getContentAsString()).path("data");
     }
     String token(Long id, String... roles) { return "Bearer " + tokens.createToken(id, id + "@visit.example.com", List.of(roles)); }
-    @TestConfiguration
-    static class TimeConfig {
-        @Bean @Primary MutableClock visitClock() { return new MutableClock(); }
-    }
-    static class MutableClock extends Clock {
-        private Instant now = Instant.parse("2026-11-12T00:00:00Z");
-        void set(String instant) { now = Instant.parse(instant); }
-        @Override public ZoneId getZone() { return ZoneId.of("Asia/Shanghai"); }
-        @Override public Clock withZone(ZoneId zone) { return Clock.fixed(now, zone); }
-        @Override public Instant instant() { return now; }
-    }
 }

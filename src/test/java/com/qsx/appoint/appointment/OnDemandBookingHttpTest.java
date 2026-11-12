@@ -18,9 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
@@ -47,7 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
-@Import({OnDemandBookingHttpTest.FixedClockConfig.class, FormalPaymentTestSupport.class})
+@Import({com.qsx.appoint.support.AppointmentClockTestConfiguration.class, FormalPaymentTestSupport.class})
 class OnDemandBookingHttpTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
@@ -360,11 +358,4 @@ class OnDemandBookingHttpTest {
         return new TestingAuthenticationToken(userId, null, "ROLE_USER");
     }
 
-    static class FixedClockConfig {
-        @Bean
-        @Primary
-        MutableAppointmentClock fixedAppointmentClock() {
-            return new MutableAppointmentClock("2026-11-05T12:00:00");
-        }
-    }
 }

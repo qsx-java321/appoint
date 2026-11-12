@@ -8,18 +8,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -32,12 +26,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.url=jdbc:h2:mem:session-catalog;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
 @Transactional
-@Import(SessionCatalogHttpTest.FixedClockConfig.class)
+@Import(com.qsx.appoint.support.AppointmentClockTestConfiguration.class)
 class SessionCatalogHttpTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ScheduleMapper scheduleMapper;
     @Autowired private ObjectMapper objectMapper;
-    @Autowired private CatalogClock clock;
+    @Autowired private com.qsx.appoint.support.MutableAppointmentClock clock;
 
     @BeforeEach
     void resetClock() { clock.set("2026-11-05T10:05:00"); }
@@ -132,17 +126,4 @@ class SessionCatalogHttpTest {
                 .andExpect(jsonPath("$.data[0].registrationFee").value("12.00"));
     }
 
-    static class FixedClockConfig {
-        @Bean
-        @Primary
-        CatalogClock fixedAppointmentClock() { return new CatalogClock(); }
-    }
-
-    static class CatalogClock extends Clock {
-        private Instant instant;
-        void set(String time) { instant = LocalDateTime.parse(time).atZone(getZone()).toInstant(); }
-        @Override public ZoneId getZone() { return ZoneId.of("Asia/Shanghai"); }
-        @Override public Clock withZone(ZoneId zone) { return Clock.fixed(instant, zone); }
-        @Override public Instant instant() { return instant; }
-    }
 }

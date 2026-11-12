@@ -8,9 +8,7 @@ import com.qsx.appoint.support.MutableAppointmentClock;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.LocalDate;
@@ -22,11 +20,14 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.datasource.url=jdbc:h2:mem:midnight-booking;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.expiration.enabled=false", "appoint.messaging.enabled=false", "appoint.outbox.enabled=false"
 })
-@Import(BookingMidnightIntegrationTest.ClockConfig.class)
+@Import(com.qsx.appoint.support.AppointmentClockTestConfiguration.class)
 class BookingMidnightIntegrationTest {
     @Autowired private BookingCoordinator coordinator;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private MutableAppointmentClock clock;
+
+    @org.junit.jupiter.api.BeforeEach
+    void resetClock() { clock.set("2026-11-05T23:59:59"); }
 
     @Test
     void previouslyCompletedKeyReplaysEvenAfterOriginalDateLeavesCreationWindow() {
@@ -49,9 +50,4 @@ class BookingMidnightIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM appointment_orders WHERE user_id=99001", Integer.class)).isEqualTo(1);
     }
 
-    static class ClockConfig {
-        @Bean @Primary MutableAppointmentClock midnightClock() {
-            return new MutableAppointmentClock("2026-11-05T23:59:59");
-        }
-    }
 }

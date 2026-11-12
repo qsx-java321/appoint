@@ -29,10 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 
 import java.time.*;
 import java.math.BigDecimal;
@@ -46,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "appoint.expiration.enabled=false"
 })
 @AutoConfigureMockMvc
-@Import({ScheduleInventoryIntegrationTest.ClockConfiguration.class, com.qsx.appoint.support.FormalPaymentTestSupport.class})
+@Import({com.qsx.appoint.support.AppointmentClockTestConfiguration.class, com.qsx.appoint.support.FormalPaymentTestSupport.class})
 @org.springframework.test.context.ActiveProfiles("test")
 class ScheduleInventoryIntegrationTest {
     @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;
@@ -54,7 +51,7 @@ class ScheduleInventoryIntegrationTest {
     private static final Instant RELEASE_INSTANT = ZonedDateTime.of(
             2026, 11, 1, 8, 0, 0, 0, SHANGHAI).toInstant();
 
-    @Autowired private MutableClock clock;
+    @Autowired private com.qsx.appoint.support.MutableAppointmentClock clock;
     @Autowired private ScheduleManagementService scheduleManagementService;
     @Autowired private AppointmentService appointmentService;
     @Autowired private BookingCoordinator bookingCoordinator;
@@ -267,30 +264,4 @@ class ScheduleInventoryIntegrationTest {
         assertThat(available + held + confirmed).isEqualTo(total);
     }
 
-    @TestConfiguration
-    static class ClockConfiguration {
-        @Bean
-        @Primary
-        MutableClock testClock() {
-            return new MutableClock(RELEASE_INSTANT, SHANGHAI);
-        }
-    }
-
-    static final class MutableClock extends Clock {
-        private volatile Instant instant;
-        private final ZoneId zone;
-
-        MutableClock(Instant instant, ZoneId zone) {
-            this.instant = instant;
-            this.zone = zone;
-        }
-
-        void setInstant(Instant instant) {
-            this.instant = instant;
-        }
-
-        @Override public ZoneId getZone() { return zone; }
-        @Override public Clock withZone(ZoneId zone) { return new MutableClock(instant, zone); }
-        @Override public Instant instant() { return instant; }
-    }
 }

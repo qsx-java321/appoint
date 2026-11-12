@@ -8,6 +8,8 @@ import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.coordination.application.BookingCoordinator;
 import com.qsx.appoint.support.FormalPaymentTestSupport;
+import com.qsx.appoint.support.MutableAppointmentClock;
+import com.qsx.appoint.support.AppointmentClockTestConfiguration;
 import com.qsx.appoint.visit.application.VisitService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Testcontainers
 @SpringBootTest
 @ActiveProfiles("test")
-@Import({FormalPaymentTestSupport.class, VisitHttpTest.TimeConfig.class})
+@Import({FormalPaymentTestSupport.class, AppointmentClockTestConfiguration.class})
 class VisitWorkflowMySqlIT {
     @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
             .withDatabaseName("appoint").withUsername("appoint").withPassword("appoint-test");
@@ -46,7 +48,10 @@ class VisitWorkflowMySqlIT {
     @Autowired AppointmentService appointments;
     @Autowired FormalPaymentTestSupport payments;
     @Autowired JdbcTemplate jdbc;
-    @Autowired VisitHttpTest.MutableClock clock;
+    @Autowired MutableAppointmentClock clock;
+
+    @org.junit.jupiter.api.BeforeEach
+    void resetClock() { clock.set("2026-11-12T08:00:00"); }
 
     @Test
     void concurrentBindingCheckInStartAndCompletionKeepOneIdentityAndOneVisit() throws Exception {
@@ -57,7 +62,7 @@ class VisitWorkflowMySqlIT {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_roles WHERE user_id=90002", Integer.class)).isEqualTo(1);
         Long doctorId = doctors.requireDoctorId(90002L);
         jdbc.update("INSERT INTO patients(id,user_id,name,document_type,document_no,contact_phone,contact_email,enabled) VALUES(90003,90001,'MySQL就诊人','RESIDENT_ID_CARD','110105199001010010','13800138000','p@example.com',TRUE)");
-        clock.set("2026-11-12T00:00:00Z");
+        clock.set("2026-11-12T08:00:00");
         var request = new CreateAppointmentRequest();
         request.setDoctorId(doctorId); request.setPatientId(90003L);
         request.setAppointmentDate(LocalDate.of(2026,11,13)); request.setSessionType("MORNING_FIRST");
@@ -66,7 +71,7 @@ class VisitWorkflowMySqlIT {
         Long id = created.getAppointmentOrderId();
         var facts = jdbc.queryForMap("SELECT * FROM appointment_orders WHERE id=?", id);
         var inventory = jdbc.queryForMap("SELECT * FROM schedules WHERE id=?", facts.get("schedule_id"));
-        clock.set("2026-11-13T00:00:00Z");
+        clock.set("2026-11-13T08:00:00");
         assertOneConflict(race(() -> { visits.checkIn(90001L,id); return "OK"; }, () -> { visits.checkIn(90001L,id); return "OK"; }));
         var checkedIn = appointments.getOwned(90001L,id).getVisit().checkedInAt();
         assertOneConflict(race(() -> { visits.startVisit(90002L,id); return "OK"; }, () -> { visits.startVisit(90002L,id); return "OK"; }));

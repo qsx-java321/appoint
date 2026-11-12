@@ -26,3 +26,9 @@
 - 命令：`./mvnw -o -Pmysql-it -Dtest=InitialSchemaMigrationTest,VisitSchemaMigrationTest,PaymentPersistenceIntegrationTest,DoctorNumberIntegrationTest,MockPayProductionProfileTest -Dit.test=CatalogManagementMySqlIT,VisitSchemaMySqlIT,PaymentPersistenceMySqlIT,PaymentMigrationMySqlIT verify`
 - 日志：`/tmp/test-refactor-02.log`
 - Maven汇总（普通/集成分别计）：[('10', '0', '0', '0'), ('4', '0', '0', '0')]；耗时：['55.632 s']; BUILD SUCCESS=True。
+
+## 03 时钟与夹具
+
+- 命令：`./mvnw -o -Pmysql-it -Dtest=VisitHttpTest,ScheduleInventoryIntegrationTest,SessionCatalogHttpTest,OnDemandBookingHttpTest,BookingMidnightIntegrationTest,BookingTimeRulesTest -Dit.test=VisitWorkflowMySqlIT verify`
+- 日志：`/tmp/test-refactor-03.log`
+- Maven汇总（普通/集成分别计）：[('41', '0', '0', '0'), ('1', '0', '0', '0')]；耗时：['34.831 s']; BUILD SUCCESS=True。
