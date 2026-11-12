@@ -20,7 +20,30 @@ class PaymentSucceededListenerTest {
     private final PaymentSucceededProcessor processor = mock(PaymentSucceededProcessor.class);
     private final ConfirmedMessagePublisher publisher = mock(ConfirmedMessagePublisher.class);
     private final Channel channel = mock(Channel.class);
-    private final PaymentSucceededListener listener = new PaymentSucceededListener(publisher, codec, processor);
+    private final PaymentSucceededListener listener = new PaymentSucceededListener(new com.qsx.appoint.common.messaging.RabbitConsumerFailureHandler(publisher), codec, processor);
+
+    @Test
+    void successfulBusinessDoesNotInspectMalformedRetryHeader() throws IOException {
+        PaymentSucceededEvent event = mock(PaymentSucceededEvent.class);
+        Message original = message(0);
+        original.getMessageProperties().setHeader("payment-succeeded-attempt", "bad");
+        when(codec.read(any())).thenReturn(event);
+        when(processor.process(event)).thenReturn(com.qsx.appoint.coordination.application.PaymentSucceededResult.CONFIRMED);
+        listener.consume(original,channel);
+        verify(channel).basicAck(7,false);
+        verifyNoInteractions(publisher);
+    }
+
+    @Test
+    void invalidBusinessInputIsRejectedWithoutRetry() throws IOException {
+        PaymentSucceededEvent event = mock(PaymentSucceededEvent.class);
+        when(codec.read(any())).thenReturn(event);
+        when(processor.process(event)).thenThrow(new com.qsx.appoint.common.BusinessException(
+                com.qsx.appoint.common.ErrorCode.VALIDATION_ERROR));
+        listener.consume(message(0),channel);
+        verify(channel).basicReject(7,false);
+        verifyNoInteractions(publisher);
+    }
 
     private Message message(int failures) {
         MessageProperties properties = new MessageProperties();

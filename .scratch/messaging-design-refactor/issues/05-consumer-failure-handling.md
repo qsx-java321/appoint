@@ -2,7 +2,7 @@
 
 Type: refactor/fix
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 Blocked by: 04
 
 依据：[spec 第 7.5、8 节](../spec.md)。责任场景：S08、S16～S21、S23。
@@ -40,11 +40,13 @@ Blocked by: 04
 
 ## 完成条件
 
-- [ ] 重复失败流程已集中，两个 Listener 仍能直接读出主线。
-- [ ] 两入口接线与完整失败矩阵覆盖，确认异常不会误触发业务重试。
-- [ ] S17～S21 实际证据完整，真实 TTL/DLQ/退款渠道重试保持。
-- [ ] 注释解释确认顺序与重复可能性，门禁通过。
+- [x] 重复失败流程已集中，两个 Listener 仍能直接读出主线。
+- [x] 两入口接线与完整失败矩阵覆盖，确认异常不会误触发业务重试。
+- [x] S17～S21 实际证据完整，真实 TTL/DLQ/退款渠道重试保持。
+- [x] 注释解释确认顺序与重复可能性，门禁通过。
 
 ## Comments
 
 - 2026-11-12：任务已定义，依赖 04；未改重试策略、未运行测试。
+
+- 2026-11-12：两个Listener共用RabbitConsumerFailureHandler，保留解码/业务/成功ACK主线；增加退款Listener、计数边界及确认顺序测试。./mvnw -o -Preliability-it -Dtest=PaymentSucceededListenerTest,RefundRequestedListenerTest,RabbitConsumerFailureHandlerTest,ConfirmedMessagePublisherTest -Dit.test=OutboxPublisherReliabilityIT,PaymentConfirmationReliabilityIT verify：聚焦28、可靠性16全通过；日志/tmp/messaging-05-reliability.log。

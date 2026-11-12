@@ -197,7 +197,7 @@ class OutboxPublisherReliabilityIT {
         var processor = org.mockito.Mockito.mock(com.qsx.appoint.coordination.application.PaymentSucceededProcessor.class);
         org.mockito.Mockito.when(processor.process(event)).thenThrow(new IllegalStateException("temporary failure"));
         var listener = new com.qsx.appoint.coordination.messaging.PaymentSucceededListener(
-                new com.qsx.appoint.common.messaging.ConfirmedMessagePublisher(rabbitTemplate), codec, processor);
+                new com.qsx.appoint.common.messaging.RabbitConsumerFailureHandler(new com.qsx.appoint.common.messaging.ConfirmedMessagePublisher(rabbitTemplate)), codec, processor);
         rabbitTemplate.convertAndSend(RabbitEventTopology.DOMAIN_EXCHANGE,
                 RabbitEventTopology.PAYMENT_SUCCEEDED_ROUTING_KEY, eventId);
         var times = new java.util.ArrayList<Long>();

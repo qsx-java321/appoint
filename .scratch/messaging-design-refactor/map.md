@@ -4,7 +4,7 @@ Type: refactor
 Triage: ready-for-agent
 Status: ready-for-agent
 
-日期：2026-11-12。方案已确认，实施完成数 **4 / 9**。
+日期：2026-11-12。方案已确认，实施完成数 **5 / 9**。
 
 ## 入口与当前状态
 
@@ -23,7 +23,7 @@ Status: ready-for-agent
 | 02 | [类型化事件与事务内 Outbox 写入](issues/02-typed-events-and-outbox-writer.md) | refactor | resolved | 01 |
 | 03 | [严格消费契约与类型化处理结果](issues/03-consumer-contracts-and-results.md) | refactor/fix | resolved | 02 |
 | 04 | [发布接口收紧与 Rabbit 适配器迁移](issues/04-publication-port-and-adapter.md) | refactor | resolved | 03 |
-| 05 | [共用消费失败处理与完整确认矩阵](issues/05-consumer-failure-handling.md) | refactor/fix | ready-for-agent | 04 |
+| 05 | [共用消费失败处理与完整确认矩阵](issues/05-consumer-failure-handling.md) | refactor/fix | resolved | 04 |
 | 06 | [DLQ 重放接口与适配器](issues/06-dead-letter-replay.md) | refactor | ready-for-agent | 05 |
 | 07 | [架构约束与注释复核](issues/07-architecture-and-comments.md) | test/docs | ready-for-agent | 06 |
 | 08 | [真实事务与 Rabbit 故障窗口门禁](issues/08-reliability-gates.md) | test | ready-for-agent | 07 |
@@ -86,3 +86,5 @@ flowchart LR
 - 2026-11-12：03 完成双Codec严格输入矩阵、退款envelope关联校验及内部结果enum；聚焦68项、MySQL10项、PaymentConfirmationReliabilityIT7项通过，零失败/错误/跳过。命令见/tmp/messaging-03-unit.log（-Dtest=MessageConsumerContractTest,PaymentSucceededEventCodecTest,PaymentSucceededListenerTest,PaymentSucceededProcessorIntegrationTest,AppointmentLifecycleIntegrationTest）、/tmp/messaging-03-mysql.log（-Dtest=MessageConsumerContractTest -Dit.test=LatePaymentMySqlIT,PaymentParentLockMySqlIT）、/tmp/messaging-03-reliability.log（-Dtest=MessageConsumerContractTest -Dit.test=PaymentConfirmationReliabilityIT），均 ./mvnw -o 对应profile。新增拒绝浮点/越界/非正ID、错误类型与版本形态、缺字段及聚合不符；合法数字/文本ID和额外字段兼容。
 
 - 2026-11-12：04 发布接口改为不可变OutboxMessage和明确异常，Rabbit sender迁至messaging；数据库标记异常传播回滚整批。./mvnw -o clean test 常规291项通过；./mvnw -o -Preliability-it -Dtest=ConfirmedMessagePublisherTest -Dit.test=OutboxPublisherReliabilityIT verify：确认单测5项、可靠性9项通过。日志/tmp/messaging-04-unit.log、/tmp/messaging-04-reliability.log。新增故障测试修正隔离夹具及MySQL JSON规范化的期望，异常摘要保留底层原因，最终完整重跑通过。
+
+- 2026-11-12：05 两个Listener共用RabbitConsumerFailureHandler，保留解码/业务/成功ACK主线；增加退款Listener、计数边界及确认顺序测试。./mvnw -o -Preliability-it -Dtest=PaymentSucceededListenerTest,RefundRequestedListenerTest,RabbitConsumerFailureHandlerTest,ConfirmedMessagePublisherTest -Dit.test=OutboxPublisherReliabilityIT,PaymentConfirmationReliabilityIT verify：聚焦28、可靠性16全通过；日志/tmp/messaging-05-reliability.log。

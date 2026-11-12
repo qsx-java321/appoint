@@ -199,7 +199,7 @@ class PaymentConfirmationReliabilityIT {
         var processor = applicationContext.getBean(com.qsx.appoint.coordination.application.PaymentSucceededProcessor.class);
         var codec = applicationContext.getBean(com.qsx.appoint.coordination.messaging.PaymentSucceededEventCodec.class);
         var listener = new com.qsx.appoint.coordination.messaging.PaymentSucceededListener(
-                applicationContext.getBean(com.qsx.appoint.common.messaging.ConfirmedMessagePublisher.class), codec, processor);
+                applicationContext.getBean(com.qsx.appoint.common.messaging.RabbitConsumerFailureHandler.class), codec, processor);
         String queue = "ack-window-" + UUID.randomUUID();
         var connection = connectionFactory.createConnection();
         var channel = connection.createChannel(false);
