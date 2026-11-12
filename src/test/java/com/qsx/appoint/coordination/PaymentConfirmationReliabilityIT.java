@@ -29,6 +29,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @org.springframework.test.context.ActiveProfiles("test")
 @SpringBootTest(properties = {
@@ -39,6 +40,20 @@ import static org.awaitility.Awaitility.await;
         "appoint.outbox.confirm-timeout=2s"
 })
 class PaymentConfirmationReliabilityIT {
+    @Autowired private org.springframework.context.ApplicationContext fixtureContext;
+    private com.qsx.appoint.support.RabbitReliabilityFixtures fixtures;
+
+    @org.junit.jupiter.api.BeforeEach
+    void isolateMessages() throws Exception {
+        fixtures = new com.qsx.appoint.support.RabbitReliabilityFixtures(fixtureContext, jdbcTemplate);
+        fixtures.beforeEach();
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void removeMessages() throws Exception {
+        fixtures.afterEach();
+    }
+
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
             .withDatabaseName("appoint").withUsername("appoint").withPassword("appoint-test");
@@ -75,27 +90,28 @@ class PaymentConfirmationReliabilityIT {
         fixture();
         PaymentOutboxEvent event = pendingEvent();
         outboxMapper.insert(event);
-        RABBIT.execInContainer("rabbitmqctl", "stop_app");
-
-        assertThat(publisher.publishDue()).isZero();
-        assertThat(outboxMapper.selectById(event.getEventId()).getStatus()).isEqualTo("PENDING");
-
-        RABBIT.execInContainer("rabbitmqctl", "start_app");
-        RABBIT.execInContainer("rabbitmqctl", "await_startup");
-        connectionFactory.resetConnection();
-        await().untilAsserted(() -> {
+        try {
+            com.qsx.appoint.support.RabbitTestBroker.command(RABBIT, "stop_app");
+            assertThat(publisher.publishDue()).isZero();
+            assertThat(outboxMapper.selectById(event.getEventId()).getStatus()).isEqualTo("PENDING");
+        } finally {
+            com.qsx.appoint.support.RabbitTestBroker.command(RABBIT, "start_app");
+            com.qsx.appoint.support.RabbitTestBroker.command(RABBIT, "await_startup");
+            connectionFactory.resetConnection();
+        }
+        await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() -> {
             jdbcTemplate.update("UPDATE payment_outbox_events SET next_attempt_at=? WHERE event_id=?",
                     LocalDateTime.now().minusSeconds(1), event.getEventId());
             assertThat(publisher.publishDue()).isEqualTo(1);
         });
 
-        await().untilAsserted(() -> assertThat(appointmentStatus()).isEqualTo("CONFIRMED"));
+        await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() -> assertThat(appointmentStatus()).isEqualTo("CONFIRMED"));
         rabbitTemplate.convertAndSend(RabbitEventTopology.DOMAIN_EXCHANGE,
                 RabbitEventTopology.PAYMENT_SUCCEEDED_ROUTING_KEY, event.getPayload(), message -> {
                     message.getMessageProperties().setMessageId(event.getEventId());
                     return message;
                 });
-        await().untilAsserted(() -> {
+        await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() -> {
             assertThat(inboxCount(event.getEventId())).isEqualTo(1);
             assertThat(jdbcTemplate.queryForObject(
                     "SELECT confirmed_capacity FROM schedules WHERE id=4", Integer.class)).isEqualTo(1);
@@ -108,9 +124,9 @@ class PaymentConfirmationReliabilityIT {
                     message.getMessageProperties().setMessageId(event.getEventId());
                     return message;
                 });
-        await().untilAsserted(() -> assertThat(replayService.replayOne(
+        await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() -> assertThat(replayService.replayOne(
                 com.qsx.appoint.payment.application.ReplayTarget.PAYMENT_SUCCEEDED).eventId()).isEqualTo(event.getEventId()));
-        await().untilAsserted(() -> assertThat(inboxCount(event.getEventId())).isEqualTo(1));
+        await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() -> assertThat(inboxCount(event.getEventId())).isEqualTo(1));
     }
 
     @Test
@@ -123,7 +139,7 @@ class PaymentConfirmationReliabilityIT {
                 RabbitEventTopology.PAYMENT_SUCCEEDED_ROUTING_KEY,
                 objectMapper.writeValueAsString(envelope));
 
-        await().untilAsserted(() -> {
+        await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() -> {
             Message deadLetter = rabbitTemplate.receive(
                     RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE + ".dlq", 500);
             assertThat(deadLetter).isNotNull();
@@ -140,7 +156,7 @@ class PaymentConfirmationReliabilityIT {
                 RabbitEventTopology.PAYMENT_SUCCEEDED_ROUTING_KEY,
                 "{\"eventId\":\"broken\",\"eventType\":\"PaymentSucceeded\",\"eventVersion\":2}");
 
-        await().untilAsserted(() -> {
+        await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() -> {
             Message message = rabbitTemplate.receive(
                     RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE + ".dlq", 500);
             assertThat(message).isNotNull();
@@ -155,42 +171,47 @@ class PaymentConfirmationReliabilityIT {
         org.mockito.Mockito.doThrow(new IllegalStateException("渠道退款失败"))
                 .when(gatewayForVerification).refund(org.mockito.ArgumentMatchers.argThat(
                         request -> "REF22006".equals(request.refundNo())));
-        String eventId = UUID.randomUUID().toString();
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("refundId", 22_006L);
-        payload.put("refundNo", "REF22006");
-        payload.put("paymentOrderId", 22_004L);
-        Map<String, Object> envelope = new LinkedHashMap<>();
-        envelope.put("eventId", eventId);
-        envelope.put("eventType", "RefundRequested");
-        envelope.put("eventVersion", 1);
-        envelope.put("aggregateId", 22_004L);
-        envelope.put("occurredAt", LocalDateTime.now());
-        envelope.put("payload", payload);
+        try {
+            String eventId = UUID.randomUUID().toString();
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("refundId", 22_006L);
+            payload.put("refundNo", "REF22006");
+            payload.put("paymentOrderId", 22_004L);
+            Map<String, Object> envelope = new LinkedHashMap<>();
+            envelope.put("eventId", eventId);
+            envelope.put("eventType", "RefundRequested");
+            envelope.put("eventVersion", 1);
+            envelope.put("aggregateId", 22_004L);
+            envelope.put("occurredAt", LocalDateTime.now());
+            envelope.put("payload", payload);
 
-        rabbitTemplate.convertAndSend(RabbitEventTopology.DOMAIN_EXCHANGE,
-                RabbitEventTopology.REFUND_REQUESTED_ROUTING_KEY,
-                objectMapper.writeValueAsString(envelope), message -> {
-                    message.getMessageProperties().setMessageId(eventId);
-                    return message;
-                });
+            rabbitTemplate.convertAndSend(RabbitEventTopology.DOMAIN_EXCHANGE,
+                    RabbitEventTopology.REFUND_REQUESTED_ROUTING_KEY,
+                    objectMapper.writeValueAsString(envelope), message -> {
+                        message.getMessageProperties().setMessageId(eventId);
+                        return message;
+                    });
 
-        await().untilAsserted(() -> {
-            Message deadLetter = rabbitTemplate.receive(
-                    RabbitEventTopology.REFUND_WORKER_QUEUE + ".dlq", 500);
-            assertThat(deadLetter).isNotNull();
-            assertThat(new String(deadLetter.getBody())).contains("REF22006");
-            assertThat(jdbcTemplate.queryForObject(
-                    "SELECT status FROM payment_refunds WHERE id=22006", String.class)).isEqualTo("FAILED");
-            assertThat(jdbcTemplate.queryForObject(
-                    "SELECT attempt_count FROM payment_refunds WHERE id=22006", Integer.class)).isEqualTo(3);
-            assertThat(jdbcTemplate.queryForObject(
-                    "SELECT status FROM payment_orders WHERE id=22004", String.class)).isEqualTo("REFUND_PENDING");
-            assertThat(jdbcTemplate.queryForObject(
-                    "SELECT status FROM appointment_orders WHERE id=22003", String.class)).isEqualTo("CANCELLED");
-        });
-        org.mockito.Mockito.verify(gatewayForVerification,org.mockito.Mockito.times(3)).refund(
-                org.mockito.ArgumentMatchers.argThat(request -> "REF22006".equals(request.refundNo())));
+            await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() -> {
+                Message deadLetter = rabbitTemplate.receive(
+                        RabbitEventTopology.REFUND_WORKER_QUEUE + ".dlq", 500);
+                assertThat(deadLetter).isNotNull();
+                assertThat(new String(deadLetter.getBody())).contains("REF22006");
+                assertThat(jdbcTemplate.queryForObject(
+                        "SELECT status FROM payment_refunds WHERE id=22006", String.class)).isEqualTo("FAILED");
+                assertThat(jdbcTemplate.queryForObject(
+                        "SELECT attempt_count FROM payment_refunds WHERE id=22006", Integer.class)).isEqualTo(3);
+                assertThat(jdbcTemplate.queryForObject(
+                        "SELECT status FROM payment_orders WHERE id=22004", String.class)).isEqualTo("REFUND_PENDING");
+                assertThat(jdbcTemplate.queryForObject(
+                        "SELECT status FROM appointment_orders WHERE id=22003", String.class)).isEqualTo("CANCELLED");
+            });
+            org.mockito.Mockito.verify(gatewayForVerification,org.mockito.Mockito.times(3)).refund(
+                    org.mockito.ArgumentMatchers.argThat(request -> "REF22006".equals(request.refundNo())));
+        } finally {
+            try { fixtures.stopListeners(); }
+            finally { org.mockito.Mockito.reset(gatewayForVerification); }
+        }
     }
 
     @Test
@@ -229,7 +250,7 @@ class PaymentConfirmationReliabilityIT {
             var redeliveryChannel = connection.createChannel(false);
             try {
                 var received = new java.util.concurrent.atomic.AtomicReference<com.rabbitmq.client.GetResponse>();
-                await().until(() -> {
+                await().atMost(java.time.Duration.ofSeconds(30)).until(() -> {
                     received.set(redeliveryChannel.basicGet(queue, false));
                     return received.get() != null;
                 });
@@ -240,13 +261,16 @@ class PaymentConfirmationReliabilityIT {
                 assertThat(inboxCount(event.getEventId())).isEqualTo(1);
                 assertThat(jdbcTemplate.queryForObject("SELECT next_visit_number FROM schedules WHERE id=4", Integer.class)).isEqualTo(2);
                 assertThat(jdbcTemplate.queryForObject("SELECT confirmed_capacity FROM schedules WHERE id=4", Integer.class)).isEqualTo(1);
-                redeliveryChannel.queueDelete(queue);
             } finally {
                 redeliveryChannel.close();
             }
         } finally {
-            if (channel.isOpen()) channel.close();
-            connection.close();
+            try (var cleanupChannel = connection.createChannel(false)) {
+                cleanupChannel.queueDelete(queue);
+            } finally {
+                try { if (channel.isOpen()) channel.close(); }
+                finally { connection.close(); }
+            }
         }
     }
 
@@ -259,8 +283,8 @@ class PaymentConfirmationReliabilityIT {
         var attempt=attempts.startAttempt(24001L,24004L,com.qsx.appoint.payment.domain.PaymentChannel.MOCK);
         var raw=gateway.complete(attempt.providerOrderNo(),UUID.randomUUID().toString(),LocalDateTime.now());
         String eventId;
-        RABBIT.execInContainer("rabbitmqctl","stop_app");
         try {
+            com.qsx.appoint.support.RabbitTestBroker.command(RABBIT, "stop_app");
             var response=ingress.handle(com.qsx.appoint.payment.domain.PaymentChannel.MOCK,raw);
             assertThat(response.processingResult()).isEqualTo("SUCCEEDED");
             eventId=response.eventId();
@@ -268,15 +292,15 @@ class PaymentConfirmationReliabilityIT {
             assertThat(outboxMapper.selectById(eventId).getStatus()).isEqualTo("PENDING");
             assertThat(inboxCount(eventId)).isZero();
         } finally {
-            RABBIT.execInContainer("rabbitmqctl","start_app");
-            RABBIT.execInContainer("rabbitmqctl","await_startup");
+            com.qsx.appoint.support.RabbitTestBroker.command(RABBIT, "start_app");
+            com.qsx.appoint.support.RabbitTestBroker.command(RABBIT, "await_startup");
             connectionFactory.resetConnection();
         }
-        await().untilAsserted(() -> {
+        await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() -> {
             publisher.publishDue();
             assertThat(outboxMapper.selectById(eventId).getStatus()).isEqualTo("PUBLISHED");
         });
-        await().untilAsserted(() -> {
+        await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() -> {
             assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=24003",String.class)).isEqualTo("CONFIRMED");
             assertThat(inboxCount(eventId)).isEqualTo(1);
             assertThat(jdbcTemplate.queryForObject("SELECT next_visit_number FROM schedules WHERE id=4",Integer.class)).isEqualTo(2);
@@ -307,7 +331,7 @@ class PaymentConfirmationReliabilityIT {
             assertThat(jdbcTemplate.queryForObject("SELECT next_visit_number FROM schedules WHERE id=4",Integer.class)).isEqualTo(1);
             assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM appointment_active_claims WHERE appointment_order_id=25003",Integer.class)).isEqualTo(1);
         } finally { fault.release.countDown(); }
-        await().untilAsserted(() -> {
+        await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() -> {
             assertThat(jdbcTemplate.queryForObject("SELECT status FROM appointment_orders WHERE id=25003",String.class)).isEqualTo("CONFIRMED");
             assertThat(inboxCount(event.getEventId())).isEqualTo(1);
             assertThat(jdbcTemplate.queryForObject("SELECT confirmed_capacity FROM schedules WHERE id=4",Integer.class)).isEqualTo(1);

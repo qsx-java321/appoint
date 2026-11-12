@@ -27,3 +27,7 @@
 ## 旧消息场景
 
 原 [S01～S32](../messaging-design-refactor/scenarios.md) 继续作为门禁；最终逐项映射见 verification/message-scenarios.md。
+
+## 第04步暂停检查点
+
+01～04没有删除测试类/方法；原保障位置保持。历史迁移终态方法改名已在verification/step-04-method-audit.md登记。消息基线和Listener合并尚未实施，旧S01～S32仍使用上一轮位置。四类最终验收和最终场景审计留给08/07。

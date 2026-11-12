@@ -28,11 +28,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.List;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @SpringBootTest(properties = {
         "appoint.expiration.enabled=false",
@@ -42,6 +42,20 @@ import static org.assertj.core.api.Assertions.assertThat;
         "appoint.outbox.confirm-timeout=2s"
 })
 class OutboxPublisherReliabilityIT {
+    @Autowired private org.springframework.context.ApplicationContext fixtureContext;
+    private com.qsx.appoint.support.RabbitReliabilityFixtures fixtures;
+
+    @org.junit.jupiter.api.BeforeEach
+    void isolateMessages() throws Exception {
+        fixtures = new com.qsx.appoint.support.RabbitReliabilityFixtures(fixtureContext, jdbcTemplate);
+        fixtures.beforeEach();
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void removeMessages() throws Exception {
+        fixtures.afterEach();
+    }
+
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
             .withDatabaseName("appoint").withUsername("appoint").withPassword("appoint-test");
@@ -94,17 +108,20 @@ class OutboxPublisherReliabilityIT {
         Binding binding = BindingBuilder.bind(new Queue(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE))
                 .to(new TopicExchange(RabbitEventTopology.DOMAIN_EXCHANGE))
                 .with(RabbitEventTopology.PAYMENT_SUCCEEDED_ROUTING_KEY);
-        rabbitAdmin.removeBinding(binding);
         PaymentOutboxEvent returned = pendingEvent();
-        outboxMapper.insert(returned);
+        try {
+            rabbitAdmin.removeBinding(binding);
+            outboxMapper.insert(returned);
 
-        assertThat(publisher.publishDue()).isZero();
-        PaymentOutboxEvent retrying = outboxMapper.selectById(returned.getEventId());
-        assertThat(retrying.getStatus()).isEqualTo("PENDING");
-        assertThat(retrying.getPublishAttempts()).isEqualTo(1);
-        assertThat(retrying.getNextAttemptAt()).isAfter(returned.getNextAttemptAt());
-        assertThat(retrying.getLastError()).contains("mandatory return");
-        rabbitAdmin.declareBinding(binding);
+            assertThat(publisher.publishDue()).isZero();
+            PaymentOutboxEvent retrying = outboxMapper.selectById(returned.getEventId());
+            assertThat(retrying.getStatus()).isEqualTo("PENDING");
+            assertThat(retrying.getPublishAttempts()).isEqualTo(1);
+            assertThat(retrying.getNextAttemptAt()).isAfter(returned.getNextAttemptAt());
+            assertThat(retrying.getLastError()).contains("mandatory return");
+        } finally {
+            rabbitAdmin.declareBinding(binding);
+        }
         forceDue(returned.getEventId());
         assertThat(publisher.publishDue()).isEqualTo(1);
         assertThat(rabbitTemplate.receive(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE, 5_000)).isNotNull();
@@ -125,15 +142,16 @@ class OutboxPublisherReliabilityIT {
     void brokerOutageKeepsPendingEventAndRecoveryPublishesIt() throws Exception {
         PaymentOutboxEvent event = pendingEvent();
         outboxMapper.insert(event);
-        RABBIT.execInContainer("rabbitmqctl", "stop_app");
-
-        assertThat(publisher.publishDue()).isZero();
-        PaymentOutboxEvent pending = outboxMapper.selectById(event.getEventId());
-        assertThat(pending.getStatus()).isEqualTo("PENDING");
-        assertThat(pending.getPublishAttempts()).isEqualTo(1);
-
-        RABBIT.execInContainer("rabbitmqctl", "start_app");
-        RABBIT.execInContainer("rabbitmqctl", "await_startup");
+        try {
+            com.qsx.appoint.support.RabbitTestBroker.command(RABBIT, "stop_app");
+            assertThat(publisher.publishDue()).isZero();
+            PaymentOutboxEvent pending = outboxMapper.selectById(event.getEventId());
+            assertThat(pending.getStatus()).isEqualTo("PENDING");
+            assertThat(pending.getPublishAttempts()).isEqualTo(1);
+        } finally {
+            com.qsx.appoint.support.RabbitTestBroker.command(RABBIT, "start_app");
+            com.qsx.appoint.support.RabbitTestBroker.command(RABBIT, "await_startup");
+        }
         forceDue(event.getEventId());
         assertThat(publisher.publishDue()).isEqualTo(1);
         assertThat(outboxMapper.selectById(event.getEventId()).getStatus()).isEqualTo("PUBLISHED");
@@ -161,10 +179,10 @@ class OutboxPublisherReliabilityIT {
     void concurrentPublishersUseSkipLockedAndPublishOneCopy() throws Exception {
         PaymentOutboxEvent event = pendingEvent();
         outboxMapper.insert(event);
-        try (var executor = Executors.newFixedThreadPool(2)) {
+        try (var executor = new com.qsx.appoint.support.TestExecutor(2)) {
             Future<Integer> first = executor.submit(publisher::publishDue);
             Future<Integer> second = executor.submit(publisher::publishDue);
-            assertThat(List.of(first.get(), second.get())).containsExactlyInAnyOrder(0, 1);
+            assertThat(List.of(first.get(15, java.util.concurrent.TimeUnit.SECONDS), second.get(15, java.util.concurrent.TimeUnit.SECONDS))).containsExactlyInAnyOrder(0, 1);
         }
         assertThat(outboxMapper.selectById(event.getEventId()).getStatus()).isEqualTo("PUBLISHED");
         assertThat(rabbitTemplate.receive(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE, 5_000)).isNotNull();
@@ -244,10 +262,10 @@ class OutboxPublisherReliabilityIT {
                     message.getMessageProperties().setMessageId(eventId);
                     return message;
                 });
-        org.awaitility.Awaitility.await().untilAsserted(() ->
+        org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() ->
                 assertThat(rabbitAdmin.getQueueProperties(dlq).get(RabbitAdmin.QUEUE_MESSAGE_COUNT)).isEqualTo(1));
-        rabbitAdmin.removeBinding(binding);
         try {
+            rabbitAdmin.removeBinding(binding);
             org.assertj.core.api.Assertions.assertThatThrownBy(() -> replay.replayOne(com.qsx.appoint.payment.application.ReplayTarget.PAYMENT_SUCCEEDED))
                     .isInstanceOf(RuntimeException.class);
             assertThat(rabbitAdmin.getQueueProperties(dlq).get(RabbitAdmin.QUEUE_MESSAGE_COUNT)).isEqualTo(1);
@@ -266,9 +284,6 @@ class OutboxPublisherReliabilityIT {
 
     @Test
     void databaseMarkFailureRollsBackAfterBrokerAcceptedThenReusesOriginalEvent() throws Exception {
-        // 本类共享隔离容器；清除前面传输用例留下的待发夹具，避免批量发布读到无关消息。
-        jdbcTemplate.update("DELETE FROM payment_outbox_events");
-        rabbitAdmin.purgeQueue(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE);
         confirmationFixture();
         // 同批更早的记录先成功标记，后续失败时也必须回滚，验证整批而非单条事务。
         PaymentOutboxEvent earlier = pendingEvent();

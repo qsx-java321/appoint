@@ -26,19 +26,28 @@ import java.time.LocalDateTime;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.*;
 
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @SpringBootTest(properties={"appoint.messaging.enabled=false", "appoint.expiration.enabled=false"})
 @ActiveProfiles("test")
 class PaymentParentLockMySqlIT {
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
+    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+
+    @org.junit.jupiter.api.BeforeEach
+    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+
+    @org.junit.jupiter.api.AfterEach
+    void removeCommittedFixture() { fixtureScope.close(); }
+
     @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
-            .withDatabaseName("appoint").withUsername("appoint").withPassword("appoint-test");
+            .withCommand("--innodb-lock-wait-timeout=10").withDatabaseName("appoint").withUsername("appoint").withPassword("appoint-test");
     @DynamicPropertySource static void database(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
         registry.add("spring.datasource.username", MYSQL::getUsername);
@@ -92,7 +101,7 @@ class PaymentParentLockMySqlIT {
     void attemptT2LocksParentBeforeWaitingForChild(boolean failure) throws Exception {
         Context context = start();
         jdbcTemplate.update("UPDATE payment_attempts SET status='CREATED' WHERE id=?", context.attempt().paymentAttemptId());
-        try (var pool = Executors.newSingleThreadExecutor(); var child = lockChild("payment_attempts", context.attempt().paymentAttemptId())) {
+        try (var pool = new com.qsx.appoint.support.TestExecutor(1); var child = lockChild("payment_attempts", context.attempt().paymentAttemptId())) {
             var future = pool.submit(() -> {
                 if (failure) attemptTransaction.markFailed(context.attempt().paymentAttemptId(), "TEST", "test failure");
                 else attemptTransaction.markProcessing(context.attempt().paymentAttemptId(), context.attempt().providerOrderNo());
@@ -109,7 +118,7 @@ class PaymentParentLockMySqlIT {
     void callbackLocksParentBeforeWaitingForAttempt() throws Exception {
         Context context = start();
         var raw = gateway.complete(context.attempt().providerOrderNo(), UUID.randomUUID().toString(), LocalDateTime.now());
-        try (var pool = Executors.newSingleThreadExecutor(); var child = lockChild("payment_attempts", context.attempt().paymentAttemptId())) {
+        try (var pool = new com.qsx.appoint.support.TestExecutor(1); var child = lockChild("payment_attempts", context.attempt().paymentAttemptId())) {
             var future = pool.submit(() -> notifications.handle(PaymentChannel.MOCK, raw));
             await().atMost(Duration.ofSeconds(10)).until(() -> parentIsLocked(context.paymentId()));
             assertThat(future.isDone()).isFalse();
@@ -128,7 +137,7 @@ class PaymentParentLockMySqlIT {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
             return invocation.callRealMethod();
         }).when(gateway).refund(any(GatewayRefundRequest.class));
-        try (var pool = Executors.newSingleThreadExecutor(); var child = lockChild("payment_refunds", event.refundId())) {
+        try (var pool = new com.qsx.appoint.support.TestExecutor(1); var child = lockChild("payment_refunds", event.refundId())) {
             var future = pool.submit(() -> worker.process(event));
             await().atMost(Duration.ofSeconds(10)).until(() -> parentIsLocked(context.paymentId()));
             assertThat(future.isDone()).isFalse();
@@ -152,7 +161,7 @@ class PaymentParentLockMySqlIT {
             if (failure) throw new IllegalStateException("渠道故障");
             return invocation.callRealMethod();
         }).when(gateway).refund(any(GatewayRefundRequest.class));
-        try (var pool = Executors.newSingleThreadExecutor()) {
+        try (var pool = new com.qsx.appoint.support.TestExecutor(1)) {
             var future = pool.submit(() -> worker.process(event));
             try {
                 assertThat(entered.await(10, TimeUnit.SECONDS)).isTrue();
@@ -190,7 +199,7 @@ class PaymentParentLockMySqlIT {
             }
             return gateway.refund(invocation.getArgument(0));
         }).when(concurrentGateway).refund(any(GatewayRefundRequest.class));
-        try (var pool = Executors.newFixedThreadPool(2)) {
+        try (var pool = new com.qsx.appoint.support.TestExecutor(2)) {
             var first = pool.submit(() -> worker.process(event));
             try {
                 assertThat(entered.await(10, TimeUnit.SECONDS)).isTrue();
@@ -210,7 +219,7 @@ class PaymentParentLockMySqlIT {
     @Test
     void refundRequestLocksParentBeforeSuccessfulAttempt() throws Exception {
         Context context=paid();
-        try (var pool=Executors.newSingleThreadExecutor(); var child=lockChild("payment_attempts",context.attempt().paymentAttemptId())) {
+        try (var pool=new com.qsx.appoint.support.TestExecutor(1); var child=lockChild("payment_attempts",context.attempt().paymentAttemptId())) {
             var future=pool.submit(() -> refunds.requestFullRefund(context.paymentId(),RefundReason.APPOINTMENT_CANCELLED));
             await().atMost(Duration.ofSeconds(10)).until(() -> parentIsLocked(context.paymentId()));
             assertThat(future.isDone()).isFalse();
@@ -225,7 +234,7 @@ class PaymentParentLockMySqlIT {
         Context context=paid();
         var duplicate=gateway.complete(context.attempt().providerOrderNo(),UUID.randomUUID().toString(),LocalDateTime.now());
         CountDownLatch ready=new CountDownLatch(2),start=new CountDownLatch(1);
-        try (var pool=Executors.newFixedThreadPool(2)) {
+        try (var pool=new com.qsx.appoint.support.TestExecutor(2)) {
             var callback=pool.submit(() -> {
                 ready.countDown();
                 if (!start.await(10,TimeUnit.SECONDS)) throw new IllegalStateException("启动超时");

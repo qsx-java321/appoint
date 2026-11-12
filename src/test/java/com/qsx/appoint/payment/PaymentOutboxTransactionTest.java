@@ -17,9 +17,18 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.*;
 
 /** 从真实接口写数据库，再与改造前 fixture 比较；不把新 DTO 自比较当契约证明。 */
-@SpringBootTest
+@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:payment-outbox-transaction-test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @ActiveProfiles("test")
 class PaymentOutboxTransactionTest {
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
+    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+
+    @org.junit.jupiter.api.BeforeEach
+    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+
+    @org.junit.jupiter.api.AfterEach
+    void removeCommittedFixture() { fixtureScope.close(); }
+
     @Autowired PaymentOutbox outbox;
     @Autowired PaymentOutboxEventMapper events;
     @org.springframework.test.context.bean.override.mockito.MockitoSpyBean ObjectMapper mapper;

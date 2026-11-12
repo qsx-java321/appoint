@@ -32,3 +32,42 @@
 - 命令：`./mvnw -o -Pmysql-it -Dtest=VisitHttpTest,ScheduleInventoryIntegrationTest,SessionCatalogHttpTest,OnDemandBookingHttpTest,BookingMidnightIntegrationTest,BookingTimeRulesTest -Dit.test=VisitWorkflowMySqlIT verify`
 - 日志：`/tmp/test-refactor-03.log`
 - Maven汇总（普通/集成分别计）：[('41', '0', '0', '0'), ('1', '0', '0', '0')]；耗时：['34.831 s']; BUILD SUCCESS=True。
+
+## 04 聚焦清理首轮
+
+- 命令：`./mvnw -o -Dtest=ApiFlowIntegrationTest,AppointmentIdempotencyIntegrationTest,AppointmentLifecycleIntegrationTest,ScheduleInventoryIntegrationTest,BookingMidnightIntegrationTest,PaymentAttemptIntegrationTest,PaymentNotificationAtomicityTest,PaymentOutboxTransactionTest,PatientIntegrationTest,OnDemandBookingHttpTest,CatalogManagementIntegrationTest test`
+- 日志：`/tmp/test-refactor-04-unit.log`
+- Maven汇总（普通/集成分别计）：[('73', '0', '0', '0')]；耗时：['24.301 s']; BUILD SUCCESS=True。
+
+## 04 顺序A全量
+
+- 命令：`./mvnw -o -Pmysql-it -Dsurefire.runOrder=alphabetical -Dfailsafe.runOrder=alphabetical -Djunit.jupiter.testmethod.order.default=org.junit.jupiter.api.MethodOrderer$MethodName verify`
+- 日志：`/tmp/test-refactor-04-order-a.log`
+- Maven汇总（普通/集成分别计）：[('323', '0', '0', '0'), ('38', '0', '0', '0')]；耗时：['03:15 min']; BUILD SUCCESS=True。
+
+## 04 顺序B复验
+
+- 命令：`./mvnw -o -Pmysql-it -Dsurefire.runOrder=reversealphabetical -Dfailsafe.runOrder=reversealphabetical -Djunit.jupiter.testmethod.order.default=org.junit.jupiter.api.MethodOrderer$Random -Djunit.jupiter.execution.order.random.seed=20261112 -Dit.test=AppointmentLifecycleMySqlIT,PaymentNotificationMySqlIT,PaymentAttemptMySqlIT,LatePaymentMySqlIT,VisitWorkflowMySqlIT,PaymentParentLockMySqlIT verify`
+- 日志：`/tmp/test-refactor-04-order-b.log`
+- Maven汇总（普通/集成分别计）：[('323', '0', '0', '0'), ('32', '0', '0', '0')]；耗时：['02:19 min']; BUILD SUCCESS=True。
+
+## 04 可靠性顺序A
+
+- 命令：`./mvnw -o -Preliability-it -Dtest=AppointmentLifecycleInterfaceTest,CatalogManagementIntegrationTest -Dsurefire.runOrder=alphabetical -Dfailsafe.runOrder=alphabetical -Djunit.jupiter.testmethod.order.default=org.junit.jupiter.api.MethodOrderer$MethodName verify`
+- 日志：`/tmp/test-refactor-04-reliability-a.log`
+- Maven汇总（普通/集成分别计）：[('19', '0', '0', '0'), ('16', '0', '0', '0')]；耗时：['01:30 min']; BUILD SUCCESS=True。
+
+## 04 可靠性顺序B最终
+
+- 命令：`./mvnw -o -Preliability-it -Dtest=ConfirmedMessagePublisherTest -Dsurefire.runOrder=reversealphabetical -Dfailsafe.runOrder=reversealphabetical -Djunit.jupiter.testmethod.order.default=org.junit.jupiter.api.MethodOrderer$Random -Djunit.jupiter.execution.order.random.seed=20261112 verify`
+- 日志：`/tmp/test-refactor-04-reliability-b.log`
+- Maven汇总（普通/集成分别计）：[('5', '0', '0', '0'), ('16', '0', '0', '0')]；耗时：['01:24 min']; BUILD SUCCESS=True。
+
+## 执行备注与限制
+
+- 02最初临时编辑脚本存在缩进错误，没有修改源码；随后预执行`/tmp/test-refactor-02-pre-edit.log`验证的是旧代码，不计本步改造验收。修正脚本后实际首轮`/tmp/test-refactor-02-first.log`常规10通过、MySQL4中2失败，暴露CHECK错误的真实包装类型；精确验证3819/HY000及约束名后完整重跑通过。
+- 04顺序A后完善了接口测试与管理并发用例的finally清理；顺序B完整常规覆盖最终版本，可靠性A再次按字母顺序验收这两类19项。
+- 可靠性A完成后补充两处失败路径收尾：Broker连接重置进入finally，匿名ACK重投队列在finally删除；可靠性B完整16项验证最终源码。两轮均保留全部原故障窗口断言。
+- 本轮没有删除测试方法，57类共258个注解测试方法保留，仅历史迁移方法改名明确V4/V5；323/38/16为实际参数化执行数量，不重复加总多轮常规。
+- src/main、pom.xml、compose.yaml摘要与起点一致；`sha256sum -c .scratch/test-suite-refactor/verification/production-baseline.sha256`在项目根目录执行通过，日志`/tmp/test-refactor-production-check.log`。生产JAR静态核对：没有support测试辅助类、archfixture和Test类。
+- 用户要求04后暂停。没有执行05～08，也没有执行08隔离Compose/curl验收，不宣称整个八步方案完成。未改动现有Compose基础服务和数据卷。

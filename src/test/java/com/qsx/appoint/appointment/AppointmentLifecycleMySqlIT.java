@@ -49,23 +49,32 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @SpringBootTest(properties = "appoint.expiration.enabled=false")
 @ActiveProfiles("test")
 @org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class AppointmentLifecycleMySqlIT {
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
+    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+
+    @org.junit.jupiter.api.BeforeEach
+    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+
+    @org.junit.jupiter.api.AfterEach
+    void removeCommittedFixture() { fixtureScope.close(); }
+
     @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;
     @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private static final AtomicInteger SCHEDULE_SEQUENCE = new AtomicInteger();
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
-            .withDatabaseName("appoint")
+            .withCommand("--innodb-lock-wait-timeout=10").withDatabaseName("appoint")
             .withUsername("appoint")
             .withPassword("appoint-test");
 
@@ -168,7 +177,7 @@ class AppointmentLifecycleMySqlIT {
         int contenders = 21;
         CountDownLatch ready = new CountDownLatch(contenders);
         CountDownLatch start = new CountDownLatch(1);
-        try (ExecutorService executor = Executors.newFixedThreadPool(contenders)) {
+        try (ExecutorService executor = new com.qsx.appoint.support.TestExecutor(contenders)) {
             List<Future<Object>> futures = IntStream.range(0, contenders)
                     .mapToObj(index -> {
                         Long userId = createUser();
@@ -177,10 +186,10 @@ class AppointmentLifecycleMySqlIT {
                                 userId, patientId, appointmentDate), ready, start));
                     })
                     .toList();
-            ready.await();
+            if (!ready.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("AppointmentLifecycleMySqlIT: ready屏障超时");
             start.countDown();
             List<Object> outcomes = new java.util.ArrayList<>();
-            for (Future<Object> future : futures) outcomes.add(future.get());
+            for (Future<Object> future : futures) outcomes.add(future.get(15, java.util.concurrent.TimeUnit.SECONDS));
 
             assertThat(outcomes.stream().filter(CreateAppointmentResponse.class::isInstance).count()).isEqualTo(20);
             assertThat(outcomes.stream().filter(BusinessException.class::isInstance).count()).isEqualTo(1);
@@ -202,11 +211,11 @@ class AppointmentLifecycleMySqlIT {
         Long scheduleId = createSchedule(3);
         CountDownLatch ready = new CountDownLatch(20);
         CountDownLatch start = new CountDownLatch(1);
-        try (ExecutorService executor = Executors.newFixedThreadPool(20)) {
+        try (ExecutorService executor = new com.qsx.appoint.support.TestExecutor(20)) {
             List<Future<Object>> futures = java.util.stream.IntStream.range(0, 20)
                     .mapToObj(index -> executor.submit(() -> {
                         ready.countDown();
-                        start.await();
+                        if (!start.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("AppointmentLifecycleMySqlIT: start屏障超时");
                         Long userId = createUser();
                         Long patientId = createPatient(userId, "990000%012d".formatted(index));
                         try {
@@ -216,10 +225,10 @@ class AppointmentLifecycleMySqlIT {
                         }
                     }))
                     .toList();
-            ready.await();
+            if (!ready.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("AppointmentLifecycleMySqlIT: ready屏障超时");
             start.countDown();
             List<Object> outcomes = new java.util.ArrayList<>();
-            for (Future<Object> future : futures) outcomes.add(future.get());
+            for (Future<Object> future : futures) outcomes.add(future.get(15, java.util.concurrent.TimeUnit.SECONDS));
 
             assertThat(outcomes.stream().filter(CreateAppointmentResponse.class::isInstance).count()).isEqualTo(3);
             assertThat(outcomes.stream().filter(BusinessException.class::isInstance).count()).isEqualTo(17);
@@ -412,19 +421,19 @@ class AppointmentLifecycleMySqlIT {
     private List<Object> race(Callable<Object> first, Callable<Object> second) throws Exception {
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
-        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+        try (ExecutorService executor = new com.qsx.appoint.support.TestExecutor(2)) {
             Future<Object> firstResult = executor.submit(awaitStart(first, ready, start));
             Future<Object> secondResult = executor.submit(awaitStart(second, ready, start));
-            ready.await();
+            if (!ready.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("AppointmentLifecycleMySqlIT: ready屏障超时");
             start.countDown();
-            return List.of(firstResult.get(), secondResult.get());
+            return List.of(firstResult.get(15, java.util.concurrent.TimeUnit.SECONDS), secondResult.get(15, java.util.concurrent.TimeUnit.SECONDS));
         }
     }
 
     private Callable<Object> awaitStart(Callable<Object> action, CountDownLatch ready, CountDownLatch start) {
         return () -> {
             ready.countDown();
-            start.await();
+            if (!start.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("AppointmentLifecycleMySqlIT: start屏障超时");
             try {
                 return action.call();
             } catch (BusinessException exception) {

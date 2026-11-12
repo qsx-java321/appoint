@@ -19,6 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
+@org.springframework.transaction.annotation.Transactional
 @AutoConfigureMockMvc
 class PatientIntegrationTest {
     @Autowired private MockMvc mockMvc;

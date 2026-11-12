@@ -21,18 +21,27 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @SpringBootTest(properties = "appoint.expiration.enabled=false")
 @ActiveProfiles("test")
 class PaymentAttemptMySqlIT {
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
+    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+
+    @org.junit.jupiter.api.BeforeEach
+    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+
+    @org.junit.jupiter.api.AfterEach
+    void removeCommittedFixture() { fixtureScope.close(); }
+
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
-            .withDatabaseName("appoint").withUsername("appoint").withPassword("appoint-test");
+            .withCommand("--innodb-lock-wait-timeout=10").withDatabaseName("appoint").withUsername("appoint").withPassword("appoint-test");
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
@@ -68,18 +77,18 @@ class PaymentAttemptMySqlIT {
     private List<Object> race(Callable<Object> first, Callable<Object> second) throws Exception {
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
-        try (var executor = Executors.newFixedThreadPool(2)) {
+        try (var executor = new com.qsx.appoint.support.TestExecutor(2)) {
             Future<Object> a = executor.submit(() -> call(ready, start, first));
             Future<Object> b = executor.submit(() -> call(ready, start, second));
-            ready.await();
+            if (!ready.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("PaymentAttemptMySqlIT: ready屏障超时");
             start.countDown();
-            return List.of(a.get(), b.get());
+            return List.of(a.get(15, java.util.concurrent.TimeUnit.SECONDS), b.get(15, java.util.concurrent.TimeUnit.SECONDS));
         }
     }
 
     private Object call(CountDownLatch ready, CountDownLatch start, Callable<Object> action) throws Exception {
         ready.countDown();
-        start.await();
+        if (!start.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("PaymentAttemptMySqlIT: start屏障超时");
         try {
             return action.call();
         } catch (BusinessException exception) {

@@ -36,7 +36,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
@@ -54,6 +53,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class CatalogManagementIntegrationTest {
     @Autowired private MockMvc mockMvc;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private CatalogManagementService catalogManagementService;
     @Autowired private ScheduleManagementService scheduleManagementService;
@@ -455,7 +455,7 @@ class CatalogManagementIntegrationTest {
         String departmentName = "并发科室-" + UUID.randomUUID();
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
-        try (var executor = Executors.newFixedThreadPool(2)) {
+        try (var executor = new com.qsx.appoint.support.TestExecutor(2)) {
             Future<Object> first = executor.submit(() -> createDepartmentConcurrently(departmentName, ready, start));
             Future<Object> second = executor.submit(() -> createDepartmentConcurrently(departmentName, ready, start));
             org.assertj.core.api.Assertions.assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
@@ -473,6 +473,9 @@ class CatalogManagementIntegrationTest {
             AdminDepartmentResponse created = (AdminDepartmentResponse) java.util.List.of(firstResult, secondResult)
                     .stream().filter(AdminDepartmentResponse.class::isInstance).findFirst().orElseThrow();
             expectDeleted(delete("/api/v1/admin/departments/{id}", created.getId()));
+        } finally {
+            // 保留接口删除断言；失败时也清理本例随机名称的已提交数据。
+            fixtureJdbc.update("DELETE FROM departments WHERE hospital_id=1 AND name=?", departmentName);
         }
     }
 

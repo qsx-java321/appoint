@@ -29,11 +29,20 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:appointment-idempotency-integration-test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class AppointmentIdempotencyIntegrationTest {
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
+    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+
+    @org.junit.jupiter.api.BeforeEach
+    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+
+    @org.junit.jupiter.api.AfterEach
+    void removeCommittedFixture() { fixtureScope.close(); }
+
     @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;
     private static final AtomicInteger SCHEDULE_SEQUENCE = new AtomicInteger();
     @Autowired private MockMvc mockMvc;

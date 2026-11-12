@@ -2,7 +2,7 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: claimed
+Status: paused
 
 ## 已确认目标和边界
 
@@ -32,3 +32,7 @@ Status: claimed
 
 见 [任务地图](map.md) 和八项 issue；所有步骤顺序执行。每步实现→聚焦测试→场景核对→证据→提交。最终完整串行 ./mvnw clean test、./mvnw -Pmysql-it verify、./mvnw -Preliability-it verify、python3 scripts/compose_acceptance.py。缓存可用时 -o。报告重复常规不重复加总，零未经解释跳过；未执行不算通过。核对生产JAR不含测试注入、src/main与生产配置无改动，隔离验收资源清理。不提交凭据、target、运行日志或原 scripts/__pycache__/。
 
+
+## 当前执行状态
+
+用户要求第04步验收提交后暂停；01～04已完成，05～08未开始。当前结果见map.md与verification/commands.md，不代表08最终四类验收完成。

@@ -34,6 +34,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @ActiveProfiles("test")
 @Import(PaymentAttemptIntegrationTest.GatewayConfiguration.class)
 class PaymentAttemptIntegrationTest {
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
+    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+
+    @org.junit.jupiter.api.BeforeEach
+    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+
+    @org.junit.jupiter.api.AfterEach
+    void removeCommittedFixture() { fixtureScope.close(); }
+
     private static final AtomicLong IDS = new AtomicLong(8_000_000);
     @Autowired private PaymentAttemptService service;
     @Autowired private PaymentOrderMapper paymentOrderMapper;

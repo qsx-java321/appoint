@@ -23,16 +23,16 @@ class AppointmentLifecycleInterfaceTest {
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private TransactionTemplate transaction;
 
+    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+
     @BeforeEach
     void prepare() {
-        jdbcTemplate.update("DELETE FROM appointment_active_claims WHERE appointment_order_id=11003");
-        jdbcTemplate.update("DELETE FROM payment_attempts WHERE payment_order_id=11004");
-        jdbcTemplate.update("DELETE FROM payment_orders WHERE id=11004");
-        jdbcTemplate.update("DELETE FROM appointment_orders WHERE id=11003");
-        jdbcTemplate.update("DELETE FROM patients WHERE id=11002");
-        jdbcTemplate.update("DELETE FROM users WHERE id=11001");
+        fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(jdbcTemplate);
         fixture();
     }
+
+    @org.junit.jupiter.api.AfterEach
+    void removeFixture() { fixtureScope.close(); }
 
     @Test
     void mandatoryRejectsLocksAndWritesWithoutCallerTransaction() {

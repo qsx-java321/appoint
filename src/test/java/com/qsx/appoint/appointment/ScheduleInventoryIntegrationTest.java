@@ -1,11 +1,9 @@
 package com.qsx.appoint.appointment;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.qsx.appoint.appointment.dto.AppointmentCreationResult;
 import com.qsx.appoint.appointment.dto.AppointmentResponse;
 import com.qsx.appoint.appointment.dto.CreateAppointmentRequest;
 import com.qsx.appoint.appointment.dto.CreateAppointmentResponse;
-import com.qsx.appoint.appointment.entity.AppointmentActiveClaim;
 import com.qsx.appoint.appointment.entity.AppointmentOrder;
 import com.qsx.appoint.appointment.mapper.AppointmentActiveClaimMapper;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
@@ -46,6 +44,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Import({com.qsx.appoint.support.AppointmentClockTestConfiguration.class, com.qsx.appoint.support.FormalPaymentTestSupport.class})
 @org.springframework.test.context.ActiveProfiles("test")
 class ScheduleInventoryIntegrationTest {
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
+    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+
+    @org.junit.jupiter.api.BeforeEach
+    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+
+    @org.junit.jupiter.api.AfterEach
+    void removeCommittedFixture() { fixtureScope.close(); }
+
     @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private static final Instant RELEASE_INSTANT = ZonedDateTime.of(

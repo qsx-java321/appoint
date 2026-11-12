@@ -23,6 +23,15 @@ import static org.mockito.Mockito.*;
         "appoint.messaging.enabled=false", "appoint.expiration.enabled=false"})
 @ActiveProfiles("test")
 class PaymentNotificationAtomicityTest {
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
+    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+
+    @org.junit.jupiter.api.BeforeEach
+    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+
+    @org.junit.jupiter.api.AfterEach
+    void removeCommittedFixture() { fixtureScope.close(); }
+
     private static final AtomicLong IDS = new AtomicLong(9700000);
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private PaymentAttemptService attempts;

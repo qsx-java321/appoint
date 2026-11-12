@@ -22,6 +22,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 })
 @Import(com.qsx.appoint.support.AppointmentClockTestConfiguration.class)
 class BookingMidnightIntegrationTest {
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
+    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+
+    @org.junit.jupiter.api.BeforeEach
+    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+
+    @org.junit.jupiter.api.AfterEach
+    void removeCommittedFixture() { fixtureScope.close(); }
+
     @Autowired private BookingCoordinator coordinator;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private MutableAppointmentClock clock;

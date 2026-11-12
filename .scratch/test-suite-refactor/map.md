@@ -2,7 +2,7 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: claimed
+Status: paused
 
 [详细方案](spec.md) · [场景](scenarios.md) · [清单](verification/inventory.md) · [命令与结果](verification/commands.md)
 
@@ -11,7 +11,7 @@ Status: claimed
 | 01 | [建立测试清单、场景映射和执行基线](issues/01-baseline.md) | resolved | none |
 | 02 | [提高断言准确性并固定历史迁移边界](issues/02-assertions-migrations.md) | resolved | 01 |
 | 03 | [整理时钟与业务夹具](issues/03-clocks-fixtures.md) | resolved | 02 |
-| 04 | [完善隔离、故障恢复和有界等待](issues/04-isolation-concurrency.md) | ready-for-agent | 03 |
+| 04 | [完善隔离、故障恢复和有界等待](issues/04-isolation-concurrency.md) | resolved | 03 |
 | 05 | [合并消息测试重复职责](issues/05-messaging-deduplication.md) | ready-for-agent | 04 |
 | 06 | [减少测试启动和重复扫描](issues/06-startup-scan.md) | ready-for-agent | 05 |
 | 07 | [完善可读性、规范和场景审计](issues/07-readability-audit.md) | ready-for-agent | 06 |
@@ -29,3 +29,18 @@ Status: claimed
 - 02：聚焦常规10、真实MySQL4全部通过。首次CHECK断言发现实际包装为UncategorizedSQLException，改为精确验证3819/HY000/约束名后重跑成功。临时编辑脚本语法错误未改源码；此前预执行不计改造验收。
 
 - 03：聚焦常规41、就诊MySQL1通过；可变钟统一为support配置，所有使用者每例重置，原UTC时点转换为等价上海时间。保留FormalPaymentTestSupport等已有夹具，不机械再抽象一次性SQL。
+
+- 04：聚焦73通过；顺序A常规323+完整MySQL38通过，顺序B常规323+受影响MySQL32通过；完整可靠性两轮各16通过，A另验收19项收尾常规，B最终源码额外5项确认测试。全部零失败/错误/跳过。用户要求本步提交后暂停，05～08不启动。
+
+## 暂停位置（用户明确要求）
+
+已完成 **4 / 8**，第04步验收并提交后停止；05～08尚未开始。接续从 [05合并消息重复职责](issues/05-messaging-deduplication.md) 开始，先检查当前Git状态与本步Comments，不重复执行已完成步骤。最终四类验收属于08，尚未宣告全项目整理完成。
+
+## 已提交阶段
+
+- 01：`7e72e36 docs: 建立测试整理任务与场景基线`
+- 02：`bbbb6d0 test: 收紧异常断言并明确迁移测试边界`
+- 03：`f46e49b refactor: 整理测试时钟与业务夹具`
+- 04：本次提交 `test: 完善测试隔离与并发资源恢复`，具体哈希见Git日志。
+
+第04步细节见 [隔离说明](verification/step-04-isolation.md) 与 [方法核对](verification/step-04-method-audit.md)。原有未跟踪 scripts/__pycache__/ 保留，未提交。

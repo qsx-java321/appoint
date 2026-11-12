@@ -81,6 +81,15 @@ class OnDemandBookingHttpTest {
         patientId = patient.getId();
     }
 
+    @org.junit.jupiter.api.AfterEach
+    void cleanCommittedCutoffFixture() {
+        // 只有NOT_SUPPORTED用例的账号准备会提交；普通用例仍由测试事务回滚。
+        if (!org.springframework.test.context.transaction.TestTransaction.isActive()) {
+            patientMapper.deleteById(patientId);
+            userMapper.deleteById(userId);
+        }
+    }
+
     @Test
     void firstBookingCreatesSessionFromSettingsAndGetsFullPaymentWindow() throws Exception {
         String body = createAppointment("2026-11-06", "MORNING_FIRST", UUID.randomUUID().toString());

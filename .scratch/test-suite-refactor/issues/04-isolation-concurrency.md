@@ -1,7 +1,7 @@
 # 04 完善隔离、故障恢复和有界等待
 
 Type: test/refactor
-Status: ready-for-agent
+Status: resolved
 Blocked by: 03
 
 ## 工作内容
@@ -15,3 +15,5 @@ Blocked by: 03
 ## Comments
 
 - 尚未验收，相关命令与结果写入 verification/commands.md。
+
+- 聚焦73通过；顺序A常规323+完整MySQL38通过，顺序B常规323+受影响MySQL32通过；完整可靠性两轮各16通过，A另验收19项收尾常规，B最终源码额外5项确认测试。全部零失败/错误/跳过。用户要求本步提交后暂停，05～08不启动。

@@ -28,13 +28,23 @@ import java.util.UUID;
 import java.util.concurrent.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @SpringBootTest
 @ActiveProfiles("test")
 @Import({FormalPaymentTestSupport.class, AppointmentClockTestConfiguration.class})
 class VisitWorkflowMySqlIT {
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
+    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+
+    @org.junit.jupiter.api.BeforeEach
+    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+
+    @org.junit.jupiter.api.AfterEach
+    void removeCommittedFixture() { fixtureScope.close(); }
+
     @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
-            .withDatabaseName("appoint").withUsername("appoint").withPassword("appoint-test");
+            .withCommand("--innodb-lock-wait-timeout=10").withDatabaseName("appoint").withUsername("appoint").withPassword("appoint-test");
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
@@ -92,9 +102,9 @@ class VisitWorkflowMySqlIT {
     }
     private List<Object> race(Callable<?> left, Callable<?> right) throws Exception {
         var gate = new CountDownLatch(1);
-        try (var executor = Executors.newFixedThreadPool(2)) {
-            Callable<Object> a = () -> { gate.await(); try { return left.call(); } catch (BusinessException error) { return error; } };
-            Callable<Object> b = () -> { gate.await(); try { return right.call(); } catch (BusinessException error) { return error; } };
+        try (var executor = new com.qsx.appoint.support.TestExecutor(2)) {
+            Callable<Object> a = () -> { if (!gate.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("VisitWorkflowMySqlIT: gate屏障超时"); try { return left.call(); } catch (BusinessException error) { return error; } };
+            Callable<Object> b = () -> { if (!gate.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("VisitWorkflowMySqlIT: gate屏障超时"); try { return right.call(); } catch (BusinessException error) { return error; } };
             var first = executor.submit(a); var second = executor.submit(b); gate.countDown();
             return List.of(first.get(15,TimeUnit.SECONDS),second.get(15,TimeUnit.SECONDS));
         }
