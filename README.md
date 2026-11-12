@@ -163,6 +163,8 @@ WHERE u.email = 'student@example.com';
 
 2026-11-12：完成消息代码设计改造：四类 v1 事件使用明确结构与事务内 PaymentOutbox 接口，Rabbit 发布/重放实现与应用接口分离，两个监听器共享失败处理，新增严格消息校验、架构规则和故障窗口测试。保持数据库、合法 v1、队列及预约业务；详见[消息设计](docs/module-design.md#消息代码契约与阅读入口2026-11-12)及[本轮任务](.scratch/messaging-design-refactor/map.md)，实际验收见验证报告。
 
+2026-11-12：完成全项目测试整理八项任务：断言、迁移边界、时钟、隔离与故障恢复、消息测试职责、启动与扫描开销及测试规范已同步。生产业务不变；最终常规340、MySQL38、可靠性16、隔离curl92请求通过。详见[测试约定](docs/testing.md)、[任务地图](.scratch/test-suite-refactor/map.md)和[最终验收](.scratch/test-suite-refactor/verification/final-acceptance.md)。
+
 ## 当前边界
 
 - 已实现当天签到与正常接诊主线；自动叫号、爽约、状态回退、病历处方、实时推送和精确到分钟的就诊安排不在当前范围内。

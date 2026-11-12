@@ -1,0 +1,29 @@
+{
+  "sourceCheckpoint": "9c5878b",
+  "productionBaseline": "963051f",
+  "baseline": {
+    "unit": 323,
+    "mysql": 38,
+    "reliability": 16,
+    "classes": 57,
+    "springBootTestFiles": 33
+  },
+  "final": {
+    "unit": 340,
+    "mysql": 38,
+    "reliability": 16,
+    "httpRequests": 92,
+    "classes": 56,
+    "springBootTestFiles": 31,
+    "junitMethods": 260
+  },
+  "httpRunId": "277f4dc1aa1f",
+  "httpStatuses": {
+    "200": 63,
+    "201": 12,
+    "202": 13,
+    "403": 1,
+    "409": 3
+  },
+  "zeroFailuresErrorsSkips": true
+}

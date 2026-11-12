@@ -1,0 +1,28 @@
+{
+  "runId": "277f4dc1aa1f",
+  "databaseCount": 0,
+  "accountCount": 0,
+  "vhostCount": 0,
+  "composeServices": [
+    {
+      "service": "mysql",
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "service": "rabbitmq",
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "service": "redis",
+      "state": "running",
+      "health": "healthy"
+    }
+  ],
+  "applicationPorts": [
+    36205
+  ],
+  "applicationPortsClosed": true,
+  "verification": "只读查询本轮精确资源名；未删除旧业务库或历史诊断资源"
+}

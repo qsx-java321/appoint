@@ -2,7 +2,7 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: claimed
+Status: resolved
 
 [详细方案](spec.md) · [场景](scenarios.md) · [清单](verification/inventory.md) · [命令与结果](verification/commands.md)
 
@@ -15,7 +15,7 @@ Status: claimed
 | 05 | [合并消息测试重复职责](issues/05-messaging-deduplication.md) | resolved | 04 |
 | 06 | [减少测试启动和重复扫描](issues/06-startup-scan.md) | resolved | 05 |
 | 07 | [完善可读性、规范和场景审计](issues/07-readability-audit.md) | resolved | 06 |
-| 08 | [完整验收与文档收口](issues/08-acceptance.md) | ready-for-agent | 07 |
+| 08 | [完整验收与文档收口](issues/08-acceptance.md) | resolved | 07 |
 
 ## 执行约定
 
@@ -32,16 +32,19 @@ Status: claimed
 
 - 04：聚焦73通过；顺序A常规323+完整MySQL38通过，顺序B常规323+受影响MySQL32通过；完整可靠性两轮各16通过，A另验收19项收尾常规，B最终源码额外5项确认测试。全部零失败/错误/跳过。用户要求本步提交后暂停，05～08不启动。
 
-## 暂停位置（用户明确要求）
+## 当前进度与历史暂停
 
-已完成 **4 / 8**，第04步验收并提交后停止；05～08尚未开始。接续从 [05合并消息重复职责](issues/05-messaging-deduplication.md) 开始，先检查当前Git状态与本步Comments，不重复执行已完成步骤。最终四类验收属于08，尚未宣告全项目整理完成。
+已完成 **8 / 8**，最终常规340、MySQL38、可靠性16及隔离curl92请求通过。用户曾要求04后休息，04验收提交后已停止；随后明确要求继续，现依序完成05～07。不把历史暂停描述当作当前状态。
 
 ## 已提交阶段
 
 - 01：`7e72e36 docs: 建立测试整理任务与场景基线`
 - 02：`bbbb6d0 test: 收紧异常断言并明确迁移测试边界`
 - 03：`f46e49b refactor: 整理测试时钟与业务夹具`
-- 04：本次提交 `test: 完善测试隔离与并发资源恢复`，具体哈希见Git日志。
+- 04：`c1b7fb3 test: 完善测试隔离与并发资源恢复`
+- 05：`048c9bf refactor: 合并重复消息测试并明确验证职责`
+- 06：`861bb64 perf: 减少测试上下文与架构重复扫描`
+- 07：`9c5878b docs: 完善测试规范与场景追踪`
 
 第04步细节见 [隔离说明](verification/step-04-isolation.md) 与 [方法核对](verification/step-04-method-audit.md)。原有未跟踪 scripts/__pycache__/ 保留，未提交。
 
@@ -52,3 +55,9 @@ Status: claimed
 - 06：完整常规340项通过，架构20项、MockPay契约7项保留；契约不启动Spring，生产扫描static final复用，三个profile保护完整。实际耗时及首次编译修正见startup-evidence.md。
 
 - 07：聚焦常规111+MySQL10、确认单测5+Outbox可靠性9通过；260原方法全部有去向，19受保护样本/架构负例不变。补充类职责、去除重复注入/全限定噪音、统一架构正反例规则、验证故障实际调用，测试规范已落盘。临时清理脚本字段名检查中止后按实际jdbcTemplate修正，无生产修改。
+
+- 08：本次最终提交 `docs: 完成测试整理与全流程验收`，具体哈希见Git日志。
+
+[最终验收](verification/final-acceptance.md) · [逐方法审计](verification/method-audit.md) · [当前清单](verification/current-inventory.md) · [测试约定](../../docs/testing.md)。全部任务resolved，无后续必做项。
+
+- 08：干净常规340、完整MySQL38、完整可靠性16、隔离curl92全部通过，零失败/错误/跳过；按日志筛选报告避免旧XML累计。数据库/账号/vhost精确只读复核均清理，应用端口关闭，Compose健康；原生产代码及360被测摘要一致。八项全部完成。

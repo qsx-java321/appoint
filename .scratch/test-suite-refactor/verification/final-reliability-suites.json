@@ -1,0 +1,102 @@
+[
+  {
+    "name": "com.qsx.appoint.coordination.PaymentConfirmationReliabilityIT",
+    "tests": "7",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "169.102",
+    "cases": [
+      {
+        "name": "failureAfterBusinessWritesBeforeCommitRollsBackThenRetryConfirmsOnce",
+        "classname": "com.qsx.appoint.coordination.PaymentConfirmationReliabilityIT",
+        "time": "3.184"
+      },
+      {
+        "name": "malformedPermanentMessageIsRejectedToDlq",
+        "classname": "com.qsx.appoint.coordination.PaymentConfirmationReliabilityIT",
+        "time": "2.063"
+      },
+      {
+        "name": "brokerOutageKeepsEventThenRecoveryConfirmsExactlyOnce",
+        "classname": "com.qsx.appoint.coordination.PaymentConfirmationReliabilityIT",
+        "time": "8.429"
+      },
+      {
+        "name": "refundGatewayFailureRetriesThenMovesToDlqWithoutRestoringAppointment",
+        "classname": "com.qsx.appoint.coordination.PaymentConfirmationReliabilityIT",
+        "time": "4.206"
+      },
+      {
+        "name": "realSignedCallbackCommitsWhileBrokerIsDownThenConfirmsAfterRecovery",
+        "classname": "com.qsx.appoint.coordination.PaymentConfirmationReliabilityIT",
+        "time": "8.113"
+      },
+      {
+        "name": "committedConfirmationSurvivesLostAckAndBrokerRedelivery",
+        "classname": "com.qsx.appoint.coordination.PaymentConfirmationReliabilityIT",
+        "time": "2.078"
+      },
+      {
+        "name": "failedConfirmationIsRetriedTwiceThenDeadLettered",
+        "classname": "com.qsx.appoint.coordination.PaymentConfirmationReliabilityIT",
+        "time": "4.113"
+      }
+    ]
+  },
+  {
+    "name": "com.qsx.appoint.payment.OutboxPublisherReliabilityIT",
+    "tests": "9",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "27.638",
+    "cases": [
+      {
+        "name": "brokerOutageKeepsPendingEventAndRecoveryPublishesIt",
+        "classname": "com.qsx.appoint.payment.OutboxPublisherReliabilityIT",
+        "time": "3.55"
+      },
+      {
+        "name": "replayRequiresRoutingConfirmationAndResetsCountersWithoutChangingEventId",
+        "classname": "com.qsx.appoint.payment.OutboxPublisherReliabilityIT",
+        "time": "0.236"
+      },
+      {
+        "name": "concurrentPublishersUseSkipLockedAndPublishOneCopy",
+        "classname": "com.qsx.appoint.payment.OutboxPublisherReliabilityIT",
+        "time": "0.337"
+      },
+      {
+        "name": "confirmedPersistentMessageMarksOutboxPublishedInDurableTopology",
+        "classname": "com.qsx.appoint.payment.OutboxPublisherReliabilityIT",
+        "time": "0.11"
+      },
+      {
+        "name": "retryTransportDelaysBothRetriesAndStopsAfterThreeAttempts",
+        "classname": "com.qsx.appoint.payment.OutboxPublisherReliabilityIT",
+        "time": "2.565"
+      },
+      {
+        "name": "deadLetterTopologyRoutesRejectedBusinessMessageToItsDlq",
+        "classname": "com.qsx.appoint.payment.OutboxPublisherReliabilityIT",
+        "time": "0.104"
+      },
+      {
+        "name": "mandatoryReturnRetriesThenExhaustedEventBecomesFailed",
+        "classname": "com.qsx.appoint.payment.OutboxPublisherReliabilityIT",
+        "time": "0.216"
+      },
+      {
+        "name": "crashAfterConfirmBeforeDatabaseMarkProducesRecoverableDuplicate",
+        "classname": "com.qsx.appoint.payment.OutboxPublisherReliabilityIT",
+        "time": "0.108"
+      },
+      {
+        "name": "databaseMarkFailureRollsBackAfterBrokerAcceptedThenReusesOriginalEvent",
+        "classname": "com.qsx.appoint.payment.OutboxPublisherReliabilityIT",
+        "time": "0.253"
+      }
+    ]
+  }
+]

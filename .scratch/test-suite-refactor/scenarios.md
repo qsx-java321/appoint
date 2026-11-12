@@ -28,11 +28,11 @@
 
 原 [S01～S32](../messaging-design-refactor/scenarios.md) 继续作为门禁；最终逐项映射见 verification/message-scenarios.md。
 
-## 第04步暂停检查点
+## 第04步历史暂停检查点
 
 01～04没有删除测试类/方法；原保障位置保持。历史迁移终态方法改名已在verification/step-04-method-audit.md登记。消息基线和Listener合并尚未实施，旧S01～S32仍使用上一轮位置。四类最终验收和最终场景审计留给08/07。
 
-## 05迁移明细（验收前登记）
+## 05迁移明细（已验收）
 
 | 原位置 | 新责任与保留内容 |
 | --- | --- |
@@ -48,3 +48,7 @@
 ## 07审计结果
 
 [逐方法迁移审计](verification/method-audit.md)覆盖原260个方法；[当前测试清单](verification/current-inventory.md)记录各类层次、profile、时钟与隔离。原八份样本与架构负例19文件摘要未变；S01～S32当前入口均已映射，最终结果由08新执行验收确认。测试写法见[测试约定](../../docs/testing.md)。
+
+## 08最终结果
+
+常规340、MySQL38、可靠性16、隔离curl92请求全部通过。S01～S32已逐项关联新执行证据，原方法与独有断言没有无归属项。见[最终验收](verification/final-acceptance.md)。

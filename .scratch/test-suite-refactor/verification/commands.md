@@ -97,3 +97,29 @@
 - 命令：`./mvnw -o -Preliability-it -Dtest=ConfirmedMessagePublisherTest -Dit.test=OutboxPublisherReliabilityIT verify`
 - 日志：`/tmp/test-refactor-07-reliability.log`
 - Maven汇总（普通/集成分别计）：[('5', '0', '0', '0'), ('9', '0', '0', '0')]；耗时：['30.293 s']; BUILD SUCCESS=True。
+
+## 08 干净构建全量常规
+
+- 命令：`./mvnw -o clean test`
+- 日志：`/tmp/test-refactor-08-unit.log`
+- Maven汇总（普通/集成分别计）：[('340', '0', '0', '0')]；耗时：['35.468 s']; BUILD SUCCESS=True。
+
+## 08 完整MySQL
+
+- 命令：`./mvnw -o -Pmysql-it verify`
+- 日志：`/tmp/test-refactor-08-mysql.log`
+- Maven汇总（普通/集成分别计）：[('340', '0', '0', '0'), ('38', '0', '0', '0')]；耗时：['02:52 min']; BUILD SUCCESS=True。
+
+## 08 完整消息可靠性
+
+- 命令：`./mvnw -o -Preliability-it verify`
+- 日志：`/tmp/test-refactor-08-reliability.log`
+- Maven汇总（普通/集成分别计）：[('340', '0', '0', '0'), ('16', '0', '0', '0')]；耗时：['03:48 min']; BUILD SUCCESS=True。
+
+## 08隔离HTTP与独立资源复核
+
+- 命令：`python3 scripts/compose_acceptance.py --http-client curl --http-report .scratch/test-suite-refactor/verification/curl-report.json`；日志`/tmp/test-refactor-08-compose.log`，退出0。
+- 运行277f4dc1aa1f，92请求的status全部等于expectedStatus；注册、预约、支付、Rabbit确认、取消退款、迟到支付、签到与接诊完成均由脚本实际断言。报告递归脱敏。
+- 成功后独立只读查询本轮精确资源名：数据库accept_277f4dc1aa1f、账号a_277f4dc1aa1f、vhost accept-277f4dc1aa1f均不存在；验收应用端口已关闭。Compose MySQL/Redis/RabbitMQ健康保留运行，旧业务库/卷未清理。结果见resources.json。
+- Failsafe目录保留先前11份MySQL XML；最终可靠性摘要按本轮日志实际Running类名筛选，仅2类16项，不把目录13份54项错误累计为本轮可靠性。MySQL11类38项和常规43类340项分别保存逐用例摘要。
+- 最终生产JAR不包含support/archfixture、测试类或JUnit/Mockito/Testcontainers/ArchUnit/H2测试库；273份生产摘要、360份被测代码/配置/脚本摘要保持一致。测试源码检查点9c5878b，08只补文档与证据。

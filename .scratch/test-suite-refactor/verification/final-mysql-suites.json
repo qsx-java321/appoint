@@ -1,0 +1,302 @@
+[
+  {
+    "name": "com.qsx.appoint.PatientJourneyHttpMySqlIT",
+    "tests": "2",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "17.109",
+    "cases": [
+      {
+        "name": "shortPaymentDeadlineIsClosedByRealExpirationJobAndScheduleReturnsToCatalog",
+        "classname": "com.qsx.appoint.PatientJourneyHttpMySqlIT",
+        "time": "2.917"
+      },
+      {
+        "name": "patientCanRegisterBookPayCancelAndBookReleasedScheduleAgainOverHttp",
+        "classname": "com.qsx.appoint.PatientJourneyHttpMySqlIT",
+        "time": "3.071"
+      }
+    ]
+  },
+  {
+    "name": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+    "tests": "13",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "13.913",
+    "cases": [
+      {
+        "name": "concurrentDuplicatePatientDocumentIsRejectedByDatabaseConstraint",
+        "classname": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "time": "0.197"
+      },
+      {
+        "name": "concurrentSameIdempotencyKeyReplaysOneCommittedResponse",
+        "classname": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "time": "0.158"
+      },
+      {
+        "name": "patientUpdateAndAppointmentCreationSerializeToACompleteSnapshot",
+        "classname": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "time": "0.109"
+      },
+      {
+        "name": "concurrentDifferentPayloadsWithSameKeyYieldOneConflict",
+        "classname": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "time": "0.102"
+      },
+      {
+        "name": "twentyUsersCompetingForLastThreePlacesNeverOversell",
+        "classname": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "time": "0.472"
+      },
+      {
+        "name": "concurrentFirstBookingCreatesOneSessionAndNeverOversellsDefaultCapacity",
+        "classname": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "time": "0.854"
+      },
+      {
+        "name": "callbackRacingCancellationConvergesToOneRefundAndReleasedInventory",
+        "classname": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "time": "0.139"
+      },
+      {
+        "name": "paymentAndCancellationProduceOneConsistentTerminalState",
+        "classname": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "time": "0.176"
+      },
+      {
+        "name": "concurrentDuplicateCancellationCreatesOnlyOneRefund",
+        "classname": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "time": "0.204"
+      },
+      {
+        "name": "paymentRacingExpirationProducesOneExpiredTerminalStateAfterDeadline",
+        "classname": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "time": "0.102"
+      },
+      {
+        "name": "callbackRacingExpirationConvergesToOneRefundAndReleasedInventory",
+        "classname": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "time": "0.143"
+      },
+      {
+        "name": "concurrentDuplicatePaymentsReturnTheSameSuccess",
+        "classname": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "time": "0.136"
+      },
+      {
+        "name": "sameDaySqlAdmissionUsesStrictApplicationTimeThreshold",
+        "classname": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "time": "0.041"
+      }
+    ]
+  },
+  {
+    "name": "com.qsx.appoint.catalog.CatalogManagementMySqlIT",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "13.736",
+    "cases": [
+      {
+        "name": "v8EnforcesDepartmentNameUniquenessWithinHospital",
+        "classname": "com.qsx.appoint.catalog.CatalogManagementMySqlIT",
+        "time": "3.584"
+      }
+    ]
+  },
+  {
+    "name": "com.qsx.appoint.catalog.VisitSchemaMySqlIT",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "10.732",
+    "cases": [
+      {
+        "name": "incrementalUpgradePreservesHistoricalAppointmentAndEnforcesVisitAndDoctorConstraints",
+        "classname": "com.qsx.appoint.catalog.VisitSchemaMySqlIT",
+        "time": "2.719"
+      }
+    ]
+  },
+  {
+    "name": "com.qsx.appoint.coordination.LatePaymentMySqlIT",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "10.883",
+    "cases": [
+      {
+        "name": "lateEventsCancellationAndExpirySerializeToOneReleaseAndRefund",
+        "classname": "com.qsx.appoint.coordination.LatePaymentMySqlIT",
+        "time": "0.158"
+      }
+    ]
+  },
+  {
+    "name": "com.qsx.appoint.payment.PaymentAttemptMySqlIT",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "12.281",
+    "cases": [
+      {
+        "name": "concurrentStartsCreateOnlyOneActiveAttempt",
+        "classname": "com.qsx.appoint.payment.PaymentAttemptMySqlIT",
+        "time": "0.103"
+      }
+    ]
+  },
+  {
+    "name": "com.qsx.appoint.payment.PaymentMigrationMySqlIT",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "8.829",
+    "cases": [
+      {
+        "name": "activePreRefactorPaymentStopsV4OnMySqlWithoutChangingOrdersOrAddingTables",
+        "classname": "com.qsx.appoint.payment.PaymentMigrationMySqlIT",
+        "time": "1.123"
+      }
+    ]
+  },
+  {
+    "name": "com.qsx.appoint.payment.PaymentNotificationMySqlIT",
+    "tests": "6",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "16.332",
+    "cases": [
+      {
+        "name": "concurrentDuplicateSuccessHasOneMoneyEffectAndStableEvent",
+        "classname": "com.qsx.appoint.payment.PaymentNotificationMySqlIT",
+        "time": "0.768"
+      },
+      {
+        "name": "sameNotificationIdWithDifferentPayloadIsRejected",
+        "classname": "com.qsx.appoint.payment.PaymentNotificationMySqlIT",
+        "time": "0.105"
+      },
+      {
+        "name": "failedAttemptCanRetryAndLaterSuccessWins",
+        "classname": "com.qsx.appoint.payment.PaymentNotificationMySqlIT",
+        "time": "0.135"
+      },
+      {
+        "name": "forgedSignatureDoesNotChangeMoneyState",
+        "classname": "com.qsx.appoint.payment.PaymentNotificationMySqlIT",
+        "time": "0.078"
+      },
+      {
+        "name": "amountOrCurrencyMismatchIsAuditedWithoutChangingMoneyState",
+        "classname": "com.qsx.appoint.payment.PaymentNotificationMySqlIT",
+        "time": "0.085"
+      },
+      {
+        "name": "lateFailureCannotOverwriteSuccessfulMoneyFact",
+        "classname": "com.qsx.appoint.payment.PaymentNotificationMySqlIT",
+        "time": "0.134"
+      }
+    ]
+  },
+  {
+    "name": "com.qsx.appoint.payment.PaymentPersistenceMySqlIT",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "10.673",
+    "cases": [
+      {
+        "name": "v6AndV7CreateReliableStoresAndEnforceTheirInvariants",
+        "classname": "com.qsx.appoint.payment.PaymentPersistenceMySqlIT",
+        "time": "2.949"
+      }
+    ]
+  },
+  {
+    "name": "com.qsx.appoint.payment.application.PaymentParentLockMySqlIT",
+    "tests": "10",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "15.547",
+    "cases": [
+      {
+        "name": "attemptT2LocksParentBeforeWaitingForChild(boolean)[1]",
+        "classname": "com.qsx.appoint.payment.application.PaymentParentLockMySqlIT",
+        "time": "0.401"
+      },
+      {
+        "name": "attemptT2LocksParentBeforeWaitingForChild(boolean)[2]",
+        "classname": "com.qsx.appoint.payment.application.PaymentParentLockMySqlIT",
+        "time": "0.257"
+      },
+      {
+        "name": "callbackLocksParentBeforeWaitingForAttempt",
+        "classname": "com.qsx.appoint.payment.application.PaymentParentLockMySqlIT",
+        "time": "0.275"
+      },
+      {
+        "name": "refundClaimLocksParentBeforeWaitingForRefund",
+        "classname": "com.qsx.appoint.payment.application.PaymentParentLockMySqlIT",
+        "time": "0.336"
+      },
+      {
+        "name": "callbackAndRefundRequestHaveOneMoneyFactAndOneRefund",
+        "classname": "com.qsx.appoint.payment.application.PaymentParentLockMySqlIT",
+        "time": "0.192"
+      },
+      {
+        "name": "refundCompletionAndFailureLockParentBeforeChild(boolean)[1]",
+        "classname": "com.qsx.appoint.payment.application.PaymentParentLockMySqlIT",
+        "time": "0.284"
+      },
+      {
+        "name": "refundCompletionAndFailureLockParentBeforeChild(boolean)[2]",
+        "classname": "com.qsx.appoint.payment.application.PaymentParentLockMySqlIT",
+        "time": "0.283"
+      },
+      {
+        "name": "duplicateWorkersAndRefundRequestKeepSuccessWhenSlowerCallFails",
+        "classname": "com.qsx.appoint.payment.application.PaymentParentLockMySqlIT",
+        "time": "0.225"
+      },
+      {
+        "name": "refundRequestLocksParentBeforeSuccessfulAttempt",
+        "classname": "com.qsx.appoint.payment.application.PaymentParentLockMySqlIT",
+        "time": "0.231"
+      },
+      {
+        "name": "successfulGatewayWithFailedLocalCompletionRetriesTheSameRefundNumber",
+        "classname": "com.qsx.appoint.payment.application.PaymentParentLockMySqlIT",
+        "time": "0.213"
+      }
+    ]
+  },
+  {
+    "name": "com.qsx.appoint.visit.VisitWorkflowMySqlIT",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "10.905",
+    "cases": [
+      {
+        "name": "concurrentBindingCheckInStartAndCompletionKeepOneIdentityAndOneVisit",
+        "classname": "com.qsx.appoint.visit.VisitWorkflowMySqlIT",
+        "time": "0.232"
+      }
+    ]
+  }
+]
