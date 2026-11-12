@@ -10,6 +10,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static com.qsx.appoint.support.MySqlConstraintAssertions.assertCheckViolation;
 
 @Testcontainers
 class PaymentPersistenceMySqlIT {
@@ -24,14 +25,14 @@ class PaymentPersistenceMySqlIT {
         DriverManagerDataSource dataSource = new DriverManagerDataSource(
                 MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword());
         Flyway flyway = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(10);
+        assertThat(flyway.migrate().migrationsExecuted).isPositive();
+        assertThat(flyway.info().pending()).isEmpty();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         insertNewPaymentOrder(jdbc);
 
-        assertThatThrownBy(() -> jdbc.update(
-                "UPDATE payment_orders SET amount = NULL WHERE id = 900"))
-                .isInstanceOf(Exception.class);
+        assertCheckViolation(() -> jdbc.update(
+                "UPDATE payment_orders SET amount = NULL WHERE id = 900"), "ck_payment_orders_new_fields");
 
         jdbc.update("""
                 INSERT INTO payment_attempts (
@@ -42,12 +43,12 @@ class PaymentPersistenceMySqlIT {
                 INSERT INTO payment_attempts (
                     id, attempt_no, payment_order_id, channel, status, created_at, updated_at)
                 VALUES (901, 'ATTEMPT900', 900, 'MOCK', 'CREATED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """)).isInstanceOf(Exception.class);
-        assertThatThrownBy(() -> jdbc.update("""
+                """)).isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+        assertCheckViolation(() -> jdbc.update("""
                 INSERT INTO payment_attempts (
                     id, attempt_no, payment_order_id, channel, status, created_at, updated_at)
                 VALUES (902, 'ATTEMPT902', 900, 'MOCK', 'UNKNOWN', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """)).isInstanceOf(Exception.class);
+                """), "ck_payment_attempts_status");
 
         jdbc.update("""
                 INSERT INTO payment_refunds (
@@ -62,7 +63,7 @@ class PaymentPersistenceMySqlIT {
                     status, reason, attempt_count, created_at, updated_at)
                 VALUES (901, 'REFUND901', 900, 900, 50.00, 'CNY', 'MOCK',
                     'PENDING', 'USER_CANCELLED', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """)).isInstanceOf(Exception.class);
+                """)).isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
 
         jdbc.update("""
                 INSERT INTO payment_notifications (
@@ -73,7 +74,7 @@ class PaymentPersistenceMySqlIT {
                 INSERT INTO payment_notifications (
                     channel, notification_id, payload_hash, verification_result, received_at)
                 VALUES ('MOCK', 'NOTICE900', 'hash-900', 'VERIFIED', CURRENT_TIMESTAMP)
-                """)).isInstanceOf(Exception.class);
+                """)).isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
 
         jdbc.update("""
                 INSERT INTO payment_outbox_events (
@@ -82,13 +83,13 @@ class PaymentPersistenceMySqlIT {
                 VALUES ('00000000-0000-0000-0000-000000000900', 'PaymentOrder', 900,
                     'PaymentSucceeded', 1, '{}', CURRENT_TIMESTAMP, 'PENDING', 0, CURRENT_TIMESTAMP)
                 """);
-        assertThatThrownBy(() -> jdbc.update("""
+        assertCheckViolation(() -> jdbc.update("""
                 INSERT INTO payment_outbox_events (
                     event_id, aggregate_type, aggregate_id, event_type, event_version, payload,
                     occurred_at, status, publish_attempts, next_attempt_at)
                 VALUES ('00000000-0000-0000-0000-000000000901', 'PaymentOrder', 900,
                     'PaymentSucceeded', 0, '{}', CURRENT_TIMESTAMP, 'PENDING', 0, CURRENT_TIMESTAMP)
-                """)).isInstanceOf(Exception.class);
+                """), "ck_payment_outbox_counters");
 
         jdbc.update("""
                 INSERT INTO coordination_inbox_events (consumer_name, event_id, event_type, processed_at)
@@ -99,7 +100,7 @@ class PaymentPersistenceMySqlIT {
                 INSERT INTO coordination_inbox_events (consumer_name, event_id, event_type, processed_at)
                 VALUES ('appointment-confirmation', '00000000-0000-0000-0000-000000000900',
                     'PaymentSucceeded', CURRENT_TIMESTAMP)
-                """)).isInstanceOf(Exception.class);
+                """)).isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
         jdbc.update("""
                 INSERT INTO coordination_inbox_events (consumer_name, event_id, event_type, processed_at)
                 VALUES ('audit-projection', '00000000-0000-0000-0000-000000000900',
@@ -107,6 +108,14 @@ class PaymentPersistenceMySqlIT {
                 """);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM coordination_inbox_events", Integer.class)).isEqualTo(2);
+        // 每次拒绝都必须保留原金额且不留下半条记录，不能把其他SQL错误当成约束生效。
+        assertThat(jdbc.queryForObject("SELECT amount FROM payment_orders WHERE id=900", java.math.BigDecimal.class))
+                .isEqualByComparingTo("50.00");
+        for (String table : java.util.List.of("payment_attempts", "payment_refunds", "payment_notifications", "payment_outbox_events")) {
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class)).as(table).isEqualTo(1);
+        }
+        assertThat(jdbc.queryForObject("SELECT status FROM payment_attempts WHERE id=900", String.class)).isEqualTo("CREATED");
+
         assertThat(jdbc.queryForObject("""
                 SELECT COUNT(*) FROM information_schema.statistics
                 WHERE table_schema = DATABASE() AND table_name = 'payment_outbox_events'

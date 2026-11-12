@@ -16,7 +16,7 @@ class VisitSchemaMigrationTest {
         Flyway.configure().dataSource(source).target("9").load().migrate();
         var jdbc = new JdbcTemplate(source);
         var before = jdbc.queryForList("SELECT id, doctor_no, name FROM doctors ORDER BY id");
-        var flyway = Flyway.configure().dataSource(source).load();
+        var flyway = Flyway.configure().dataSource(source).target("10").load();
         assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(jdbc.queryForList("SELECT id, doctor_no, name FROM doctors ORDER BY id")).isEqualTo(before);
@@ -25,7 +25,10 @@ class VisitSchemaMigrationTest {
         assertThat(jdbc.queryForList("SELECT code FROM roles", String.class)).containsExactlyInAnyOrder("USER", "ADMIN", "DOCTOR");
         jdbc.update("INSERT INTO users(id,email,password_hash) VALUES(80001,'doctor-migration@example.com','hash')");
         jdbc.update("UPDATE doctors SET user_id=80001 WHERE id=1");
-        assertThatThrownBy(() -> jdbc.update("UPDATE doctors SET user_id=80001 WHERE id=2")).isInstanceOf(Exception.class);
-        assertThatThrownBy(() -> jdbc.update("UPDATE doctors SET user_id=999999 WHERE id=2")).isInstanceOf(Exception.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE doctors SET user_id=80001 WHERE id=2")).isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE doctors SET user_id=999999 WHERE id=2")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+
+        assertThat(jdbc.queryForObject("SELECT user_id FROM doctors WHERE id=2", Long.class)).isNull();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM doctors WHERE user_id IS NOT NULL", Integer.class)).isEqualTo(1);
     }
 }

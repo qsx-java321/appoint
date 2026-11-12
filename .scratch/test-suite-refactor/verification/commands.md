@@ -20,3 +20,9 @@
 - 命令：`./mvnw -o -Preliability-it verify`
 - 日志：`/tmp/test-refactor-01-reliability.log`
 - Maven汇总（普通/集成分别计）：[('323', '0', '0', '0'), ('16', '0', '0', '0')]；耗时：['01:43 min']; BUILD SUCCESS=True。
+
+## 02 约束与迁移
+
+- 命令：`./mvnw -o -Pmysql-it -Dtest=InitialSchemaMigrationTest,VisitSchemaMigrationTest,PaymentPersistenceIntegrationTest,DoctorNumberIntegrationTest,MockPayProductionProfileTest -Dit.test=CatalogManagementMySqlIT,VisitSchemaMySqlIT,PaymentPersistenceMySqlIT,PaymentMigrationMySqlIT verify`
+- 日志：`/tmp/test-refactor-02.log`
+- Maven汇总（普通/集成分别计）：[('10', '0', '0', '0'), ('4', '0', '0', '0')]；耗时：['55.632 s']; BUILD SUCCESS=True。

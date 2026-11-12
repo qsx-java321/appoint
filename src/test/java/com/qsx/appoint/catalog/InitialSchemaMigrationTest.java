@@ -19,7 +19,8 @@ class InitialSchemaMigrationTest {
         DriverManagerDataSource dataSource = new DriverManagerDataSource(url, "sa", "");
         Flyway flyway = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
 
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(10);
+        assertThat(flyway.migrate().migrationsExecuted).isPositive();
+        assertThat(flyway.info().pending()).isEmpty();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
 
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
@@ -86,8 +87,9 @@ class InitialSchemaMigrationTest {
                     'PENDING_PAYMENT', '2098-12-31 09:00:00')
                 """);
 
-        Flyway full = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
+        Flyway full = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("2").load();
         assertThatThrownBy(full::migrate)
+                .isInstanceOf(org.flywaydb.core.api.FlywayException.class)
                 .hasStackTraceContaining("旧单号源有效订单");
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'schedules' AND column_name = 'session_type'",
@@ -100,8 +102,9 @@ class InitialSchemaMigrationTest {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         insertV3Order(jdbc, "PENDING_PAYMENT", "UNPAID");
 
-        Flyway full = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
+        Flyway full = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("4").load();
         assertThatThrownBy(full::migrate)
+                .isInstanceOf(org.flywaydb.core.api.FlywayException.class)
                 .hasStackTraceContaining("旧活跃支付");
 
         assertThat(jdbc.queryForObject("SELECT status FROM appointment_orders WHERE appointment_no = 'APV4'", String.class))
@@ -114,13 +117,13 @@ class InitialSchemaMigrationTest {
     }
 
     @Test
-    void terminalPreRefactorPaymentPassesV4WithoutBeingRewritten() {
+    void terminalPreRefactorPaymentPassesV4AndV5WithoutBeingRewritten() {
         DriverManagerDataSource dataSource = v3DataSource("payment-v4-terminal-");
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         insertV3Order(jdbc, "CANCELLED", "CLOSED");
 
-        Flyway full = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
-        assertThat(full.migrate().migrationsExecuted).isEqualTo(7);
+        Flyway full = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("5").load();
+        assertThat(full.migrate().migrationsExecuted).isEqualTo(2);
 
         assertThat(jdbc.queryForObject("SELECT status FROM appointment_orders WHERE appointment_no = 'APV4'", String.class))
                 .isEqualTo("CANCELLED");

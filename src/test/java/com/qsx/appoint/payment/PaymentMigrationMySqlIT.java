@@ -29,8 +29,8 @@ class PaymentMigrationMySqlIT {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         insertActiveOrder(jdbc);
 
-        Flyway full = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
-        assertThatThrownBy(full::migrate).hasStackTraceContaining("旧活跃支付");
+        Flyway full = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("4").load();
+        assertThatThrownBy(full::migrate).isInstanceOf(org.flywaydb.core.api.FlywayException.class).hasStackTraceContaining("旧活跃支付");
 
         assertThat(jdbc.queryForObject("SELECT status FROM appointment_orders WHERE appointment_no = 'APV4MYSQL'", String.class))
                 .isEqualTo("PENDING_PAYMENT");

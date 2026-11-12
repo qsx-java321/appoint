@@ -8,6 +8,7 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import static org.assertj.core.api.Assertions.*;
+import static com.qsx.appoint.support.MySqlConstraintAssertions.assertCheckViolation;
 
 @Testcontainers
 class VisitSchemaMySqlIT {
@@ -34,20 +35,26 @@ class VisitSchemaMySqlIT {
                     JOIN hospitals h ON h.id=dep.hospital_id WHERE s.id=1
                 """);
         var previous = jdbc.queryForMap("SELECT * FROM appointment_orders WHERE id=9003");
-        var flyway = Flyway.configure().dataSource(source).load();
+        var flyway = Flyway.configure().dataSource(source).target("10").load();
         assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(jdbc.queryForMap("SELECT * FROM appointment_orders WHERE id=9003")).isEqualTo(previous);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM visit_records", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM doctors WHERE user_id IS NOT NULL", Integer.class)).isZero();
         jdbc.update("UPDATE doctors SET user_id=9001 WHERE id=1");
-        assertThatThrownBy(() -> jdbc.update("UPDATE doctors SET user_id=9001 WHERE id=2")).isInstanceOf(Exception.class);
-        assertThatThrownBy(() -> jdbc.update("UPDATE doctors SET user_id=999999 WHERE id=2")).isInstanceOf(Exception.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE doctors SET user_id=9001 WHERE id=2")).isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE doctors SET user_id=999999 WHERE id=2")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
         jdbc.update("INSERT INTO visit_records(appointment_order_id,status,checked_in_at) VALUES(9003,'WAITING','2026-11-13 08:00:00')");
-        assertThatThrownBy(() -> jdbc.update("INSERT INTO visit_records(appointment_order_id,status,checked_in_at) VALUES(9003,'WAITING',NOW())")).isInstanceOf(Exception.class);
-        assertThatThrownBy(() -> jdbc.update("INSERT INTO visit_records(appointment_order_id,status,checked_in_at) VALUES(999999,'WAITING',NOW())")).isInstanceOf(Exception.class);
-        assertThatThrownBy(() -> jdbc.update("UPDATE visit_records SET status='NOT_CHECKED_IN'")).isInstanceOf(Exception.class);
-        assertThatThrownBy(() -> jdbc.update("DELETE FROM appointment_orders WHERE id=9003")).isInstanceOf(Exception.class);
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO visit_records(appointment_order_id,status,checked_in_at) VALUES(9003,'WAITING',NOW())")).isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO visit_records(appointment_order_id,status,checked_in_at) VALUES(999999,'WAITING',NOW())")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertCheckViolation(() -> jdbc.update("UPDATE visit_records SET status='NOT_CHECKED_IN'"), "ck_visit_records_status");
+        assertThatThrownBy(() -> jdbc.update("DELETE FROM appointment_orders WHERE id=9003")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
         assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema=DATABASE() AND index_name IN ('idx_appointments_user_visit_time','idx_appointments_doctor_visit_date')", Integer.class)).isEqualTo(2);
+
+        assertThat(jdbc.queryForObject("SELECT user_id FROM doctors WHERE id=2", Long.class)).isNull();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM doctors WHERE user_id IS NOT NULL", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM visit_records", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT status FROM visit_records WHERE appointment_order_id=9003", String.class)).isEqualTo("WAITING");
+        assertThat(jdbc.queryForMap("SELECT * FROM appointment_orders WHERE id=9003")).isEqualTo(previous);
     }
 }

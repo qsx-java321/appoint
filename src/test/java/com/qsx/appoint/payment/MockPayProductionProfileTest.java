@@ -29,7 +29,8 @@ class MockPayProductionProfileTest {
     void productionDoesNotRegisterMockAdapterOrController() {
         assertThat(context.getBeansOfType(MockPaymentGateway.class)).isEmpty();
         assertThat(context.getBeansOfType(MockPayController.class)).isEmpty();
-        assertThatThrownBy(() -> registry.require(PaymentChannel.MOCK)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> registry.require(PaymentChannel.MOCK)).isInstanceOfSatisfying(com.qsx.appoint.common.BusinessException.class,
+                error -> assertThat(error.getErrorCode()).isEqualTo(com.qsx.appoint.common.ErrorCode.PAYMENT_CHANNEL_UNAVAILABLE));
         assertThat(handlerMapping.getHandlerMethods().keySet())
                 .noneMatch(mapping -> mapping.toString().contains("simulate-success")
                         || mapping.toString().contains("/api/v1/mock-pay/"));

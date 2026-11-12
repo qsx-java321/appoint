@@ -9,7 +9,7 @@ Status: claimed
 | 序号 | 任务 | Status | Blocked by |
 | --- | --- | --- | --- |
 | 01 | [建立测试清单、场景映射和执行基线](issues/01-baseline.md) | resolved | none |
-| 02 | [提高断言准确性并固定历史迁移边界](issues/02-assertions-migrations.md) | ready-for-agent | 01 |
+| 02 | [提高断言准确性并固定历史迁移边界](issues/02-assertions-migrations.md) | resolved | 01 |
 | 03 | [整理时钟与业务夹具](issues/03-clocks-fixtures.md) | ready-for-agent | 02 |
 | 04 | [完善隔离、故障恢复和有界等待](issues/04-isolation-concurrency.md) | ready-for-agent | 03 |
 | 05 | [合并消息测试重复职责](issues/05-messaging-deduplication.md) | ready-for-agent | 04 |
@@ -25,3 +25,5 @@ Status: claimed
 
 
 - 01：新执行常规323、MySQL38、可靠性16全部通过，零失败/错误/跳过；文档链接、8项任务及57类清单通过。起点963051f。
+
+- 02：聚焦常规10、真实MySQL4全部通过。首次CHECK断言发现实际包装为UncategorizedSQLException，改为精确验证3819/HY000/约束名后重跑成功。临时编辑脚本语法错误未改源码；此前预执行不计改造验收。
