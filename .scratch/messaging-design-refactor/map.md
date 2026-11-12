@@ -4,7 +4,7 @@ Type: refactor
 Triage: ready-for-agent
 Status: ready-for-agent
 
-日期：2026-11-12。方案已确认，实施完成数 **7 / 9**。
+日期：2026-11-12。方案已确认，实施完成数 **8 / 9**。
 
 ## 入口与当前状态
 
@@ -26,7 +26,7 @@ Status: ready-for-agent
 | 05 | [共用消费失败处理与完整确认矩阵](issues/05-consumer-failure-handling.md) | refactor/fix | resolved | 04 |
 | 06 | [DLQ 重放接口与适配器](issues/06-dead-letter-replay.md) | refactor | resolved | 05 |
 | 07 | [架构约束与注释复核](issues/07-architecture-and-comments.md) | test/docs | resolved | 06 |
-| 08 | [真实事务与 Rabbit 故障窗口门禁](issues/08-reliability-gates.md) | test | ready-for-agent | 07 |
+| 08 | [真实事务与 Rabbit 故障窗口门禁](issues/08-reliability-gates.md) | test | resolved | 07 |
 | 09 | [正式文档同步与完整验收](issues/09-documentation-and-acceptance.md) | docs/test | ready-for-agent | 08 |
 
 ```mermaid
@@ -92,3 +92,5 @@ flowchart LR
 - 2026-11-12：06 DLQ重放拆为应用接口、三个逻辑目标与Rabbit适配器；EMPTY与无ID的REPLAYED可区分。./mvnw -o clean test 常规315项通过；./mvnw -o -Preliability-it -Dtest=DeadLetterReplayContractTest -Dit.test=OutboxPublisherReliabilityIT,PaymentConfirmationReliabilityIT verify：重放契约6项及可靠性16项通过。日志/tmp/messaging-06-unit.log、/tmp/messaging-06-reliability.log，零失败/错误/跳过。
 
 - 2026-11-12：07 新增AMQP/contract/common依赖约束正反例及Entity入参/record成员泄漏负例，补足四类wire字段与接口事务/失败说明；./mvnw -o test 常规318项通过，含新增架构3项和全部Codec/Listener/重放契约测试。日志/tmp/messaging-07-unit.log。S29接口与技术说明完成，正式runbook由09收口。
+
+- 2026-11-12：08 完整 ./mvnw -o -Pmysql-it verify：常规318+MySQL38通过；完整 ./mvnw -o -Preliability-it verify：常规318+可靠性16通过，全部零失败/错误/跳过。日志/tmp/messaging-08-mysql.log、/tmp/messaging-08-reliability.log。S12实际证明整批发布标记回滚及原ID重发只确认一次；S24证明同refundNo与同providerRefundNo收敛。首次MySQL新用例的代理故障注入方式已修正后全量重跑；新spy发现旧退款夹具实际失败于未注册WECHAT渠道，已改为注册Mock渠道注入失败并验证实际refund三次调用，可靠性完整重跑成功。

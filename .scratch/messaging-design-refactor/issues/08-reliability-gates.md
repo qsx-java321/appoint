@@ -2,7 +2,7 @@
 
 Type: test
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 Blocked by: 07
 
 依据：[spec 第 4、9～11 节](../spec.md) 与 [全部场景](../scenarios.md)。重点责任：S09～S16、S18～S20、S22～S26。
@@ -42,11 +42,13 @@ Blocked by: 07
 
 ## 完成条件
 
-- [ ] 既有强保障未删除/削弱，所有真实依赖门禁通过。
-- [ ] 三个重点窗口都有直接执行证据，不能只凭测试名判断覆盖。
-- [ ] S01～S28 及 S29 技术子项无未解释缺口，证据与最终源码一致；S29 正式文档子项留待 09 完成。
-- [ ] 无测试专用代码进入生产 JAR，无配置/凭据泄漏。
+- [x] 既有强保障未删除/削弱，所有真实依赖门禁通过。
+- [x] 三个重点窗口都有直接执行证据，不能只凭测试名判断覆盖。
+- [x] S01～S28 及 S29 技术子项无未解释缺口，证据与最终源码一致；S29 正式文档子项留待 09 完成。
+- [x] 无测试专用代码进入生产 JAR，无配置/凭据泄漏。
 
 ## Comments
 
 - 2026-11-12：任务已定义，依赖 07；没有本轮真实依赖验收结果。
+
+- 2026-11-12：完整 ./mvnw -o -Pmysql-it verify：常规318+MySQL38通过；完整 ./mvnw -o -Preliability-it verify：常规318+可靠性16通过，全部零失败/错误/跳过。日志/tmp/messaging-08-mysql.log、/tmp/messaging-08-reliability.log。S12实际证明整批发布标记回滚及原ID重发只确认一次；S24证明同refundNo与同providerRefundNo收敛。首次MySQL新用例的代理故障注入方式已修正后全量重跑；新spy发现旧退款夹具实际失败于未注册WECHAT渠道，已改为注册Mock渠道注入失败并验证实际refund三次调用，可靠性完整重跑成功。

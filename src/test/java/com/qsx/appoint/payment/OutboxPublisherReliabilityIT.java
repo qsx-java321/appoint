@@ -69,6 +69,8 @@ class OutboxPublisherReliabilityIT {
     @Autowired private RabbitAdmin rabbitAdmin;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private com.qsx.appoint.coordination.application.PaymentSucceededProcessor processor;
+    @Autowired private com.qsx.appoint.coordination.messaging.PaymentSucceededEventCodec codec;
 
     @Test
     void confirmedPersistentMessageMarksOutboxPublishedInDurableTopology() throws Exception {
@@ -263,11 +265,24 @@ class OutboxPublisherReliabilityIT {
     }
 
     @Test
-    void databaseMarkFailureRollsBackAfterBrokerAcceptedThenReusesOriginalEvent() {
+    void databaseMarkFailureRollsBackAfterBrokerAcceptedThenReusesOriginalEvent() throws Exception {
         // 本类共享隔离容器；清除前面传输用例留下的待发夹具，避免批量发布读到无关消息。
         jdbcTemplate.update("DELETE FROM payment_outbox_events");
         rabbitAdmin.purgeQueue(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE);
+        confirmationFixture();
+        // 同批更早的记录先成功标记，后续失败时也必须回滚，验证整批而非单条事务。
+        PaymentOutboxEvent earlier = pendingEvent();
+        earlier.setEventType("RefundSucceeded");
+        earlier.setNextAttemptAt(LocalDateTime.now().minusMinutes(1));
+        outboxMapper.insert(earlier);
         PaymentOutboxEvent event = pendingEvent();
+        event.setAggregateId(23004L);
+        event.setPayload(objectMapper.writeValueAsString(java.util.Map.of(
+                "eventId",event.getEventId(),"eventType","PaymentSucceeded","eventVersion",1,
+                "aggregateId",23004L,"occurredAt",LocalDateTime.of(2098,12,1,8,0),
+                "payload",java.util.Map.of("paymentOrderId",23004L,"appointmentOrderId",23003L,
+                        "paymentAttemptId",23005L,"amount",new java.math.BigDecimal("50.00"),
+                        "currency","CNY","channel","MOCK","paidAt",LocalDateTime.of(2098,12,1,8,0)))));
         outboxMapper.insert(event);
         org.mockito.Mockito.doThrow(new IllegalStateException("mark failed"))
                 .when(outboxMapper).markPublished(org.mockito.ArgumentMatchers.eq(event.getEventId()), org.mockito.ArgumentMatchers.any());
@@ -275,16 +290,52 @@ class OutboxPublisherReliabilityIT {
             org.assertj.core.api.Assertions.assertThatThrownBy(() -> publisher.publishDue())
                     .isInstanceOf(IllegalStateException.class);
             assertThat(outboxMapper.selectById(event.getEventId()).getStatus()).isEqualTo("PENDING");
+            assertThat(outboxMapper.selectById(earlier.getEventId()).getStatus()).isEqualTo("PENDING");
             assertThat(outboxMapper.selectById(event.getEventId()).getPublishAttempts()).isZero();
             Message first = rabbitTemplate.receive(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE, 5000);
             assertThat(first).isNotNull();
             assertThat(first.getMessageProperties().getMessageId()).isEqualTo(event.getEventId());
+            assertThat(processor.process(codec.read(first.getBody())).name()).isEqualTo("CONFIRMED");
         } finally { org.mockito.Mockito.reset(outboxMapper); }
-        assertThat(publisher.publishDue()).isEqualTo(1);
+        assertThat(publisher.publishDue()).isEqualTo(2);
         Message retry = rabbitTemplate.receive(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE,5000);
         assertThat(retry).isNotNull();
         assertThat(retry.getMessageProperties().getMessageId()).isEqualTo(event.getEventId());
         assertThat(retry.getBody()).isEqualTo(outboxMapper.selectById(event.getEventId()).getPayload().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThat(processor.process(codec.read(retry.getBody())).name()).isEqualTo("DUPLICATE");
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM coordination_inbox_events WHERE event_id=?",Integer.class,event.getEventId())).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT next_visit_number FROM schedules WHERE id=4",Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT confirmed_capacity FROM schedules WHERE id=4",Integer.class)).isEqualTo(1);
+    }
+
+    private void confirmationFixture() {
+        jdbcTemplate.update("""
+                UPDATE schedules SET status='OPEN', session_type='MORNING', start_time='08:00:00', end_time='12:00:00',
+                  total_capacity=2, available_capacity=1, held_capacity=1, confirmed_capacity=0,
+                  next_visit_number=1, registration_fee=50.00, fee_currency='CNY' WHERE id=4
+                """);
+        jdbcTemplate.update("INSERT INTO users (id,email,password_hash) VALUES (23001,'ack-window@example.com','hash')");
+        jdbcTemplate.update("""
+                INSERT INTO patients (id,user_id,name,document_type,document_no,contact_phone,contact_email)
+                VALUES (23002,23001,'测试','RESIDENT_ID_CARD','110105199001012101','13800000000','p@example.com')
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO appointment_orders
+                  (id,appointment_no,user_id,schedule_id,patient_id,patient_name,patient_document_type,
+                   patient_document_no,patient_contact_phone,patient_contact_email,doctor_id,doctor_no,
+                   doctor_name,doctor_title,department_id,department_name,hospital_id,hospital_name,
+                   hospital_address,appointment_date,start_time,end_time,status,payment_expires_at,
+                   fee_amount,fee_currency)
+                VALUES (23003,'A23003',23001,4,23002,'测试','RESIDENT_ID_CARD','110105199001012101',
+                        '13800000000','p@example.com',1,'DOC000001','张医生','主任医师',1,'内科',1,
+                        '示例市第一人民医院','示例市健康路 1 号','2099-01-01','09:00:00','09:30:00',
+                        'PENDING_PAYMENT','2098-12-01 08:15:00',50.00,'CNY')
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO payment_orders
+                  (id,payment_no,appointment_order_id,user_id,status,amount,currency,expires_at,legacy)
+                VALUES (23004,'P23004',23003,23001,'PAID',50.00,'CNY','2098-12-01 08:15:00',FALSE)
+                """);
     }
 
     private void forceDue(String eventId) {

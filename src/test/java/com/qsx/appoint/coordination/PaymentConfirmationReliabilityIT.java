@@ -59,6 +59,8 @@ class PaymentConfirmationReliabilityIT {
         registry.add("spring.rabbitmq.publisher-returns", () -> "true");
     }
 
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    private com.qsx.appoint.payment.adapter.mock.MockPaymentGateway gatewayForVerification;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private RabbitTemplate rabbitTemplate;
     @Autowired private ObjectMapper objectMapper;
@@ -149,6 +151,10 @@ class PaymentConfirmationReliabilityIT {
     @Test
     void refundGatewayFailureRetriesThenMovesToDlqWithoutRestoringAppointment() throws Exception {
         refundFixture();
+        // 使用已注册渠道注入真实调用失败，不能用未注册渠道冒充渠道退款重试。
+        org.mockito.Mockito.doThrow(new IllegalStateException("渠道退款失败"))
+                .when(gatewayForVerification).refund(org.mockito.ArgumentMatchers.argThat(
+                        request -> "REF22006".equals(request.refundNo())));
         String eventId = UUID.randomUUID().toString();
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("refundId", 22_006L);
@@ -183,6 +189,8 @@ class PaymentConfirmationReliabilityIT {
             assertThat(jdbcTemplate.queryForObject(
                     "SELECT status FROM appointment_orders WHERE id=22003", String.class)).isEqualTo("CANCELLED");
         });
+        org.mockito.Mockito.verify(gatewayForVerification,org.mockito.Mockito.times(3)).refund(
+                org.mockito.ArgumentMatchers.argThat(request -> "REF22006".equals(request.refundNo())));
     }
 
     @Test
@@ -539,14 +547,14 @@ class PaymentConfirmationReliabilityIT {
                 INSERT INTO payment_attempts
                   (id,attempt_no,payment_order_id,channel,provider_order_no,provider_transaction_no,
                    status,created_at,processing_at,completed_at,updated_at)
-                VALUES (22005,'ATT22005',22004,'WECHAT_PAY','provider-order-22005','provider-txn-22005',
+                VALUES (22005,'ATT22005',22004,'MOCK','provider-order-22005','provider-txn-22005',
                         'SUCCEEDED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
                 """);
         jdbcTemplate.update("""
                 INSERT INTO payment_refunds
                   (id,refund_no,payment_order_id,payment_attempt_id,amount,currency,channel,status,reason,
                    attempt_count,created_at,updated_at)
-                VALUES (22006,'REF22006',22004,22005,50.00,'CNY','WECHAT_PAY','PENDING',
+                VALUES (22006,'REF22006',22004,22005,50.00,'CNY','MOCK','PENDING',
                         'APPOINTMENT_CANCELLED',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
                 """);
     }

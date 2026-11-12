@@ -53,8 +53,39 @@ class PaymentParentLockMySqlIT {
     @Autowired private PaymentNotificationIngress notifications;
     @Autowired private PaymentRefundOperations refunds;
     @Autowired private RefundWorker worker;
+    @MockitoSpyBean private com.qsx.appoint.payment.mapper.PaymentRefundMapper refundMapper;
     @MockitoSpyBean private MockPaymentGateway gateway;
     @MockitoSpyBean private com.qsx.appoint.payment.port.PaymentGatewayRegistry registry;
+
+    @Test
+    void successfulGatewayWithFailedLocalCompletionRetriesTheSameRefundNumber() {
+        Context context = paid();
+        refunds.requestFullRefund(context.paymentId(),RefundReason.APPOINTMENT_CANCELLED);
+        RefundRequestedEvent event = refundEvent(context.paymentId());
+        var submissions = new java.util.ArrayList<com.qsx.appoint.payment.port.GatewayRefundSubmission>();
+        doAnswer(invocation -> {
+            var result = (com.qsx.appoint.payment.port.GatewayRefundSubmission) invocation.callRealMethod();
+            submissions.add(result);
+            return result;
+        }).when(gateway).refund(any(GatewayRefundRequest.class));
+        doThrow(new IllegalStateException("结果落库失败"))
+                .when(refundMapper).markSucceeded(eq(event.refundId()),anyString(),any());
+        try {
+            assertThatThrownBy(() -> worker.process(event)).isInstanceOf(IllegalStateException.class);
+            assertThat(status("payment_orders",context.paymentId())).isEqualTo("REFUND_PENDING");
+            // MyBatis Mapper是接口代理，撤销故障stub后恢复真实委托，不能callRealMethod调用抽象方法。
+            reset(refundMapper);
+            assertThat(worker.process(event)).isEqualTo(RefundExecutionResult.SUCCEEDED);
+            assertThat(worker.process(event)).isEqualTo(RefundExecutionResult.ALREADY_SUCCEEDED);
+            verify(gateway,times(2)).refund(argThat(request -> request.refundNo().equals(event.refundNo())));
+            assertThat(submissions).hasSize(2);
+            assertThat(submissions.get(1).providerRefundNo()).isEqualTo(submissions.getFirst().providerRefundNo());
+            assertThat(status("payment_orders",context.paymentId())).isEqualTo("REFUNDED");
+            assertThat(status("payment_refunds",event.refundId())).isEqualTo("SUCCEEDED");
+            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM payment_refunds WHERE payment_order_id=?",
+                    Integer.class,context.paymentId())).isEqualTo(1);
+        } finally { reset(refundMapper); }
+    }
 
     @ParameterizedTest
     @ValueSource(booleans={false,true})
