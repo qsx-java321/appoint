@@ -1,6 +1,6 @@
 # 到院签到与门诊接诊设计
 
-日期：2026-11-11。状态：已实现；源码包含 V10、就诊模块及本文接口。实际验证结果见 [验证报告](../verification-report.md)。
+设计交付日期：2026-11-11；现行内容复核：2026-11-12。状态：已实现；源码包含 V10、就诊模块及本文接口。实际验证结果见 [验证报告](../verification-report.md)。
 
 需求以 [spec.md](../../.scratch/visit-workflow/spec.md) 为准；请求响应见 [API](api.md)，实施范围及前后变化见 [改动说明](change-scope.md)。既有行为以 [现行模块设计](../module-design.md) 和 ADR 0003、0004、0005 为基础；公共预约目录与截止规则现按 [ADR 0007](../adr/0007-three-day-booking-and-session-cutoffs.md) 执行。
 
@@ -126,7 +126,7 @@ public interface VisitService {
 
 三个方法由 `DefaultVisitService` 实现，分别使用普通 `@Transactional` 同步提交。它们只写就诊表，不调用释放库存或取消退款方法。
 
-预约事实优先复用已有 `AppointmentLifecycle.find()`。现有 `AppointmentLifecycleCase` 缺少医生 ID，需要增加 `doctorId`，由 `DefaultAppointmentLifecycle` 从预约记录映射；同时调整该 record 的构造处与测试数据。它只用于确认归属，不授予预约生命周期写入权限。
+预约事实通过 `AppointmentLifecycle.find()`读取。`AppointmentLifecycleCase`已包含`doctorId`，由`DefaultAppointmentLifecycle`从预约快照映射，生产构造点和测试数据已同步。该字段只用于归属校验，不授予预约生命周期写入权限。
 
 ### 4.3 医生只读查询
 
@@ -150,7 +150,7 @@ public interface DoctorVisitQueryService {
 
 ### 4.4 医生身份准备
 
-在 `catalog.service` 新增 `DoctorAccountService`，暴露：
+`catalog.service.DoctorAccountService`已实现以下契约：
 
 ```java
 DoctorAccountResponse bindAccount(Long doctorId, Long userId);
@@ -437,7 +437,7 @@ visitRecordMapper.insert(record);
 3. 采样业务时间，调用 `completeIfInProgress(appointmentId, now)`。
 4. 提交后由 HTTP 层返回更新后的医生详情。
 
-开始和完成方法可共用私有 `requireDoctorAppointment(doctorUserId, appointmentId)` 归属检查，避免重复实现。其余步骤直接写在业务方法中，不增加命令总线、事件分发或通用状态机类。
+开始和完成方法共用私有 `requireDoctorAppointment(doctorUserId, appointmentId)` 归属检查，避免重复实现。其余步骤直接写在业务方法中，不增加命令总线、事件分发或通用状态机类。
 
 ## 11. 医生账号关联的具体实现
 
@@ -539,7 +539,7 @@ ORDER BY a.visit_number ASC
 
 详情采用同样的预约和就诊关联，查询条件为 `a.id = #{appointmentId} AND a.doctor_id = #{doctorId} AND a.status = 'CONFIRMED'`，额外选择第 13 节 DTO 所需快照字段、三个时间和场次类型。
 
-资料来自预约快照，不从当前医生、就诊人资料反向覆盖。名单和详情可共用一个内部组合行类型 `DoctorVisitQueryRecord`，名单与详情使用相同快照投影，但 HTTP 名单只输出所需字段；内部组合行不直接返回 HTTP。
+资料来自预约快照，不从当前医生、就诊人资料反向覆盖。名单和详情共用内部组合行类型 `DoctorVisitQueryRecord`，名单与详情使用相同快照投影，但 HTTP 名单只输出所需字段；内部组合行不直接返回 HTTP。
 
 `DoctorVisitResponseAssembler` 使用 `VisitStatus` 判断按钮，使用现有 `ResidentIdCard.mask(...)` 处理详情证件号：
 
@@ -665,7 +665,7 @@ DTO 的 ID 使用 Long，以复用项目现有字符串 ID 序列化；人数使
 
 不因增加字段重写整个预约响应，不迁移既有接口所在包，不把用户列表改成分页对象。创建接口继续返回 `AppointmentCreationResult`，没有新增就诊字段；查询及取消响应增加字段的影响见 API 文档。
 
-## 15. 可分步实施的代码单元与验证
+## 15. 已完成的实施单元与验证
 
 | 单元 | 主要交付 | 对应验证 |
 | --- | --- | --- |

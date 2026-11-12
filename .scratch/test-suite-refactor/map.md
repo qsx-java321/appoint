@@ -4,7 +4,7 @@ Type: refactor
 Triage: ready-for-agent
 Status: resolved
 
-[详细方案](spec.md) · [场景](scenarios.md) · [清单](verification/inventory.md) · [命令与结果](verification/commands.md)
+[详细方案](spec.md) · [场景](scenarios.md) · [当前清单](verification/current-inventory.md) · [改造前清单](verification/inventory.md) · [命令与结果](verification/commands.md)
 
 | 序号 | 任务 | Status | Blocked by |
 | --- | --- | --- | --- |
@@ -34,7 +34,7 @@ Status: resolved
 
 ## 当前进度与历史暂停
 
-已完成 **8 / 8**，最终常规340、MySQL38、可靠性16及隔离curl92请求通过。用户曾要求04后休息，04验收提交后已停止；随后明确要求继续，现依序完成05～07。不把历史暂停描述当作当前状态。
+已完成 **8 / 8**，最终常规340、MySQL38、可靠性16及隔离curl92请求通过。用户曾要求04后休息，04验收提交后已停止；随后明确要求继续，已依序完成05～08。不把历史暂停描述当作当前状态。
 
 ## 已提交阶段
 
@@ -56,7 +56,7 @@ Status: resolved
 
 - 07：聚焦常规111+MySQL10、确认单测5+Outbox可靠性9通过；260原方法全部有去向，19受保护样本/架构负例不变。补充类职责、去除重复注入/全限定噪音、统一架构正反例规则、验证故障实际调用，测试规范已落盘。临时清理脚本字段名检查中止后按实际jdbcTemplate修正，无生产修改。
 
-- 08：本次最终提交 `docs: 完成测试整理与全流程验收`，具体哈希见Git日志。
+- 08：`71e4ec8 docs: 完成测试整理与全流程验收`。
 
 [最终验收](verification/final-acceptance.md) · [逐方法审计](verification/method-audit.md) · [当前清单](verification/current-inventory.md) · [测试约定](../../docs/testing.md)。全部任务resolved，无后续必做项。
 

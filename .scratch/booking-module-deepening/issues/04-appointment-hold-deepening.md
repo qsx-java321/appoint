@@ -1,5 +1,7 @@
 # 04 预约暂占创建内部深度化
 
+> 文档角色：已交付阶段的历史设计/实施记录（2026-11-12复核）。12项已于2026-11-09交付。后续三天窗口、visit、消息设计及测试整理已完成；正文草图、旧类名及当时数量仅解释该检查点。 当前能力与进度见[项目状态](../../../docs/project-status.md)。
+
 Type: refactor
 Triage: ready-for-agent
 Status: resolved

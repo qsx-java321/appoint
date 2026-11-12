@@ -1,6 +1,6 @@
 # 到院签到与医生看板 API
 
-日期：2026-11-11。本文接口及响应扩展已实现，实际验收结果见 [验证报告](../verification-report.md)。
+交付日期：2026-11-11；现行契约复核：2026-11-12。本文接口及响应扩展已实现，实际验收结果见 [验证报告](../verification-report.md)。
 
 关联：[需求](../../.scratch/visit-workflow/spec.md)、[代码设计](design.md)、[改动影响](change-scope.md)。现有字段与规则继续参考 [现行 API](../api.md)。
 

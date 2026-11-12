@@ -1,5 +1,7 @@
 # 三天预约窗口改造任务地图
 
+> 已交付需求/任务记录。2026-11-12复核：本阶段业务已落地，后续消息设计和测试整理也已完成；实施步骤不是新增待办，最新进度与验证见[当前项目状态](../../docs/project-status.md)。
+
 Type: feature
 Triage: ready-for-agent
 Status: resolved

@@ -1,5 +1,7 @@
 # 消息改造基线（任务01）
 
+> 文档角色：已交付阶段的历史设计/实施记录（2026-11-12复核）。消息设计9/9已交付，生产契约仍有效；原323等验收与源码摘要为963051f历史快照。基线测试类后来合并，当前测试入口和结果以测试整理交付为准。 当前能力与进度见[项目状态](../../../docs/project-status.md)。 测试迁移见[当前消息场景](../../test-suite-refactor/verification/message-scenarios.md)。
+
 日期：2026-11-12。生产源码基线：`cf027682bd516b57d0d2f0a830e3d592feee9eb3`。
 
 初始工作区：方案目录与 scripts/__pycache__/ 未跟踪；无业务代码改动。Java 21.0.11，Docker Desktop 可用；沙箱直接连接 socket 拒绝，授权运行后 Testcontainers 可正常创建隔离容器。Compose 初始无运行服务；不改凭据或卷。

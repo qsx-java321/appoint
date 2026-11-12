@@ -1,5 +1,7 @@
 # 08 真实事务与 Rabbit 故障窗口门禁
 
+> 文档角色：已交付阶段的历史设计/实施记录（2026-11-12复核）。消息设计9/9已交付，生产契约仍有效；原323等验收与源码摘要为963051f历史快照。基线测试类后来合并，当前测试入口和结果以测试整理交付为准。 当前能力与进度见[项目状态](../../../docs/project-status.md)。 测试迁移见[当前消息场景](../../test-suite-refactor/verification/message-scenarios.md)。
+
 Type: test
 Triage: ready-for-agent
 Status: resolved

@@ -1,9 +1,9 @@
 # 使用 local 环境。先按 auth.http 注册/登录用户，并按 README 准备管理员。
-# 填写已存在医生档案 ID、用户当天已确认预约 ID。
+# 必填下方visitDate为用户已确认预约的就诊日期，并填写真实医生档案ID、预约ID。
 # 普通启动只接受就诊当天签到；完整跨日验收使用 scripts/compose_acceptance.py。
 @doctorId = 1
 @appointmentId = 1
-@visitDate = 2026-11-13
+@visitDate =
 @sessionType = MORNING_FIRST
 @adminAccessToken = replace-with-admin-token
 @userAccessToken = replace-with-appointment-owner-token

@@ -1,5 +1,7 @@
 # 消息改造场景与覆盖清单
 
+> 文档角色：已交付阶段的历史设计/实施记录（2026-11-12复核）。消息设计9/9已交付，生产契约仍有效；原323等验收与源码摘要为963051f历史快照。基线测试类后来合并，当前测试入口和结果以测试整理交付为准。 当前能力与进度见[项目状态](../../docs/project-status.md)。 测试迁移见[当前消息场景](../test-suite-refactor/verification/message-scenarios.md)。
+
 日期：2026-11-12。以下为验收要求；S01～S32均已验证，实际测试和命令见 verification/scenario-evidence.md。每项可以对应多个测试，不能用测试总数增长代替覆盖。
 
 阶段证据记录到 [verification](verification/README.md)。标记已验证时必须给出测试/命令、代码检查点、实际结果；保留原有关键用例。

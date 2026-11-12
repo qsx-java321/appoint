@@ -103,7 +103,7 @@ Maven 命令串行运行；两个集成 profile 均重复运行常规测试，�
 4. [http/appointment.http](http/appointment.http)：维护就诊人、查询三天 12 个场次并创建预约、正式 MockPay 支付、轮询确认和退款。
 5. [http/visit.http](http/visit.http)：绑定医生账号、用户签到和医生看板及接诊。当天签到须使用当天已确认预约，不能修改宿主系统时间。
 
-`.http` 文件适用于 IntelliJ IDEA HTTP Client，环境变量位于 `http/http-client.env.json`。
+`.http` 文件适用于 IntelliJ IDEA HTTP Client，环境变量位于 `http/http-client.env.json`。日期变量运行前按目录返回的上海服务端日期填写；示例不预置会过期的固定预约日期。
 
 ## 本地开发管理员初始化
 
@@ -142,6 +142,8 @@ WHERE u.email = 'student@example.com';
 
 ## 文档
 
+- [docs/project-status.md](docs/project-status.md)：当前能力、交付进度、未实现边界及历史记录阅读规则。
+- [docs/testing.md](docs/testing.md)：测试分层、隔离、夹具和验收约定。
 - [GLOSSARY.md](GLOSSARY.md)：领域术语。
 - [docs/api.md](docs/api.md)：REST API 契约和边界。
 - [docs/business-flow.md](docs/business-flow.md)：端到端业务流程。
@@ -159,11 +161,9 @@ WHERE u.email = 'student@example.com';
 
 ## 当前进度
 
-2026-11-11：已完成今天、明天、后天的三天预约窗口，扩展场次截止/可预约状态，采用锁后准入时间及支付截止快照，保留当天签到与医生接诊。未新增 REST 路径或数据库迁移，最新仍为 V10；本轮常规 263 项、MySQL 集成 37 项及真实 curl 92 次请求通过。详细证据见[验证报告](docs/verification-report.md)，消息可靠性专用 profile 的旧结果按历史检查点理解。
+截至2026-11-12，三天预约、异步支付与退款、到院签到和医生接诊、消息设计九步及测试整理八步均已完成。最近实现/测试交付为`71e4ec8`；当前代码仍为模块化单体、数据库V10。最新实际验收为常规340、MySQL38、可靠性16及隔离curl92请求通过，零失败/错误/跳过。
 
-2026-11-12：完成消息代码设计改造：四类 v1 事件使用明确结构与事务内 PaymentOutbox 接口，Rabbit 发布/重放实现与应用接口分离，两个监听器共享失败处理，新增严格消息校验、架构规则和故障窗口测试。保持数据库、合法 v1、队列及预约业务；详见[消息设计](docs/module-design.md#消息代码契约与阅读入口2026-11-12)及[本轮任务](.scratch/messaging-design-refactor/map.md)，实际验收见验证报告。
-
-2026-11-12：完成全项目测试整理八项任务：断言、迁移边界、时钟、隔离与故障恢复、消息测试职责、启动与扫描开销及测试规范已同步。生产业务不变；最终常规340、MySQL38、可靠性16、隔离curl92请求通过。详见[测试约定](docs/testing.md)、[任务地图](.scratch/test-suite-refactor/map.md)和[最终验收](.scratch/test-suite-refactor/verification/final-acceptance.md)。
+完整进度与未实现边界见[当前项目状态](docs/project-status.md)，测试写法见[测试约定](docs/testing.md)，实际命令、源码检查点与限制见[最终验收](.scratch/test-suite-refactor/verification/final-acceptance.md)。263/323等数量仅属于[历史验证报告](docs/verification-report.md)中的对应交付，不代表当前测试规模。
 
 ## 当前边界
 

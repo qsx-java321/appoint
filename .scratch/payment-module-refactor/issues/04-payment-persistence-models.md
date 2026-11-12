@@ -1,5 +1,7 @@
 # 04 支付可靠性持久化模型
 
+> 文档角色：已交付阶段的历史设计/实施记录（2026-11-12复核）。16/16已于a293afa交付；同步兼容入口后来删除、接口继续深化、消息设计与测试整理也已完成。下文目标/差距及83等数量均按原实施检查点理解，不是当前待办。 当前能力与进度见[项目状态](../../../docs/project-status.md)。
+
 Type: feature/migration
 Triage: ready-for-agent
 Status: resolved

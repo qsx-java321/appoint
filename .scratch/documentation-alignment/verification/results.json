@@ -1,0 +1,14 @@
+{
+  "markdownFiles": 148,
+  "localLinksAndAnchors": 559,
+  "documentedRestOperations": 38,
+  "appointmentDtoFields": 27,
+  "scheduleDtoFields": 14,
+  "doctorRecordContracts": 5,
+  "appointmentVisitRecordContracts": 1,
+  "jsonExamples": 14,
+  "httpRequests": 42,
+  "httpJsonBodies": 18,
+  "unchangedSourceManifestFiles": 360,
+  "businessTestsRerun": false
+}
