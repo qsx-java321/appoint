@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/** Spring/H2与MockMvc验证预约设置的权限、校验和替换；每例由测试事务回滚。 */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional

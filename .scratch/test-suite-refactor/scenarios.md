@@ -44,3 +44,7 @@
 | 两个Listener.ackFailureAfterCommittedProcessingPropagatesForRedelivery | 改名ackFailureAfterSuccessfulProcessingPropagatesForRedelivery；对象单测只证明处理成功返回，真实提交/重投仍由PaymentConfirmationReliabilityIT负责 |
 
 两个Listener各保留5方法：解码正文→正确业务接口→ACK、成功不检查非法头、非法业务输入、固定重试路由/头、永久非法解码、ACK异常（前两项由同一方法验证）。原TTL/确认超时/原文/ID断言集中在公共处理器；业务监听器没有改成Mock失败处理器。
+
+## 07审计结果
+
+[逐方法迁移审计](verification/method-audit.md)覆盖原260个方法；[当前测试清单](verification/current-inventory.md)记录各类层次、profile、时钟与隔离。原八份样本与架构负例19文件摘要未变；S01～S32当前入口均已映射，最终结果由08新执行验收确认。测试写法见[测试约定](../../docs/testing.md)。

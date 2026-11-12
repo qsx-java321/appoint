@@ -51,26 +51,32 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.stream.IntStream;
+import com.qsx.appoint.support.CommittedFixtureScope;
+import com.qsx.appoint.support.TestExecutor;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
+/** 类独占MySQL验证防超卖、并发幂等及回调/取消/过期竞争；保留真实屏障、事务和库存断言。 */
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @SpringBootTest(properties = "appoint.expiration.enabled=false")
 @ActiveProfiles("test")
 @org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class AppointmentLifecycleMySqlIT {
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
-    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+    private CommittedFixtureScope fixtureScope;
 
-    @org.junit.jupiter.api.BeforeEach
-    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+    @BeforeEach
+    void trackCommittedFixture() { fixtureScope = new CommittedFixtureScope(jdbcTemplate); }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeCommittedFixture() { fixtureScope.close(); }
 
     @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    @Autowired private JdbcTemplate jdbcTemplate;
     private static final AtomicInteger SCHEDULE_SEQUENCE = new AtomicInteger();
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
@@ -177,7 +183,7 @@ class AppointmentLifecycleMySqlIT {
         int contenders = 21;
         CountDownLatch ready = new CountDownLatch(contenders);
         CountDownLatch start = new CountDownLatch(1);
-        try (ExecutorService executor = new com.qsx.appoint.support.TestExecutor(contenders)) {
+        try (ExecutorService executor = new TestExecutor(contenders)) {
             List<Future<Object>> futures = IntStream.range(0, contenders)
                     .mapToObj(index -> {
                         Long userId = createUser();
@@ -211,7 +217,7 @@ class AppointmentLifecycleMySqlIT {
         Long scheduleId = createSchedule(3);
         CountDownLatch ready = new CountDownLatch(20);
         CountDownLatch start = new CountDownLatch(1);
-        try (ExecutorService executor = new com.qsx.appoint.support.TestExecutor(20)) {
+        try (ExecutorService executor = new TestExecutor(20)) {
             List<Future<Object>> futures = java.util.stream.IntStream.range(0, 20)
                     .mapToObj(index -> executor.submit(() -> {
                         ready.countDown();
@@ -421,7 +427,7 @@ class AppointmentLifecycleMySqlIT {
     private List<Object> race(Callable<Object> first, Callable<Object> second) throws Exception {
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
-        try (ExecutorService executor = new com.qsx.appoint.support.TestExecutor(2)) {
+        try (ExecutorService executor = new TestExecutor(2)) {
             Future<Object> firstResult = executor.submit(awaitStart(first, ready, start));
             Future<Object> secondResult = executor.submit(awaitStart(second, ready, start));
             if (!ready.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("AppointmentLifecycleMySqlIT: ready屏障超时");

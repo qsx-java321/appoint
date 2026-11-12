@@ -38,6 +38,8 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import com.qsx.appoint.support.TestExecutor;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -48,12 +50,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/** Spring/H2验证目录管理和预约快照；普通用例回滚，并发用例真实提交后在finally清理随机科室。 */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 class CatalogManagementIntegrationTest {
     @Autowired private MockMvc mockMvc;
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
+    @Autowired private JdbcTemplate fixtureJdbc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private CatalogManagementService catalogManagementService;
     @Autowired private ScheduleManagementService scheduleManagementService;
@@ -455,7 +458,7 @@ class CatalogManagementIntegrationTest {
         String departmentName = "并发科室-" + UUID.randomUUID();
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
-        try (var executor = new com.qsx.appoint.support.TestExecutor(2)) {
+        try (var executor = new TestExecutor(2)) {
             Future<Object> first = executor.submit(() -> createDepartmentConcurrently(departmentName, ready, start));
             Future<Object> second = executor.submit(() -> createDepartmentConcurrently(departmentName, ready, start));
             org.assertj.core.api.Assertions.assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();

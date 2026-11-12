@@ -6,6 +6,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** 直接调用组装器，验证支付与取消权限投影；不启动Spring。 */
 class AppointmentResponseAssemblerTest {
     private final AppointmentResponseAssembler assembler = new AppointmentResponseAssembler(new BookingWorkflowProjector());
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 9, 8, 0);

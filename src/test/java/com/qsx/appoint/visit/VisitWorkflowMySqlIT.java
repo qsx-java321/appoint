@@ -26,21 +26,26 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.*;
+import com.qsx.appoint.support.CommittedFixtureScope;
+import com.qsx.appoint.support.TestExecutor;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.test.annotation.DirtiesContext;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
+/** 类独占MySQL验证并发绑定、签到、接诊只形成唯一身份和记录；提交数据按例清理。 */
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @SpringBootTest
 @ActiveProfiles("test")
 @Import({FormalPaymentTestSupport.class, AppointmentClockTestConfiguration.class})
 class VisitWorkflowMySqlIT {
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
-    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+    private CommittedFixtureScope fixtureScope;
 
-    @org.junit.jupiter.api.BeforeEach
-    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+    @BeforeEach
+    void trackCommittedFixture() { fixtureScope = new CommittedFixtureScope(jdbc); }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeCommittedFixture() { fixtureScope.close(); }
 
     @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
@@ -60,7 +65,7 @@ class VisitWorkflowMySqlIT {
     @Autowired JdbcTemplate jdbc;
     @Autowired MutableAppointmentClock clock;
 
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void resetClock() { clock.set("2026-11-12T08:00:00"); }
 
     @Test
@@ -102,7 +107,7 @@ class VisitWorkflowMySqlIT {
     }
     private List<Object> race(Callable<?> left, Callable<?> right) throws Exception {
         var gate = new CountDownLatch(1);
-        try (var executor = new com.qsx.appoint.support.TestExecutor(2)) {
+        try (var executor = new TestExecutor(2)) {
             Callable<Object> a = () -> { if (!gate.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("VisitWorkflowMySqlIT: gate屏障超时"); try { return left.call(); } catch (BusinessException error) { return error; } };
             Callable<Object> b = () -> { if (!gate.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("VisitWorkflowMySqlIT: gate屏障超时"); try { return right.call(); } catch (BusinessException error) { return error; } };
             var first = executor.submit(a); var second = executor.submit(b); gate.countDown();

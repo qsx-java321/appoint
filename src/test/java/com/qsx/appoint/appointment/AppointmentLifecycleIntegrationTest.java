@@ -42,6 +42,10 @@ import java.time.LocalTime;
 import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import com.qsx.appoint.support.CommittedFixtureScope;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -49,18 +53,19 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/** Spring/H2验证取消、过期、对账和退款协作；业务真实提交，本例数据由CommittedFixtureScope清理。 */
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:appointment-lifecycle-integration-test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class AppointmentLifecycleIntegrationTest {
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
-    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+    @Autowired private JdbcTemplate fixtureJdbc;
+    private CommittedFixtureScope fixtureScope;
 
-    @org.junit.jupiter.api.BeforeEach
-    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+    @BeforeEach
+    void trackCommittedFixture() { fixtureScope = new CommittedFixtureScope(fixtureJdbc); }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeCommittedFixture() { fixtureScope.close(); }
 
     @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;

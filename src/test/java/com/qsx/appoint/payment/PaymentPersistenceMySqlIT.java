@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static com.qsx.appoint.support.MySqlConstraintAssertions.assertCheckViolation;
 
+/** 类独占MySQL验证支付可靠性表的唯一键、CHECK及扫描索引；失败后核对原数据。 */
 @Testcontainers
 class PaymentPersistenceMySqlIT {
     @Container

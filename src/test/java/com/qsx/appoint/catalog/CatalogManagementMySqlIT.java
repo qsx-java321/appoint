@@ -11,6 +11,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** 在类独占MySQL中验证医院内科室重名约束及索引；拒绝写入后检查记录数量。 */
 @Testcontainers
 class CatalogManagementMySqlIT {
     @Container

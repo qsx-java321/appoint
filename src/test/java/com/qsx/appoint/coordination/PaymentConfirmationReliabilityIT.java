@@ -25,11 +25,16 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.context.ApplicationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
+/** 类独占MySQL和RabbitMQ验证回滚、提交后丢ACK及真实渠道重试；每例停监听后清理数据与队列。 */
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @org.springframework.test.context.ActiveProfiles("test")
 @SpringBootTest(properties = {
@@ -40,16 +45,16 @@ import static org.awaitility.Awaitility.await;
         "appoint.outbox.confirm-timeout=2s"
 })
 class PaymentConfirmationReliabilityIT {
-    @Autowired private org.springframework.context.ApplicationContext fixtureContext;
+    @Autowired private ApplicationContext fixtureContext;
     private com.qsx.appoint.support.RabbitReliabilityFixtures fixtures;
 
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void isolateMessages() throws Exception {
         fixtures = new com.qsx.appoint.support.RabbitReliabilityFixtures(fixtureContext, jdbcTemplate);
         fixtures.beforeEach();
     }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeMessages() throws Exception {
         fixtures.afterEach();
     }
@@ -83,7 +88,7 @@ class PaymentConfirmationReliabilityIT {
     @Autowired private OutboxPublisher publisher;
     @Autowired private CachingConnectionFactory connectionFactory;
     @Autowired private DeadLetterReplayService replayService;
-    @Autowired private org.springframework.context.ApplicationContext applicationContext;
+    @Autowired private ApplicationContext applicationContext;
 
     @Test
     void brokerOutageKeepsEventThenRecoveryConfirmsExactlyOnce() throws Exception {

@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/** Spring/H2与MockMvc验证绑定、签到和接诊全流程及快照不变；每例重置时钟并回滚。 */
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:visit-http;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

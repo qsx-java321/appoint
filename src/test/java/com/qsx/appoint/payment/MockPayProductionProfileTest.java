@@ -14,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** 在H2上加载prod上下文，验证Mock渠道及HTTP入口均不存在；不会连接生产支付渠道。 */
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:gateway-production;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.expiration.enabled=false",

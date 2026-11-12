@@ -29,6 +29,8 @@ import org.springframework.test.context.ActiveProfiles;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import com.qsx.appoint.support.AppointmentClockTestConfiguration;
+import org.junit.jupiter.api.AfterEach;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doAnswer;
@@ -40,12 +42,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/** Spring/H2与MockMvc验证三天窗口、截止和支付时间快照；普通用例回滚，NOT_SUPPORTED用例单独清理。 */
 @SpringBootTest(properties =
         "spring.datasource.url=jdbc:h2:mem:on-demand-booking;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
-@Import({com.qsx.appoint.support.AppointmentClockTestConfiguration.class, FormalPaymentTestSupport.class})
+@Import({AppointmentClockTestConfiguration.class, FormalPaymentTestSupport.class})
 class OnDemandBookingHttpTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
@@ -81,7 +84,7 @@ class OnDemandBookingHttpTest {
         patientId = patient.getId();
     }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void cleanCommittedCutoffFixture() {
         // 只有NOT_SUPPORTED用例的账号准备会提交；普通用例仍由测试事务回滚。
         if (!org.springframework.test.context.transaction.TestTransaction.isActive()) {

@@ -1,7 +1,7 @@
 # 07 完善可读性、规范和场景审计
 
 Type: test/refactor
-Status: ready-for-agent
+Status: resolved
 Blocked by: 06
 
 ## 工作内容
@@ -15,3 +15,5 @@ Blocked by: 06
 ## Comments
 
 - 尚未验收，相关命令与结果写入 verification/commands.md。
+
+- 聚焦常规111+MySQL10、确认单测5+Outbox可靠性9通过；260原方法全部有去向，19受保护样本/架构负例不变。补充类职责、去除重复注入/全限定噪音、统一架构正反例规则、验证故障实际调用，测试规范已落盘。临时清理脚本字段名检查中止后按实际jdbcTemplate修正，无生产修改。

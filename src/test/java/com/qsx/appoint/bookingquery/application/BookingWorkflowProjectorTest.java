@@ -10,6 +10,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** 直接验证持久化状态组合到查询状态的投影，包含非法组合；不把每种组合都放进Spring上下文。 */
 class BookingWorkflowProjectorTest {
     private final BookingWorkflowProjector projector = new BookingWorkflowProjector();
 

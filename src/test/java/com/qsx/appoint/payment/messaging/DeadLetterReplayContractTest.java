@@ -62,7 +62,7 @@ class DeadLetterReplayContractTest {
         byte[] body="{\"eventType\":\"RefundSucceeded\"}".getBytes(StandardCharsets.UTF_8);
         var properties=new AMQP.BasicProperties.Builder().headers(Map.of("refund-attempt",2,"payment-succeeded-attempt",2)).build();
         var delivery=new GetResponse(new Envelope(7,false,"",""),properties,body,0);
-        when(channel.basicGet(anyString(),eq(false))).thenReturn(delivery,null);
+        when(channel.basicGet(anyString(),eq(false))).thenReturn(delivery, (GetResponse) null);
         ReplayResult result=service.replayOne(target);
         assertThat(result.status()).isEqualTo(ReplayResult.Status.REPLAYED);
         assertThat(result.eventId()).isNull();

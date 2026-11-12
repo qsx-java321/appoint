@@ -34,22 +34,27 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
+import com.qsx.appoint.support.CommittedFixtureScope;
+import com.qsx.appoint.support.TestExecutor;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.test.annotation.DirtiesContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
+/** 类独占MySQL验证回调去重、验签、金额/币种及成功事实收敛；每例按新增账号清理。 */
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @SpringBootTest(properties = "appoint.expiration.enabled=false")
 @ActiveProfiles("test")
 class PaymentNotificationMySqlIT {
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
-    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+    private CommittedFixtureScope fixtureScope;
 
-    @org.junit.jupiter.api.BeforeEach
-    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+    @BeforeEach
+    void trackCommittedFixture() { fixtureScope = new CommittedFixtureScope(jdbcTemplate); }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeCommittedFixture() { fixtureScope.close(); }
 
     @Container
@@ -204,7 +209,7 @@ class PaymentNotificationMySqlIT {
                                                     Callable<PaymentNotificationResponse> second) throws Exception {
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
-        try (var executor = new com.qsx.appoint.support.TestExecutor(2)) {
+        try (var executor = new TestExecutor(2)) {
             Future<PaymentNotificationResponse> a = executor.submit(() -> call(ready, start, first));
             Future<PaymentNotificationResponse> b = executor.submit(() -> call(ready, start, second));
             if (!ready.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("PaymentNotificationMySqlIT: ready屏障超时");

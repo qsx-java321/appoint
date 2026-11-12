@@ -25,33 +25,36 @@ class ModuleDependencyTest {
 
     @Test
     void businessApplicationDoesNotDependOnRabbitTransport() {
-        noClasses().that().resideInAnyPackage("..payment.application..","..payment.domain..",
-                "..coordination.application..","..coordination.domain..")
-                .should().dependOnClassesThat().resideInAnyPackage("org.springframework.amqp..","com.rabbitmq..")
-                .check(PRODUCTION_CLASSES);
-        noClasses().that().resideInAPackage("..payment.contract.event..")
-                .should().dependOnClassesThat().resideInAnyPackage("org.springframework..","com.fasterxml.jackson..",
-                        "..mapper..","..entity..","..coordination..")
-                .check(PRODUCTION_CLASSES);
-        noClasses().that().resideInAPackage("..common.messaging..")
-                .should().dependOnClassesThat().resideInAnyPackage("..payment..","..appointment..","..coordination..")
-                .check(PRODUCTION_CLASSES);
+        businessTransportRule().check(PRODUCTION_CLASSES);
+        eventContractRule().check(PRODUCTION_CLASSES);
+        commonMessagingRule().check(PRODUCTION_CLASSES);
     }
 
     @Test
     void messagingDependencyRulesRejectViolations() {
         var business = new ClassFileImporter().importClasses(com.qsx.appoint.payment.application.archfixture.BusinessToRabbit.class);
-        assertThatThrownBy(() -> noClasses().that().resideInAnyPackage("..payment.application..","..coordination.application..")
-                .should().dependOnClassesThat().resideInAnyPackage("org.springframework.amqp..","com.rabbitmq..")
-                .check(business)).isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> businessTransportRule().check(business)).isInstanceOf(AssertionError.class);
         var contract = new ClassFileImporter().importClasses(com.qsx.appoint.payment.contract.event.archfixture.ContractToJackson.class);
-        assertThatThrownBy(() -> noClasses().that().resideInAPackage("..payment.contract.event..")
-                .should().dependOnClassesThat().resideInAnyPackage("org.springframework..","com.fasterxml.jackson..","..entity..","..mapper..","..coordination..")
-                .check(contract)).isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> eventContractRule().check(contract)).isInstanceOf(AssertionError.class);
         var common = new ClassFileImporter().importClasses(com.qsx.appoint.common.messaging.archfixture.CommonToPayment.class);
-        assertThatThrownBy(() -> noClasses().that().resideInAPackage("..common.messaging..")
-                .should().dependOnClassesThat().resideInAnyPackage("..payment..","..appointment..","..coordination..")
-                .check(common)).isInstanceOf(AssertionError.class);
+        assertThatThrownBy(() -> commonMessagingRule().check(common)).isInstanceOf(AssertionError.class);
+    }
+
+    private ArchRule businessTransportRule() {
+        return noClasses().that().resideInAnyPackage("..payment.application..", "..payment.domain..",
+                "..coordination.application..", "..coordination.domain..")
+                .should().dependOnClassesThat().resideInAnyPackage("org.springframework.amqp..", "com.rabbitmq..");
+    }
+
+    private ArchRule eventContractRule() {
+        return noClasses().that().resideInAPackage("..payment.contract.event..")
+                .should().dependOnClassesThat().resideInAnyPackage("org.springframework..", "com.fasterxml.jackson..",
+                        "..mapper..", "..entity..", "..coordination..");
+    }
+
+    private ArchRule commonMessagingRule() {
+        return noClasses().that().resideInAPackage("..common.messaging..")
+                .should().dependOnClassesThat().resideInAnyPackage("..payment..", "..appointment..", "..coordination..");
     }
 
     @Test

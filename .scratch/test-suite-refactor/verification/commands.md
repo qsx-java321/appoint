@@ -85,3 +85,15 @@
 - 命令：`./mvnw -o test`
 - 日志：`/tmp/test-refactor-06.log`
 - Maven汇总（普通/集成分别计）：[('340', '0', '0', '0')]；耗时：['36.942 s']; BUILD SUCCESS=True。
+
+## 07 可读性与故障点
+
+- 命令：`./mvnw -o -Pmysql-it -Dtest=ModuleDependencyTest,PaymentOutboxTransactionTest,PaymentNotificationAtomicityTest,PaymentGatewayContractTest,MessageConsumerContractTest,DeadLetterReplayContractTest,AppointmentLifecycleInterfaceTest,VisitHttpTest,ScheduleInventoryIntegrationTest,OnDemandBookingHttpTest -Dit.test=PaymentParentLockMySqlIT verify`
+- 日志：`/tmp/test-refactor-07.log`
+- Maven汇总（普通/集成分别计）：[('111', '0', '0', '0'), ('10', '0', '0', '0')]；耗时：['42.881 s']; BUILD SUCCESS=True。
+
+## 07 Outbox真实故障点
+
+- 命令：`./mvnw -o -Preliability-it -Dtest=ConfirmedMessagePublisherTest -Dit.test=OutboxPublisherReliabilityIT verify`
+- 日志：`/tmp/test-refactor-07-reliability.log`
+- Maven汇总（普通/集成分别计）：[('5', '0', '0', '0'), ('9', '0', '0', '0')]；耗时：['30.293 s']; BUILD SUCCESS=True。

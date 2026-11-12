@@ -18,6 +18,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** Spring/H2验证审计、Inbox去重和Outbox持久化原语；真实MySQL锁语义另由容器测试验证。 */
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:payment-persistence;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.expiration.enabled=false"

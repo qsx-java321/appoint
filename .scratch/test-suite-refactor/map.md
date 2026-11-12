@@ -14,7 +14,7 @@ Status: claimed
 | 04 | [完善隔离、故障恢复和有界等待](issues/04-isolation-concurrency.md) | resolved | 03 |
 | 05 | [合并消息测试重复职责](issues/05-messaging-deduplication.md) | resolved | 04 |
 | 06 | [减少测试启动和重复扫描](issues/06-startup-scan.md) | resolved | 05 |
-| 07 | [完善可读性、规范和场景审计](issues/07-readability-audit.md) | ready-for-agent | 06 |
+| 07 | [完善可读性、规范和场景审计](issues/07-readability-audit.md) | resolved | 06 |
 | 08 | [完整验收与文档收口](issues/08-acceptance.md) | ready-for-agent | 07 |
 
 ## 执行约定
@@ -50,3 +50,5 @@ Status: claimed
 - 05：聚焦85、完整可靠性16通过，零失败/错误/跳过。删除独立基线类和两个Listener各2项重复分支；独有断言迁移、新增I/O确认矩阵及S01～S32入口映射已登记。
 
 - 06：完整常规340项通过，架构20项、MockPay契约7项保留；契约不启动Spring，生产扫描static final复用，三个profile保护完整。实际耗时及首次编译修正见startup-evidence.md。
+
+- 07：聚焦常规111+MySQL10、确认单测5+Outbox可靠性9通过；260原方法全部有去向，19受保护样本/架构负例不变。补充类职责、去除重复注入/全限定噪音、统一架构正反例规则、验证故障实际调用，测试规范已落盘。临时清理脚本字段名检查中止后按实际jdbcTemplate修正，无生产修改。

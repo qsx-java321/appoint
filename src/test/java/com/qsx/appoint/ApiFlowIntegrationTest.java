@@ -25,6 +25,10 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
+import com.qsx.appoint.support.CommittedFixtureScope;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -40,13 +44,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class ApiFlowIntegrationTest {
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
-    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+    @Autowired private JdbcTemplate fixtureJdbc;
+    private CommittedFixtureScope fixtureScope;
 
-    @org.junit.jupiter.api.BeforeEach
-    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+    @BeforeEach
+    void trackCommittedFixture() { fixtureScope = new CommittedFixtureScope(fixtureJdbc); }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeCommittedFixture() { fixtureScope.close(); }
 
     @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;

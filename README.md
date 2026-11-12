@@ -73,6 +73,8 @@ python3 scripts/compose_acceptance.py --http-client curl --http-report /tmp/appo
 
 验收入口会创建独立数据库、数据库账号和 RabbitMQ vhost，启动 dev profile，验证预约、支付、异步确认、取消退款、迟到支付释放退款及库存守恒及医生绑定、当天签到、四状态看板和接诊完成；成功后删除验收资源，失败时保留资源标识和日志。Redis 只检查健康状态。
 
+测试分层、夹具隔离及新增用例的编写方式见 [测试约定](docs/testing.md)。
+
 常规测试：
 
 ```bash

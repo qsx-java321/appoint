@@ -12,6 +12,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** 类独占MySQL验证固定V4迁移在旧活跃支付存在时阻断，且不提前改写结构或订单。 */
 @Testcontainers
 class PaymentMigrationMySqlIT {
     @Container

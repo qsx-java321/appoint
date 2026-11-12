@@ -16,20 +16,23 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import com.qsx.appoint.support.CommittedFixtureScope;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/** Spring/H2在审计或Outbox写入点注入故障，验证支付事实一起回滚且同一通知可重试。 */
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:notification-atomicity;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.messaging.enabled=false", "appoint.expiration.enabled=false"})
 @ActiveProfiles("test")
 class PaymentNotificationAtomicityTest {
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
-    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+    private CommittedFixtureScope fixtureScope;
 
-    @org.junit.jupiter.api.BeforeEach
-    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+    @BeforeEach
+    void trackCommittedFixture() { fixtureScope = new CommittedFixtureScope(jdbcTemplate); }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeCommittedFixture() { fixtureScope.close(); }
 
     private static final AtomicLong IDS = new AtomicLong(9700000);
@@ -51,7 +54,10 @@ class PaymentNotificationAtomicityTest {
         if (failure.equals("audit")) doThrow(new IllegalStateException("audit failure")).when(notifications).insert(any(PaymentNotification.class));
         else doThrow(new IllegalStateException("outbox failure")).when(outbox).insert(any(PaymentOutboxEvent.class));
         try {
-            assertThatThrownBy(() -> ingress.handle(PaymentChannel.MOCK,raw)).isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(() -> ingress.handle(PaymentChannel.MOCK,raw))
+                    .isInstanceOf(IllegalStateException.class).hasMessage(failure + " failure");
+            if (failure.equals("audit")) verify(notifications).insert(any(PaymentNotification.class));
+            else verify(outbox).insert(any(PaymentOutboxEvent.class));
             assertThat(jdbcTemplate.queryForObject("SELECT status FROM payment_orders WHERE id=?",String.class,paymentId)).isEqualTo("PAYING");
             assertThat(jdbcTemplate.queryForObject("SELECT status FROM payment_attempts WHERE id=?",String.class,attempt.paymentAttemptId())).isEqualTo("PROCESSING");
             assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM payment_notifications WHERE notification_id=?",Integer.class,notificationId)).isZero();

@@ -1,0 +1,374 @@
+{
+  "src/test/java/com/qsx/appoint/ApiFlowIntegrationTest.java": [
+    "registerLoginAndReadCurrentUser",
+    "duplicateEmailReturnsConflict",
+    "wrongPasswordAndMissingTokenAreRejected",
+    "doctorCatalogExposesGlobalDoctorNumbers",
+    "responseIdsAreStringsAndStringScheduleIdCanCreateAppointment",
+    "appointmentAndPaymentAdvanceStatesOnlyOnce",
+    "startingMockPaymentAttemptReturnsAcceptedAndStableCheckoutData"
+  ],
+  "src/test/java/com/qsx/appoint/PatientJourneyHttpMySqlIT.java": [
+    "patientCanRegisterBookPayCancelAndBookReleasedScheduleAgainOverHttp",
+    "shortPaymentDeadlineIsClosedByRealExpirationJobAndScheduleReturnsToCatalog"
+  ],
+  "src/test/java/com/qsx/appoint/appointment/AppointmentExpirationJobTest.java": [
+    "oneFailureDoesNotPreventLaterCandidates"
+  ],
+  "src/test/java/com/qsx/appoint/appointment/AppointmentIdempotencyIntegrationTest.java": [
+    "sameKeyReturnsReplayReceiptAndAppointmentKeepsPatientSnapshot",
+    "sameKeyWithDifferentRequestReturnsConflict",
+    "failedRequestDoesNotConsumeKeyAndDisabledPatientCanRetryAfterEnable",
+    "patientOwnershipIsEnforcedAndSameKeyIsScopedByAccount",
+    "replayAfterCancellationAndPatientDisableStillReturnsOriginalAppointmentReceipt",
+    "replayAfterPaymentOrExpirationStillReturnsOriginalAppointmentReceipt",
+    "missingOrInvalidIdempotencyKeyIsRejected"
+  ],
+  "src/test/java/com/qsx/appoint/appointment/AppointmentLifecycleIntegrationTest.java": [
+    "cancelIsIdempotentAndOldAppointmentCannotReleaseNewHold",
+    "expiredPaymentIsRejectedAndScannerClosesOrder",
+    "expirationProtectsPersistedPaidOrderAndRecoversDelayedConfirmation",
+    "reconciliationRecoversLongPaidPendingAppointment",
+    "reconciliationCreatesMissingRefundForClosedPaidAppointment",
+    "reconciliationReportsAssociationMismatchAsManualItem",
+    "cancelAfterDeadlineClosesAsExpired",
+    "confirmedAppointmentCancellationReleasesInventoryAndRequestsRefundAsynchronously",
+    "latePaymentAfterPendingAppointmentCancellationIsRecordedAndRefundedWithoutRestoringAppointment",
+    "onlyOwnerCanCancelAppointment",
+    "startedScheduleCannotBeListedOrBooked",
+    "paymentDeadlineUsesFifteenMinutes"
+  ],
+  "src/test/java/com/qsx/appoint/appointment/AppointmentLifecycleInterfaceTest.java": [
+    "mandatoryRejectsLocksAndWritesWithoutCallerTransaction",
+    "findAndPreviousTransactionSnapshotsCannotAuthorizeWrites",
+    "suspendedOuterContextCannotBeUsedInRequiresNewTransaction",
+    "confirmationParticipatesInOuterRollbackIncludingVisitNumber",
+    "failedClaimRemovalRollsBackPendingCloseAsOneOperation",
+    "failedClaimRemovalRollsBackConfirmedCancellation",
+    "paymentCloseParticipatesInTheSameOuterRollback",
+    "missingAndHistoricalNullSessionKeepExistingErrors"
+  ],
+  "src/test/java/com/qsx/appoint/appointment/AppointmentLifecycleMySqlIT.java": [
+    "paymentAndCancellationProduceOneConsistentTerminalState",
+    "concurrentDuplicatePaymentsReturnTheSameSuccess",
+    "sameDaySqlAdmissionUsesStrictApplicationTimeThreshold",
+    "concurrentFirstBookingCreatesOneSessionAndNeverOversellsDefaultCapacity",
+    "twentyUsersCompetingForLastThreePlacesNeverOversell",
+    "paymentRacingExpirationProducesOneExpiredTerminalStateAfterDeadline",
+    "callbackRacingCancellationConvergesToOneRefundAndReleasedInventory",
+    "callbackRacingExpirationConvergesToOneRefundAndReleasedInventory",
+    "concurrentDuplicateCancellationCreatesOnlyOneRefund",
+    "concurrentSameIdempotencyKeyReplaysOneCommittedResponse",
+    "concurrentDifferentPayloadsWithSameKeyYieldOneConflict",
+    "concurrentDuplicatePatientDocumentIsRejectedByDatabaseConstraint",
+    "patientUpdateAndAppointmentCreationSerializeToACompleteSnapshot"
+  ],
+  "src/test/java/com/qsx/appoint/appointment/AppointmentQueryIntegrationTest.java": [
+    "appointmentQueriesExposePaymentBeforeAndAfterPayment",
+    "paidAppointmentWaitingForEventIsShownAsConfirming",
+    "queryShowsAmountAndLatestProcessingAttemptSummary",
+    "queryShowsRefundingAndRefundedSummaries",
+    "legacyTerminalOrderWithNullFeeRemainsReadable",
+    "anotherUserCannotReadAppointment",
+    "emptyAppointmentListReturnsEmptyArray",
+    "appointmentKeepsDoctorSnapshotAfterCatalogChanges",
+    "appointmentQueriesFailWhenPaymentIsMissing",
+    "appointmentQueriesFailWhenPaymentBelongsToAnotherUser"
+  ],
+  "src/test/java/com/qsx/appoint/appointment/BookingMidnightIntegrationTest.java": [
+    "previouslyCompletedKeyReplaysEvenAfterOriginalDateLeavesCreationWindow"
+  ],
+  "src/test/java/com/qsx/appoint/appointment/OnDemandBookingHttpTest.java": [
+    "firstBookingCreatesSessionFromSettingsAndGetsFullPaymentWindow",
+    "settingChangesOnlyAffectSessionsCreatedAfterTheChange",
+    "newOrdersRejectPastDateCutoffBeyondThreeDatesAndUnknownSession",
+    "idempotencyUsesDoctorDateSessionAndPatient",
+    "todayBookingPersistsIdenticalAppointmentAndPaymentTimes",
+    "allFourSessionsUseStrictNewOrderCutoffs",
+    "createdAtIsSampledAfterPatientLockRatherThanRequestRegistration",
+    "midnightWhileWaitingStillAcceptsOriginalTomorrowAsToday",
+    "crossingCutoffAfterPatientLockDoesNotLeaveGeneratedSessionOrOrder",
+    "sqlAdmissionRejectsExactCutoffAndAcceptsBeforeIt",
+    "existingOrderCanPayAfterNewBookingCutoffWithOneDeadlineAcrossAllResponses",
+    "paymentAcrossMidnightUsesPersistedDeadline",
+    "historyRemainsReadableAfterLeavingTheThreeDayWindowWithoutRecalculatingDeadline",
+    "reachingPaymentDeadlineDisablesPaymentWithoutWaitingForExpirationScan"
+  ],
+  "src/test/java/com/qsx/appoint/appointment/ScheduleInventoryIntegrationTest.java": [
+    "crossAccountSameDocumentIsBlockedUntilFirstClaimIsReleased",
+    "visitNumbersAreMonotonicAndCancelledNumberIsNotReused",
+    "confirmedCancellationIsRejectedAtExactTwentyFourHourBoundary",
+    "paymentIsRejectedAtTheExactPaymentDeadlineWithoutChangingTheHold",
+    "confirmedCancellationCanBeRepeatedWithoutChangingItsReceipt",
+    "appointmentCreationCopiesAnImmutableFeeSnapshotToBothOrders"
+  ],
+  "src/test/java/com/qsx/appoint/architecture/ModuleDependencyTest.java": [
+    "businessApplicationDoesNotDependOnRabbitTransport",
+    "messagingDependencyRulesRejectViolations",
+    "inputEntityLeakIsRejectedIncludingRecordMembers",
+    "paymentDoesNotReachIntoAppointmentInternals",
+    "appointmentDoesNotAddNewPaymentPersistenceDependencies",
+    "appointmentPersistenceRuleRejectsANewReverseMapperDependency",
+    "appointmentDoesNotAddOtherPaymentDependencies",
+    "appointmentBusinessLayersDoNotDependOnCoordination",
+    "coordinationDoesNotUseWriteModulePersistence",
+    "writeModulesDoNotDependOnBookingQuery",
+    "crossModuleReadSqlBelongsOnlyToBookingQuery",
+    "coordinationOnlyUsesWriteModuleInterfacesAndFacts",
+    "implementationRuleRejectsAConcreteWriteDependency",
+    "publicApplicationReturnsDoNotExposePersistenceEntities",
+    "entityReturnRuleRejectsDirectAndGenericLeaks",
+    "controllersDoNotAccessMappers",
+    "controllerRuleRejectsDirectMapperAccess",
+    "queryMapperHasOnlyNonLockingStaticReadMethodsIncludingInheritedSurface",
+    "queryRuleRejectsInheritedAnnotatedDisguisedAndLockingWrites",
+    "visitBusinessLayersOnlyUseStableExternalInterfaces"
+  ],
+  "src/test/java/com/qsx/appoint/bookingquery/application/AppointmentResponseAssemblerTest.java": [
+    "preservesPaymentAndCancellationPermissions"
+  ],
+  "src/test/java/com/qsx/appoint/bookingquery/application/BookingQueryServiceTest.java": [
+    "listUsesOneTruncatedServerTimeForAllRows",
+    "ownershipAndMissingOrderErrorsPrecedePaymentIntegrityAndClock"
+  ],
+  "src/test/java/com/qsx/appoint/bookingquery/application/BookingWorkflowProjectorTest.java": [
+    "projectsSupportedStates",
+    "cancelledClosedReturnsNullForCompatibility",
+    "inconsistentCombinationIsRejected",
+    "everyOtherPersistedStateCombinationIsRejected"
+  ],
+  "src/test/java/com/qsx/appoint/catalog/BookingSettingsHttpTest.java": [
+    "adminCanReadAndReplacePersistedBookingSettings",
+    "bookingSettingsRejectUnauthorizedAndInvalidUpdates",
+    "manualScheduleManagementEndpointNoLongerExists"
+  ],
+  "src/test/java/com/qsx/appoint/catalog/CatalogManagementIntegrationTest.java": [
+    "adminCanCreateHospitalThatImmediatelyAppearsInCatalog",
+    "adminCanCreateDepartmentAndDoctorThatImmediatelyAppearInCatalog",
+    "adminCreatedResourceChainCanBeQueriedAndBookedByUser",
+    "departmentNameIsUniqueWithinHospitalButCanRepeatAcrossHospitals",
+    "adminCanUpdateProfilesWithoutChangingDoctorNumberOrDepartment",
+    "referencedResourcesCannotBeDeletedButEmptyHierarchyCanBeRemovedBottomUp",
+    "ordinaryUserCannotCallCatalogManagementEndpoints",
+    "missingParentsReturnNotFoundAndManualScheduleEndpointsAreGone",
+    "blankValuesAndEmptyPatchesAreRejected",
+    "profileUpdatesDoNotChangeExistingAppointmentVoucher",
+    "concurrentDuplicateDepartmentCreationAllowsOnlyOneSuccess"
+  ],
+  "src/test/java/com/qsx/appoint/catalog/CatalogManagementMySqlIT.java": [
+    "v8EnforcesDepartmentNameUniquenessWithinHospital"
+  ],
+  "src/test/java/com/qsx/appoint/catalog/DoctorNumberIntegrationTest.java": [
+    "migrationAssignsStableUniqueNumbersToExistingDoctors",
+    "generatorAllocatesIncreasingNumberThatCanBeStoredOnDoctor",
+    "databaseRejectsDoctorWithoutNumber"
+  ],
+  "src/test/java/com/qsx/appoint/catalog/InitialSchemaMigrationTest.java": [
+    "emptyDatabaseIsInitializedOnceWithFinalSchemaAndSeedCatalog",
+    "activeLegacyAppointmentStopsIncrementalMigrationBeforeSchemaChanges",
+    "activePreRefactorPaymentStopsV4BeforePaymentSchemaChanges",
+    "terminalPreRefactorPaymentPassesV4AndV5WithoutBeingRewritten"
+  ],
+  "src/test/java/com/qsx/appoint/catalog/SessionCatalogHttpTest.java": [
+    "doctorCatalogReturnsTwelveSessionsWithOneTimeSnapshotWithoutWritingSchedules",
+    "timeStateTakesPrecedenceOverFullInventory",
+    "midnightRollsAllThreeDatesWithoutPersistingSessions",
+    "ungeneratedSessionsReflectCurrentSettings"
+  ],
+  "src/test/java/com/qsx/appoint/catalog/VisitSchemaMigrationTest.java": [
+    "v9UpgradePreservesCatalogAndAddsEmptyVisitStorageAndDoctorRole"
+  ],
+  "src/test/java/com/qsx/appoint/catalog/VisitSchemaMySqlIT.java": [
+    "incrementalUpgradePreservesHistoricalAppointmentAndEnforcesVisitAndDoctorConstraints"
+  ],
+  "src/test/java/com/qsx/appoint/catalog/model/BookingTimeRulesTest.java": [
+    "threeDatesRollTogetherAtShanghaiMidnight",
+    "eachSessionAcceptsBeforeButNotAtOrAfterItsCutoff",
+    "creationChecksBothDateWindowAndTodaySessionTime",
+    "originalTomorrowCanStillBeCreatedAfterMidnight",
+    "paymentDeadlineIsPerOrderAndCanCrossMidnight",
+    "paymentDeadlineNeverExceedsSessionStartEvenWithLongerConfiguredTimeout"
+  ],
+  "src/test/java/com/qsx/appoint/common/messaging/ConfirmedMessagePublisherTest.java": [
+    "uncertainOrRejectedPublicationNeverReturnsSuccess",
+    "confirmedAndRoutablePublicationSucceeds"
+  ],
+  "src/test/java/com/qsx/appoint/common/messaging/RabbitConsumerFailureHandlerTest.java": [
+    "forwardsOriginalWithNextCountBeforeAcknowledging",
+    "rejectsExhaustedOrMalformedHeadersWithoutOverflow",
+    "uncertainPublicationRequeuesOriginalWithoutAcknowledging",
+    "nackFailurePropagatesWithoutAcknowledgingOrRepublishing",
+    "retryAckFailureEscapesWithoutRequeueOrSecondPublication",
+    "rejectFailurePropagatesForValidationAndExhaustion"
+  ],
+  "src/test/java/com/qsx/appoint/coordination/LatePaymentMySqlIT.java": [
+    "lateEventsCancellationAndExpirySerializeToOneReleaseAndRefund"
+  ],
+  "src/test/java/com/qsx/appoint/coordination/LifecycleLanguageTest.java": [
+    "stableStorageAndRefundReasonLiteralsRemainCompatible",
+    "unknownAndNullStoredStatesRemainInternalErrors"
+  ],
+  "src/test/java/com/qsx/appoint/coordination/PaymentConfirmationReliabilityIT.java": [
+    "brokerOutageKeepsEventThenRecoveryConfirmsExactlyOnce",
+    "failedConfirmationIsRetriedTwiceThenDeadLettered",
+    "malformedPermanentMessageIsRejectedToDlq",
+    "refundGatewayFailureRetriesThenMovesToDlqWithoutRestoringAppointment",
+    "committedConfirmationSurvivesLostAckAndBrokerRedelivery",
+    "realSignedCallbackCommitsWhileBrokerIsDownThenConfirmsAfterRecovery",
+    "failureAfterBusinessWritesBeforeCommitRollsBackThenRetryConfirmsOnce"
+  ],
+  "src/test/java/com/qsx/appoint/coordination/PaymentSucceededEventCodecTest.java": [
+    "readsVersionedEnvelopeAndRejectsUnknownContract"
+  ],
+  "src/test/java/com/qsx/appoint/coordination/PaymentSucceededProcessorIntegrationTest.java": [
+    "inboxAndConfirmationCommitOnceForDuplicateEvent",
+    "paymentConfirmedAtExactDeadlineIsRefundedWithoutRestoringAppointment",
+    "failedClaimRemovalRollsBackInboxAndInventoryInRealTransaction",
+    "lateEventForClosedAppointmentOnlyEnsuresRefund",
+    "failedRefundCreationRollsBackCloseInventoryClaimAndInbox",
+    "pendingCancellationPreservesRefundReasonAndBoolean",
+    "reconciliationUsesPaidAtIncludingMissingAndExactDeadline",
+    "expirationBeforeDeadlineDoesNotRequirePaymentButCancellationChecksOwnerFirst",
+    "repeatedCancellationOfClosedAppointmentChecksPaymentState",
+    "cancellationAfterExpiryKeepsCancellationRefundReason",
+    "expiryUsesPersistedPaidAtEvenWhenConfirmationIsDelayed",
+    "confirmedCancellationAtExactTwentyFourHoursIsRejected",
+    "newEventForConfirmedAppointmentDoesNotRequirePaymentLookup"
+  ],
+  "src/test/java/com/qsx/appoint/coordination/application/BookingLifecyclePolicyTest.java": [
+    "cancellationPreservesCloseReasonRefundReasonAndBoolean",
+    "confirmedCancellationUsesStrictTwentyFourHourBoundary",
+    "expirationUsesPersistedPaidAtIncludingMissing",
+    "shortCircuitsAndReconciliationKeepDistinctTimeEligibility",
+    "eventConfirmationUsesEventPaidAtAndDoesNotRestoreClosedAppointments",
+    "closedPaidReconciliationOnlyEnsuresMissingRefund"
+  ],
+  "src/test/java/com/qsx/appoint/coordination/messaging/PaymentSucceededListenerTest.java": [
+    "successfulBusinessDoesNotInspectMalformedRetryHeader",
+    "invalidBusinessInputIsRejectedWithoutRetry",
+    "processingFailurePublishesBeforeAcknowledging",
+    "permanentInvalidMessageDoesNotRetry",
+    "ackFailureAfterSuccessfulProcessingPropagatesForRedelivery"
+  ],
+  "src/test/java/com/qsx/appoint/patient/PatientIntegrationTest.java": [
+    "userCanCreateAndRetrievePatientWithNormalizedMaskedIdentity",
+    "documentIsUniqueWithinAccountButCanBeRegisteredByAnotherAccount",
+    "ownerCanUpdateDisableAndEnablePatientWhileOtherUserIsForbidden",
+    "invalidIdentityAndEmptyPatchFieldsAreRejected"
+  ],
+  "src/test/java/com/qsx/appoint/payment/LegacyDevRouteAbsenceTest.java": [
+    "oldPaymentSuccessRouteIsNotRegistered"
+  ],
+  "src/test/java/com/qsx/appoint/payment/LegacyTestRouteAbsenceTest.java": [
+    "oldPaymentSuccessRouteIsNotRegistered"
+  ],
+  "src/test/java/com/qsx/appoint/payment/MockPayProductionProfileTest.java": [
+    "productionDoesNotRegisterMockAdapterOrController"
+  ],
+  "src/test/java/com/qsx/appoint/payment/OutboxPublisherReliabilityIT.java": [
+    "confirmedPersistentMessageMarksOutboxPublishedInDurableTopology",
+    "mandatoryReturnRetriesThenExhaustedEventBecomesFailed",
+    "brokerOutageKeepsPendingEventAndRecoveryPublishesIt",
+    "deadLetterTopologyRoutesRejectedBusinessMessageToItsDlq",
+    "concurrentPublishersUseSkipLockedAndPublishOneCopy",
+    "crashAfterConfirmBeforeDatabaseMarkProducesRecoverableDuplicate",
+    "retryTransportDelaysBothRetriesAndStopsAfterThreeAttempts",
+    "replayRequiresRoutingConfirmationAndResetsCountersWithoutChangingEventId",
+    "databaseMarkFailureRollsBackAfterBrokerAcceptedThenReusesOriginalEvent"
+  ],
+  "src/test/java/com/qsx/appoint/payment/PaymentAttemptIntegrationTest.java": [
+    "successfulStartCreatesOneProcessingAttemptAndBlocksASecondActiveAttempt",
+    "gatewayFailureRunsOutsideTransactionAndRestoresPaymentForRetry",
+    "ownerDeadlineAndLegacyRulesAreEnforcedBeforeGatewayCall"
+  ],
+  "src/test/java/com/qsx/appoint/payment/PaymentAttemptMySqlIT.java": [
+    "concurrentStartsCreateOnlyOneActiveAttempt"
+  ],
+  "src/test/java/com/qsx/appoint/payment/PaymentDomainEnumTest.java": [
+    "targetPaymentStateVocabularyMatchesTheAcceptedDesign"
+  ],
+  "src/test/java/com/qsx/appoint/payment/PaymentGatewayContractTest.java": [
+    "registryResolvesMockAndRejectsUnavailableChannel",
+    "repeatedCreateUsesAttemptNumberAsIdempotencyKey",
+    "processingSuccessFailureAndQueryMapToStableStatuses",
+    "forgedNotificationIsRejectedBeforeItCanBeTrusted",
+    "duplicateNotificationVerificationIsPureAndStable",
+    "closeIsIdempotentAndSuccessfulPaymentCannotBeClosed",
+    "fullRefundUsesRefundNumberIdempotently"
+  ],
+  "src/test/java/com/qsx/appoint/payment/PaymentMigrationMySqlIT.java": [
+    "activePreRefactorPaymentStopsV4OnMySqlWithoutChangingOrdersOrAddingTables"
+  ],
+  "src/test/java/com/qsx/appoint/payment/PaymentNotificationMySqlIT.java": [
+    "concurrentDuplicateSuccessHasOneMoneyEffectAndStableEvent",
+    "forgedSignatureDoesNotChangeMoneyState",
+    "amountOrCurrencyMismatchIsAuditedWithoutChangingMoneyState",
+    "sameNotificationIdWithDifferentPayloadIsRejected",
+    "failedAttemptCanRetryAndLaterSuccessWins",
+    "lateFailureCannotOverwriteSuccessfulMoneyFact"
+  ],
+  "src/test/java/com/qsx/appoint/payment/PaymentOutboxTransactionTest.java": [
+    "productionMapperKeepsTextLongAndExplicitNull",
+    "storedEventPreservesHistoricalContractAndRollsBackWithCaller",
+    "serializationFailureRollsBackTheCallersBusinessWrite",
+    "recordingRequiresTheBusinessTransaction"
+  ],
+  "src/test/java/com/qsx/appoint/payment/PaymentPersistenceIntegrationTest.java": [
+    "persistencePrimitivesStoreAuditDeduplicateInboxAndLockDueOutbox"
+  ],
+  "src/test/java/com/qsx/appoint/payment/PaymentPersistenceMySqlIT.java": [
+    "v6AndV7CreateReliableStoresAndEnforceTheirInvariants"
+  ],
+  "src/test/java/com/qsx/appoint/payment/application/PaymentNotificationAtomicityTest.java": [
+    "writeFailureRollsBackMoneyAttemptAuditAndEventThenAllowsRetry"
+  ],
+  "src/test/java/com/qsx/appoint/payment/application/PaymentNotificationBoundaryTest.java": [
+    "unknownProviderOrderIsAuditedWithoutMoneyWrites",
+    "missingPaymentAssociationIsInternalErrorBeforeStateDecision"
+  ],
+  "src/test/java/com/qsx/appoint/payment/application/PaymentNotificationPolicyTest.java": [
+    "preservesNotificationDecisions",
+    "unknownAndAmountDecisionsPrecedeStateRulesAndIgnoreDecimalScale"
+  ],
+  "src/test/java/com/qsx/appoint/payment/application/PaymentParentLockMySqlIT.java": [
+    "successfulGatewayWithFailedLocalCompletionRetriesTheSameRefundNumber",
+    "attemptT2LocksParentBeforeWaitingForChild",
+    "callbackLocksParentBeforeWaitingForAttempt",
+    "refundClaimLocksParentBeforeWaitingForRefund",
+    "refundCompletionAndFailureLockParentBeforeChild",
+    "duplicateWorkersAndRefundRequestKeepSuccessWhenSlowerCallFails",
+    "refundRequestLocksParentBeforeSuccessfulAttempt",
+    "callbackAndRefundRequestHaveOneMoneyFactAndOneRefund"
+  ],
+  "src/test/java/com/qsx/appoint/payment/messaging/DeadLetterReplayContractTest.java": [
+    "resultReplaySelectsFailureRouteOrPreservesUnsupportedMessage",
+    "confirmationIoFailurePropagatesWithoutFabricatingSuccess",
+    "logicalTargetsKeepOriginalBodyAndDistinguishEmptyFromMissingId",
+    "uncertainPublicationKeepsOriginalDelivery"
+  ],
+  "src/test/java/com/qsx/appoint/payment/messaging/MessageConsumerContractTest.java": [
+    "historicalFixturesKeepTheirEnvelopeShape",
+    "historicalIntegerIdsAndAdditionalFieldsRemainCompatible",
+    "rejectsIdsWithoutTruncationOrImplicitDefaults",
+    "rejectsWrongEnvelope"
+  ],
+  "src/test/java/com/qsx/appoint/payment/messaging/RefundRequestedListenerTest.java": [
+    "successfulBusinessDoesNotInspectMalformedRetryHeader",
+    "invalidBusinessInputIsRejectedWithoutRetry",
+    "processingFailurePublishesBeforeAcknowledging",
+    "permanentInvalidMessageDoesNotRetry",
+    "ackFailureAfterSuccessfulProcessingPropagatesForRedelivery"
+  ],
+  "src/test/java/com/qsx/appoint/visit/VisitHttpTest.java": [
+    "userAndDoctorShareProgressAndPreserveBookingFactsThroughTheWholeVisit",
+    "sameDayBookingCanBePaidCheckedInAndCompletedWithoutChangingInventory",
+    "bindingPreservesRolesRequiresReloginAndRejectsRebinding",
+    "permissionsDatesAndStateEligibilityAreEnforcedAtWriteEntrypoints",
+    "allAppointmentsUseStableVisitTimeOrderingIncludingCancelledAndExpired",
+    "emptyFourSessionsAndInvalidParametersDoNotCreateBusinessRecords",
+    "doctorKeepsNumberOrderCanSkipUnsignedPatientsAndHasNoCrossRowBusyRestriction"
+  ],
+  "src/test/java/com/qsx/appoint/visit/VisitWorkflowMySqlIT.java": [
+    "concurrentBindingCheckInStartAndCompletionKeepOneIdentityAndOneVisit"
+  ]
+}

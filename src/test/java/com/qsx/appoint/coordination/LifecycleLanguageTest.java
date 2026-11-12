@@ -10,6 +10,7 @@ import com.qsx.appoint.common.ErrorCode;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
+/** 直接保护数据库状态名称、退款原因及非法存储值；枚举声明顺序不是契约。 */
 class LifecycleLanguageTest {
     @Test
     void stableStorageAndRefundReasonLiteralsRemainCompatible() {

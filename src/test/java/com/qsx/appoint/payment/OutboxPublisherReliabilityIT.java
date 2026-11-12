@@ -29,10 +29,16 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.List;
 import java.util.concurrent.Future;
+import com.qsx.appoint.support.TestExecutor;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.context.ApplicationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
+/** 类独占MySQL和RabbitMQ验证发布、重试、重放和提交失败重发；每例统一清理Outbox及队列。 */
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @SpringBootTest(properties = {
         "appoint.expiration.enabled=false",
@@ -42,16 +48,16 @@ import static org.assertj.core.api.Assertions.assertThat;
         "appoint.outbox.confirm-timeout=2s"
 })
 class OutboxPublisherReliabilityIT {
-    @Autowired private org.springframework.context.ApplicationContext fixtureContext;
+    @Autowired private ApplicationContext fixtureContext;
     private com.qsx.appoint.support.RabbitReliabilityFixtures fixtures;
 
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void isolateMessages() throws Exception {
         fixtures = new com.qsx.appoint.support.RabbitReliabilityFixtures(fixtureContext, jdbcTemplate);
         fixtures.beforeEach();
     }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeMessages() throws Exception {
         fixtures.afterEach();
     }
@@ -179,7 +185,7 @@ class OutboxPublisherReliabilityIT {
     void concurrentPublishersUseSkipLockedAndPublishOneCopy() throws Exception {
         PaymentOutboxEvent event = pendingEvent();
         outboxMapper.insert(event);
-        try (var executor = new com.qsx.appoint.support.TestExecutor(2)) {
+        try (var executor = new TestExecutor(2)) {
             Future<Integer> first = executor.submit(publisher::publishDue);
             Future<Integer> second = executor.submit(publisher::publishDue);
             assertThat(List.of(first.get(15, java.util.concurrent.TimeUnit.SECONDS), second.get(15, java.util.concurrent.TimeUnit.SECONDS))).containsExactlyInAnyOrder(0, 1);
@@ -303,7 +309,8 @@ class OutboxPublisherReliabilityIT {
                 .when(outboxMapper).markPublished(org.mockito.ArgumentMatchers.eq(event.getEventId()), org.mockito.ArgumentMatchers.any());
         try {
             org.assertj.core.api.Assertions.assertThatThrownBy(() -> publisher.publishDue())
-                    .isInstanceOf(IllegalStateException.class);
+                    .isInstanceOf(IllegalStateException.class).hasMessage("mark failed");
+            org.mockito.Mockito.verify(outboxMapper).markPublished(org.mockito.ArgumentMatchers.eq(event.getEventId()), org.mockito.ArgumentMatchers.any());
             assertThat(outboxMapper.selectById(event.getEventId()).getStatus()).isEqualTo("PENDING");
             assertThat(outboxMapper.selectById(earlier.getEventId()).getStatus()).isEqualTo("PENDING");
             assertThat(outboxMapper.selectById(event.getEventId()).getPublishAttempts()).isZero();

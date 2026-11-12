@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.math.BigDecimal;
 import static org.assertj.core.api.Assertions.*;
 
+/** 直接验证取消、过期、确认与对账的决策及时间边界；数据库副作用另由集成测试验证。 */
 class BookingLifecyclePolicyTest {
     private final BookingLifecyclePolicy policy = new BookingLifecyclePolicy();
     private static final LocalDateTime NOW = LocalDateTime.of(2030,1,1,8,0);

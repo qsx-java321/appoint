@@ -5,6 +5,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** 直接验证通知决策优先级、金额/币种和成功状态保护；真实写入由事务测试验证。 */
 class PaymentNotificationPolicyTest {
     private final PaymentNotificationPolicy policy = new PaymentNotificationPolicy();
 

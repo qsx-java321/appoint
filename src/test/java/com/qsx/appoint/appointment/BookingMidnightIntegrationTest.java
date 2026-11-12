@@ -13,29 +13,33 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.LocalDate;
 import java.util.UUID;
+import com.qsx.appoint.support.CommittedFixtureScope;
+import com.qsx.appoint.support.AppointmentClockTestConfiguration;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** 独立H2与可变上海时钟验证跨午夜后旧幂等键仍重放原订单；每例重置时间并清理已提交夹具。 */
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:midnight-booking;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.expiration.enabled=false", "appoint.messaging.enabled=false", "appoint.outbox.enabled=false"
 })
-@Import(com.qsx.appoint.support.AppointmentClockTestConfiguration.class)
+@Import(AppointmentClockTestConfiguration.class)
 class BookingMidnightIntegrationTest {
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
-    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+    private CommittedFixtureScope fixtureScope;
 
-    @org.junit.jupiter.api.BeforeEach
-    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+    @BeforeEach
+    void trackCommittedFixture() { fixtureScope = new CommittedFixtureScope(jdbc); }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeCommittedFixture() { fixtureScope.close(); }
 
     @Autowired private BookingCoordinator coordinator;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private MutableAppointmentClock clock;
 
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void resetClock() { clock.set("2026-11-05T23:59:59"); }
 
     @Test

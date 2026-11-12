@@ -17,6 +17,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/** 直接构造扫描器并模拟单项失败，验证后续候选仍被处理；数据库竞争由MySQL测试负责。 */
 class AppointmentExpirationJobTest {
     @Test
     void oneFailureDoesNotPreventLaterCandidates() {

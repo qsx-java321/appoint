@@ -13,8 +13,11 @@ import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 import java.time.LocalDateTime;
+import com.qsx.appoint.support.CommittedFixtureScope;
+import org.junit.jupiter.api.AfterEach;
 import static org.assertj.core.api.Assertions.*;
 
+/** 在独立H2中验证事务强制参与、锁上下文归属与外层回滚；不以测试外层事务代替被测事务。 */
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:lifecycle-interface;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.messaging.enabled=false", "appoint.expiration.enabled=false"})
 class AppointmentLifecycleInterfaceTest {
@@ -23,15 +26,15 @@ class AppointmentLifecycleInterfaceTest {
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private TransactionTemplate transaction;
 
-    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+    private CommittedFixtureScope fixtureScope;
 
     @BeforeEach
     void prepare() {
-        fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(jdbcTemplate);
+        fixtureScope = new CommittedFixtureScope(jdbcTemplate);
         fixture();
     }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeFixture() { fixtureScope.close(); }
 
     @Test

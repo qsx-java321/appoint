@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** Spring/H2验证医生编号迁移、分配和非空约束；每例回滚。 */
 @SpringBootTest
 @Transactional
 class DoctorNumberIntegrationTest {

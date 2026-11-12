@@ -10,6 +10,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import static org.assertj.core.api.Assertions.*;
 import static com.qsx.appoint.support.MySqlConstraintAssertions.assertCheckViolation;
 
+/** 类独占MySQL执行V9到V10升级，验证历史订单保留、医生绑定及就诊约束和索引。 */
 @Testcontainers
 class VisitSchemaMySqlIT {
     @Container

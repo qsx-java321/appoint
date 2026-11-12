@@ -28,22 +28,27 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import com.qsx.appoint.support.CommittedFixtureScope;
+import com.qsx.appoint.support.TestExecutor;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.test.annotation.DirtiesContext;
 import static org.assertj.core.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.*;
 
-@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
+/** 类独占MySQL验证父锁先于子锁和退款分段恢复；保留真实持锁连接及渠道不占事务断言。 */
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @SpringBootTest(properties={"appoint.messaging.enabled=false", "appoint.expiration.enabled=false"})
 @ActiveProfiles("test")
 class PaymentParentLockMySqlIT {
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
-    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+    private CommittedFixtureScope fixtureScope;
 
-    @org.junit.jupiter.api.BeforeEach
-    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+    @BeforeEach
+    void trackCommittedFixture() { fixtureScope = new CommittedFixtureScope(jdbcTemplate); }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeCommittedFixture() { fixtureScope.close(); }
 
     @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
@@ -80,7 +85,8 @@ class PaymentParentLockMySqlIT {
         doThrow(new IllegalStateException("结果落库失败"))
                 .when(refundMapper).markSucceeded(eq(event.refundId()),anyString(),any());
         try {
-            assertThatThrownBy(() -> worker.process(event)).isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(() -> worker.process(event)).isInstanceOf(IllegalStateException.class).hasMessage("结果落库失败");
+            verify(refundMapper).markSucceeded(eq(event.refundId()), anyString(), any());
             assertThat(status("payment_orders",context.paymentId())).isEqualTo("REFUND_PENDING");
             // MyBatis Mapper是接口代理，撤销故障stub后恢复真实委托，不能callRealMethod调用抽象方法。
             reset(refundMapper);
@@ -101,7 +107,7 @@ class PaymentParentLockMySqlIT {
     void attemptT2LocksParentBeforeWaitingForChild(boolean failure) throws Exception {
         Context context = start();
         jdbcTemplate.update("UPDATE payment_attempts SET status='CREATED' WHERE id=?", context.attempt().paymentAttemptId());
-        try (var pool = new com.qsx.appoint.support.TestExecutor(1); var child = lockChild("payment_attempts", context.attempt().paymentAttemptId())) {
+        try (var pool = new TestExecutor(1); var child = lockChild("payment_attempts", context.attempt().paymentAttemptId())) {
             var future = pool.submit(() -> {
                 if (failure) attemptTransaction.markFailed(context.attempt().paymentAttemptId(), "TEST", "test failure");
                 else attemptTransaction.markProcessing(context.attempt().paymentAttemptId(), context.attempt().providerOrderNo());
@@ -118,7 +124,7 @@ class PaymentParentLockMySqlIT {
     void callbackLocksParentBeforeWaitingForAttempt() throws Exception {
         Context context = start();
         var raw = gateway.complete(context.attempt().providerOrderNo(), UUID.randomUUID().toString(), LocalDateTime.now());
-        try (var pool = new com.qsx.appoint.support.TestExecutor(1); var child = lockChild("payment_attempts", context.attempt().paymentAttemptId())) {
+        try (var pool = new TestExecutor(1); var child = lockChild("payment_attempts", context.attempt().paymentAttemptId())) {
             var future = pool.submit(() -> notifications.handle(PaymentChannel.MOCK, raw));
             await().atMost(Duration.ofSeconds(10)).until(() -> parentIsLocked(context.paymentId()));
             assertThat(future.isDone()).isFalse();
@@ -137,7 +143,7 @@ class PaymentParentLockMySqlIT {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
             return invocation.callRealMethod();
         }).when(gateway).refund(any(GatewayRefundRequest.class));
-        try (var pool = new com.qsx.appoint.support.TestExecutor(1); var child = lockChild("payment_refunds", event.refundId())) {
+        try (var pool = new TestExecutor(1); var child = lockChild("payment_refunds", event.refundId())) {
             var future = pool.submit(() -> worker.process(event));
             await().atMost(Duration.ofSeconds(10)).until(() -> parentIsLocked(context.paymentId()));
             assertThat(future.isDone()).isFalse();
@@ -161,7 +167,7 @@ class PaymentParentLockMySqlIT {
             if (failure) throw new IllegalStateException("渠道故障");
             return invocation.callRealMethod();
         }).when(gateway).refund(any(GatewayRefundRequest.class));
-        try (var pool = new com.qsx.appoint.support.TestExecutor(1)) {
+        try (var pool = new TestExecutor(1)) {
             var future = pool.submit(() -> worker.process(event));
             try {
                 assertThat(entered.await(10, TimeUnit.SECONDS)).isTrue();
@@ -199,7 +205,7 @@ class PaymentParentLockMySqlIT {
             }
             return gateway.refund(invocation.getArgument(0));
         }).when(concurrentGateway).refund(any(GatewayRefundRequest.class));
-        try (var pool = new com.qsx.appoint.support.TestExecutor(2)) {
+        try (var pool = new TestExecutor(2)) {
             var first = pool.submit(() -> worker.process(event));
             try {
                 assertThat(entered.await(10, TimeUnit.SECONDS)).isTrue();
@@ -219,7 +225,7 @@ class PaymentParentLockMySqlIT {
     @Test
     void refundRequestLocksParentBeforeSuccessfulAttempt() throws Exception {
         Context context=paid();
-        try (var pool=new com.qsx.appoint.support.TestExecutor(1); var child=lockChild("payment_attempts",context.attempt().paymentAttemptId())) {
+        try (var pool=new TestExecutor(1); var child=lockChild("payment_attempts",context.attempt().paymentAttemptId())) {
             var future=pool.submit(() -> refunds.requestFullRefund(context.paymentId(),RefundReason.APPOINTMENT_CANCELLED));
             await().atMost(Duration.ofSeconds(10)).until(() -> parentIsLocked(context.paymentId()));
             assertThat(future.isDone()).isFalse();
@@ -234,7 +240,7 @@ class PaymentParentLockMySqlIT {
         Context context=paid();
         var duplicate=gateway.complete(context.attempt().providerOrderNo(),UUID.randomUUID().toString(),LocalDateTime.now());
         CountDownLatch ready=new CountDownLatch(2),start=new CountDownLatch(1);
-        try (var pool=new com.qsx.appoint.support.TestExecutor(2)) {
+        try (var pool=new TestExecutor(2)) {
             var callback=pool.submit(() -> {
                 ready.countDown();
                 if (!start.await(10,TimeUnit.SECONDS)) throw new IllegalStateException("启动超时");
@@ -257,7 +263,7 @@ class PaymentParentLockMySqlIT {
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM payment_outbox_events WHERE aggregate_id=? AND event_type='RefundRequested'",Integer.class,context.paymentId())).isEqualTo(1);
     }
 
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void assertChannelCreationOutsideTransaction() {
         doAnswer(invocation -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();

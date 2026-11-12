@@ -8,6 +8,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** 独立H2执行固定V9到V10升级，验证目录保留、医生角色及空就诊存储。 */
 class VisitSchemaMigrationTest {
     @Test
     void v9UpgradePreservesCatalogAndAddsEmptyVisitStorageAndDoctorRole() {

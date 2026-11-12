@@ -17,19 +17,24 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import com.qsx.appoint.support.CommittedFixtureScope;
+import com.qsx.appoint.support.TestExecutor;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.test.annotation.DirtiesContext;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
+/** 类独占MySQL验证迟到事件、取消和过期竞争只释放一次并形成唯一退款；每例清理提交夹具。 */
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @SpringBootTest(properties = {"appoint.messaging.enabled=false", "appoint.expiration.enabled=false"})
 class LatePaymentMySqlIT {
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
-    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+    private CommittedFixtureScope fixtureScope;
 
-    @org.junit.jupiter.api.BeforeEach
-    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+    @BeforeEach
+    void trackCommittedFixture() { fixtureScope = new CommittedFixtureScope(jdbcTemplate); }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeCommittedFixture() { fixtureScope.close(); }
 
     @Container
@@ -53,7 +58,7 @@ class LatePaymentMySqlIT {
         jdbcTemplate.update("UPDATE payment_orders SET paid_at='2020-01-01 08:15:00' WHERE id=11004");
         CountDownLatch ready = new CountDownLatch(4);
         CountDownLatch start = new CountDownLatch(1);
-        try (var pool = new com.qsx.appoint.support.TestExecutor(4)) {
+        try (var pool = new TestExecutor(4)) {
             var actions = java.util.List.<java.util.concurrent.Callable<Object>>of(
                     () -> processor.process(event()), () -> processor.process(event()),
                     () -> lifecycle.cancelOwned(11001L, 11003L), () -> lifecycle.expireIfDue(11003L));

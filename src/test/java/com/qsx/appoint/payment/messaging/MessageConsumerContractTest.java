@@ -58,7 +58,8 @@ class MessageConsumerContractTest {
         for (String type : new String[]{"PaymentSucceeded","RefundRequested"}) {
             var node=fixture(type,"");
             ((ObjectNode)node.get("payload")).set("paymentOrderId",mapper.readTree(value));
-            assertThatThrownBy(() -> read(type,node)).isInstanceOf(BusinessException.class);
+            assertThatThrownBy(() -> read(type,node)).isInstanceOfSatisfying(BusinessException.class,
+                    error -> assertThat(error.getErrorCode()).isEqualTo(com.qsx.appoint.common.ErrorCode.VALIDATION_ERROR));
         }
     }
 
@@ -77,7 +78,8 @@ class MessageConsumerContractTest {
                 case "payload" -> node.put("payload","invalid");
                 default -> node.remove("eventId");
             }
-            assertThatThrownBy(() -> read(type,node)).isInstanceOf(BusinessException.class);
+            assertThatThrownBy(() -> read(type,node)).isInstanceOfSatisfying(BusinessException.class,
+                    error -> assertThat(error.getErrorCode()).isEqualTo(com.qsx.appoint.common.ErrorCode.VALIDATION_ERROR));
         }
     }
     private ObjectNode fixture(String type,String suffix) throws Exception {

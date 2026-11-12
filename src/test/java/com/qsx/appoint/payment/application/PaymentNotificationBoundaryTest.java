@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/** 直接构造通知服务并替换持久化依赖，验证未知渠道订单审计和关联缺失的处理边界。 */
 class PaymentNotificationBoundaryTest {
     private final PaymentNotificationMapper notifications = mock(PaymentNotificationMapper.class);
     private final PaymentAttemptMapper attempts = mock(PaymentAttemptMapper.class);

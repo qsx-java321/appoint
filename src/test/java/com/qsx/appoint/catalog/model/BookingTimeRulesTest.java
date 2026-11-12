@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** 直接验证上海日期窗口、严格截止和支付期限计算；边界时间显式给定。 */
 class BookingTimeRulesTest {
     private static final LocalDate TODAY = LocalDate.of(2026, 11, 11);
 

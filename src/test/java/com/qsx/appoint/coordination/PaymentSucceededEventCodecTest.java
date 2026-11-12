@@ -13,6 +13,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** 直接验证PaymentSucceeded字段解析及未知契约拒绝；固定历史样本兼容矩阵由MessageConsumerContractTest负责。 */
 class PaymentSucceededEventCodecTest {
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     private final PaymentSucceededEventCodec codec = new PaymentSucceededEventCodec(objectMapper);

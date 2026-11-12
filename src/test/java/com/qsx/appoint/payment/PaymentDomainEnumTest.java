@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** 直接保护支付、退款及查询状态的稳定名称；不约束枚举声明顺序。 */
 class PaymentDomainEnumTest {
     @Test
     void targetPaymentStateVocabularyMatchesTheAcceptedDesign() {

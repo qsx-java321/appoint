@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -19,7 +20,7 @@ class PaymentGatewayContractTest {
     private PaymentGatewayRegistry registry;
     private MockPaymentGateway mockGateway;
 
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void createFreshGateway() {
         mockGateway = new MockPaymentGateway("contract-test-key");
         registry = new PaymentGatewayRegistry(java.util.List.of(mockGateway));

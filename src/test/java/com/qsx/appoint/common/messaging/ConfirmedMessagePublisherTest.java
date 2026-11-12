@@ -12,6 +12,7 @@ import java.time.Duration;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/** 使用RabbitTemplate/Channel替身模拟confirm、return和超时；真实Broker行为由可靠性测试负责。 */
 class ConfirmedMessagePublisherTest {
     private final RabbitTemplate template = mock(RabbitTemplate.class);
     private final ConfirmedMessagePublisher publisher = new ConfirmedMessagePublisher(template);

@@ -14,25 +14,28 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.support.TransactionTemplate;
 import java.time.LocalDateTime;
+import com.qsx.appoint.support.CommittedFixtureScope;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.jdbc.core.JdbcTemplate;
 import static org.assertj.core.api.Assertions.*;
 
 /** 从真实接口写数据库，再与改造前 fixture 比较；不把新 DTO 自比较当契约证明。 */
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:payment-outbox-transaction-test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @ActiveProfiles("test")
 class PaymentOutboxTransactionTest {
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
-    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+    private CommittedFixtureScope fixtureScope;
 
-    @org.junit.jupiter.api.BeforeEach
-    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+    @BeforeEach
+    void trackCommittedFixture() { fixtureScope = new CommittedFixtureScope(jdbc); }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeCommittedFixture() { fixtureScope.close(); }
 
     @Autowired PaymentOutbox outbox;
     @Autowired PaymentOutboxEventMapper events;
     @org.springframework.test.context.bean.override.mockito.MockitoSpyBean ObjectMapper mapper;
-    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @Autowired JdbcTemplate jdbc;
     @Autowired TransactionTemplate transactions;
 
     @Test
@@ -83,6 +86,7 @@ class PaymentOutboxTransactionTest {
                 jdbc.update("INSERT INTO users(email,password_hash) VALUES (?,?)",email,"test");
                 outbox.recordRefundFailed(new RefundFailedPayload(71L,"REF71",51L,null,"failed"),LocalDateTime.now());
             })).isInstanceOf(com.qsx.appoint.common.BusinessException.class);
+            org.mockito.Mockito.verify(mapper).writeValueAsString(org.mockito.ArgumentMatchers.any(PaymentEventEnvelope.class));
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE email=?",Integer.class,email)).isZero();
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM payment_outbox_events",Integer.class)).isEqualTo(before);
         } finally { org.mockito.Mockito.reset(mapper); }

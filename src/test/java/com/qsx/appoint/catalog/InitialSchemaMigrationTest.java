@@ -11,6 +11,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** 独立H2验证最新空库初始化及固定V2/V4/V5历史升级；结构断言与升级阻断分别承担职责。 */
 class InitialSchemaMigrationTest {
     @Test
     void emptyDatabaseIsInitializedOnceWithFinalSchemaAndSeedCatalog() {

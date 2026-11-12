@@ -13,6 +13,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/** 真实查询服务配合Mapper/Clock替身，验证列表统一采时和权限校验顺序；SQL由集成测试负责。 */
 class BookingQueryServiceTest {
     private final BookingQueryMapper mapper = mock(BookingQueryMapper.class);
     private final Clock clock = mock(Clock.class);

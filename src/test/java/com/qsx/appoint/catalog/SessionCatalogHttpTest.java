@@ -14,6 +14,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import com.qsx.appoint.support.MutableAppointmentClock;
+import com.qsx.appoint.support.AppointmentClockTestConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -22,16 +24,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/** Spring/H2验证目录的三天场次投影和只读查询；每例重置上海时钟并回滚设置变更。 */
 @SpringBootTest(properties =
         "spring.datasource.url=jdbc:h2:mem:session-catalog;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
 @Transactional
-@Import(com.qsx.appoint.support.AppointmentClockTestConfiguration.class)
+@Import(AppointmentClockTestConfiguration.class)
 class SessionCatalogHttpTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ScheduleMapper scheduleMapper;
     @Autowired private ObjectMapper objectMapper;
-    @Autowired private com.qsx.appoint.support.MutableAppointmentClock clock;
+    @Autowired private MutableAppointmentClock clock;
 
     @BeforeEach
     void resetClock() { clock.set("2026-11-05T10:05:00"); }

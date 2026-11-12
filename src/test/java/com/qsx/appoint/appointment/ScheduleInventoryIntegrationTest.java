@@ -22,7 +22,6 @@ import com.qsx.appoint.payment.entity.PaymentOrder;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
 import com.qsx.appoint.user.entity.User;
 import com.qsx.appoint.user.mapper.UserMapper;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -32,25 +31,32 @@ import org.springframework.context.annotation.Import;
 import java.time.*;
 import java.math.BigDecimal;
 import java.util.UUID;
+import com.qsx.appoint.support.CommittedFixtureScope;
+import com.qsx.appoint.support.MutableAppointmentClock;
+import com.qsx.appoint.support.AppointmentClockTestConfiguration;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** Spring/H2验证库存守恒、有效占用、序号和费用快照；可变钟每例重置，提交数据按例清理。 */
 @SpringBootTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:schedule-inventory;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.expiration.enabled=false"
 })
 @AutoConfigureMockMvc
-@Import({com.qsx.appoint.support.AppointmentClockTestConfiguration.class, com.qsx.appoint.support.FormalPaymentTestSupport.class})
+@Import({AppointmentClockTestConfiguration.class, com.qsx.appoint.support.FormalPaymentTestSupport.class})
 @org.springframework.test.context.ActiveProfiles("test")
 class ScheduleInventoryIntegrationTest {
-    @Autowired private org.springframework.jdbc.core.JdbcTemplate fixtureJdbc;
-    private com.qsx.appoint.support.CommittedFixtureScope fixtureScope;
+    @Autowired private JdbcTemplate fixtureJdbc;
+    private CommittedFixtureScope fixtureScope;
 
-    @org.junit.jupiter.api.BeforeEach
-    void trackCommittedFixture() { fixtureScope = new com.qsx.appoint.support.CommittedFixtureScope(fixtureJdbc); }
+    @BeforeEach
+    void trackCommittedFixture() { fixtureScope = new CommittedFixtureScope(fixtureJdbc); }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void removeCommittedFixture() { fixtureScope.close(); }
 
     @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;
@@ -58,7 +64,7 @@ class ScheduleInventoryIntegrationTest {
     private static final Instant RELEASE_INSTANT = ZonedDateTime.of(
             2026, 11, 1, 8, 0, 0, 0, SHANGHAI).toInstant();
 
-    @Autowired private com.qsx.appoint.support.MutableAppointmentClock clock;
+    @Autowired private MutableAppointmentClock clock;
     @Autowired private ScheduleManagementService scheduleManagementService;
     @Autowired private AppointmentService appointmentService;
     @Autowired private BookingCoordinator bookingCoordinator;
