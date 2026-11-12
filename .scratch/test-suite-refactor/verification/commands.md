@@ -71,3 +71,11 @@
 - 本轮没有删除测试方法，57类共258个注解测试方法保留，仅历史迁移方法改名明确V4/V5；323/38/16为实际参数化执行数量，不重复加总多轮常规。
 - src/main、pom.xml、compose.yaml摘要与起点一致；`sha256sum -c .scratch/test-suite-refactor/verification/production-baseline.sha256`在项目根目录执行通过，日志`/tmp/test-refactor-production-check.log`。生产JAR静态核对：没有support测试辅助类、archfixture和Test类。
 - 用户要求04后暂停。没有执行05～08，也没有执行08隔离Compose/curl验收，不宣称整个八步方案完成。未改动现有Compose基础服务和数据卷。
+
+- 05首次编译发现泛型getHeader断言重载歧义及退款最小事件无paymentOrderId访问器；仅修正测试为显式Object及refundId=71后重新执行完整门禁。初次日志：/tmp/test-refactor-05-compile-first.log。
+
+## 05 消息职责合并
+
+- 命令：`./mvnw -o -Preliability-it -Dtest=PaymentOutboxTransactionTest,MessageConsumerContractTest,PaymentSucceededEventCodecTest,PaymentSucceededListenerTest,RefundRequestedListenerTest,RabbitConsumerFailureHandlerTest,ConfirmedMessagePublisherTest,DeadLetterReplayContractTest verify`
+- 日志：`/tmp/test-refactor-05.log`
+- Maven汇总（普通/集成分别计）：[('85', '0', '0', '0'), ('16', '0', '0', '0')]；耗时：['01:34 min']; BUILD SUCCESS=True。

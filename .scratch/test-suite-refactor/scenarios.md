@@ -31,3 +31,16 @@
 ## 第04步暂停检查点
 
 01～04没有删除测试类/方法；原保障位置保持。历史迁移终态方法改名已在verification/step-04-method-audit.md登记。消息基线和Listener合并尚未实施，旧S01～S32仍使用上一轮位置。四类最终验收和最终场景审计留给08/07。
+
+## 05迁移明细（验收前登记）
+
+| 原位置 | 新责任与保留内容 |
+| --- | --- |
+| MessagingBaselineContractTest唯一方法中的生产mapper断言 | PaymentOutboxTransactionTest.productionMapperKeepsTextLongAndExplicitNull：Spring实际mapper、Long文本、显式null |
+| 同方法八份样本循环 | MessageConsumerContractTest.historicalFixturesKeepTheirEnvelopeShape（8参数）；原资源不修改 |
+| 同方法PaymentSucceeded数字/文本ID断言 | MessageConsumerContractTest.historicalIntegerIdsAndAdditionalFieldsRemainCompatible：实际解析支付paymentOrderId=51、退款refundId=71，退款paymentOrderId仍由Codec关联校验 |
+| 两个Listener.failedRetryPublicationRequeuesOriginal | RabbitConsumerFailureHandlerTest.uncertainPublicationRequeuesOriginalWithoutAcknowledging；额外验证NACK的IOException传播 |
+| 两个Listener.thirdFailureIsDeadLettered | RabbitConsumerFailureHandlerTest.rejectsExhaustedOrMalformedHeadersWithoutOverflow，覆盖Integer/Long耗尽；真实DLQ保留 |
+| 两个Listener.ackFailureAfterCommittedProcessingPropagatesForRedelivery | 改名ackFailureAfterSuccessfulProcessingPropagatesForRedelivery；对象单测只证明处理成功返回，真实提交/重投仍由PaymentConfirmationReliabilityIT负责 |
+
+两个Listener各保留5方法：解码正文→正确业务接口→ACK、成功不检查非法头、非法业务输入、固定重试路由/头、永久非法解码、ACK异常（前两项由同一方法验证）。原TTL/确认超时/原文/ID断言集中在公共处理器；业务监听器没有改成Mock失败处理器。

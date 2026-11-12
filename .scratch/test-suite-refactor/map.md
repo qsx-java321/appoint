@@ -2,7 +2,7 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: paused
+Status: claimed
 
 [详细方案](spec.md) · [场景](scenarios.md) · [清单](verification/inventory.md) · [命令与结果](verification/commands.md)
 
@@ -12,7 +12,7 @@ Status: paused
 | 02 | [提高断言准确性并固定历史迁移边界](issues/02-assertions-migrations.md) | resolved | 01 |
 | 03 | [整理时钟与业务夹具](issues/03-clocks-fixtures.md) | resolved | 02 |
 | 04 | [完善隔离、故障恢复和有界等待](issues/04-isolation-concurrency.md) | resolved | 03 |
-| 05 | [合并消息测试重复职责](issues/05-messaging-deduplication.md) | ready-for-agent | 04 |
+| 05 | [合并消息测试重复职责](issues/05-messaging-deduplication.md) | resolved | 04 |
 | 06 | [减少测试启动和重复扫描](issues/06-startup-scan.md) | ready-for-agent | 05 |
 | 07 | [完善可读性、规范和场景审计](issues/07-readability-audit.md) | ready-for-agent | 06 |
 | 08 | [完整验收与文档收口](issues/08-acceptance.md) | ready-for-agent | 07 |
@@ -44,3 +44,7 @@ Status: paused
 - 04：本次提交 `test: 完善测试隔离与并发资源恢复`，具体哈希见Git日志。
 
 第04步细节见 [隔离说明](verification/step-04-isolation.md) 与 [方法核对](verification/step-04-method-audit.md)。原有未跟踪 scripts/__pycache__/ 保留，未提交。
+
+- 2026-11-12：用户要求继续，撤销第04步后暂停，依序实施05～08；已有验收不重复作为本轮最终结果。
+
+- 05：聚焦85、完整可靠性16通过，零失败/错误/跳过。删除独立基线类和两个Listener各2项重复分支；独有断言迁移、新增I/O确认矩阵及S01～S32入口映射已登记。

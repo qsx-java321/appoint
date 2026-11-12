@@ -2,7 +2,7 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: paused
+Status: claimed
 
 ## 已确认目标和边界
 
@@ -36,3 +36,5 @@ Status: paused
 ## 当前执行状态
 
 用户要求第04步验收提交后暂停；01～04已完成，05～08未开始。当前结果见map.md与verification/commands.md，不代表08最终四类验收完成。
+
+- 2026-11-12：用户要求继续，撤销第04步后暂停，依序实施05～08；已有验收不重复作为本轮最终结果。

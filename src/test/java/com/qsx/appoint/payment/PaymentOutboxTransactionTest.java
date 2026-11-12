@@ -35,6 +35,19 @@ class PaymentOutboxTransactionTest {
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Autowired TransactionTemplate transactions;
 
+    @Test
+    void productionMapperKeepsTextLongAndExplicitNull() throws Exception {
+        // 使用Spring实际配置的mapper，不能用测试自建mapper证明生产Long/null契约。
+        var values = new java.util.LinkedHashMap<String, Object>();
+        values.put("id", 51L);
+        values.put("failureMessage", null);
+        var serialized = mapper.readTree(mapper.writeValueAsBytes(values));
+        assertThat(serialized.get("id").isTextual()).isTrue();
+        assertThat(serialized.get("id").textValue()).isEqualTo("51");
+        assertThat(serialized.has("failureMessage")).isTrue();
+        assertThat(serialized.get("failureMessage").isNull()).isTrue();
+    }
+
     @ParameterizedTest
     @ValueSource(strings={"PaymentSucceeded","RefundRequested","RefundSucceeded","RefundFailed"})
     void storedEventPreservesHistoricalContractAndRollsBackWithCaller(String type) throws Exception {
