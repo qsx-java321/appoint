@@ -154,16 +154,18 @@ WHERE u.email = 'student@example.com';
 
 到院签到与门诊接诊：
 
-- [.scratch/visit-workflow/spec.md](.scratch/visit-workflow/spec.md)：用户“我的预约”、医生看板、状态与按钮需求。
-- [docs/visit/design.md](docs/visit/design.md)：新增 visit 模块、数据表、Service 和查询组合设计。
+- [就诊需求](docs/visit/requirements.md)：用户“我的预约”、医生看板、状态与按钮需求。
+- [docs/visit/design.md](docs/visit/design.md)：visit模块、数据表、Service和查询组合设计。
 - [docs/visit/api.md](docs/visit/api.md)：新增 7 个接口、扩展 2 个查询接口的现行契约。
 - [docs/visit/change-scope.md](docs/visit/change-scope.md)：实施前后行为对照、代码改动范围与验收说明。
 
-## 当前进度
+## 当前进度与阅读路线
 
-截至2026-11-12，三天预约、异步支付与退款、到院签到和医生接诊、消息设计九步及测试整理八步均已完成。最近实现/测试交付为`71e4ec8`；当前代码仍为模块化单体、数据库V10。最新实际验收为常规340、MySQL38、可靠性16及隔离curl92请求通过，零失败/错误/跳过。
+本阶段开发已交付，系统为模块化单体、数据库V10。完整能力、未实现范围和最新实测检查点由[项目状态](docs/project-status.md)维护。
 
-完整进度与未实现边界见[当前项目状态](docs/project-status.md)，测试写法见[测试约定](docs/testing.md)，实际命令、源码检查点与限制见[最终验收](.scratch/test-suite-refactor/verification/final-acceptance.md)。263/323等数量仅属于[历史验证报告](docs/verification-report.md)中的对应交付，不代表当前测试规模。
+- 学习项目：[项目状态](docs/project-status.md) → [术语](GLOSSARY.md) → [业务流程](docs/business-flow.md) → [模块设计](docs/module-design.md) → [就诊设计](docs/visit/design.md) → [API](docs/api.md) → [测试覆盖](docs/testing/scenario-coverage.md)。
+- 运行维护：本页本地运行 → [API](docs/api.md)和HTTP示例 → [测试约定](docs/testing.md) → [恢复手册](docs/runbooks/payment-module-cutover.md) → [验收证据](docs/verification-report.md)。
+- 演进追溯：[六组交付档案](.scratch/README.md)，原任务全文按[文件去向清单](.scratch/archive-manifest.json)从Git读取。
 
 ## 当前边界
 

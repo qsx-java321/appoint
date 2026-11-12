@@ -1,0 +1,27 @@
+[
+  {
+    "case": "失效链接",
+    "rejected": true,
+    "reason": "]"
+  },
+  {
+    "case": "证据内容改变",
+    "rejected": true,
+    "reason": "AssertionError: .scratch/archive/delivery-quality/evidence/test-suite-refactor/final-counts.json"
+  },
+  {
+    "case": "不存在的测试方法",
+    "rejected": true,
+    "reason": "AssertionError: ('测试方法不存在', 'PaymentOutboxTransactionTest', 'nonexistentMethod')"
+  },
+  {
+    "case": "源码偏离被测摘要",
+    "rejected": true,
+    "reason": "AssertionError: ('实现或测试发生变化', 'src/main/java/com/qsx/appoint/catalog/model/BookingTimeRules.java')"
+  },
+  {
+    "case": "去向清单遗漏原文件",
+    "rejected": true,
+    "reason": "AssertionError: 归档来源与Git树不一致"
+  }
+]

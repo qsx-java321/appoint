@@ -2,7 +2,7 @@
 
 本项目用自动化测试保护预约、支付、消息和接诊业务。测试文件数量不代表保障强度；整理时优先确保断言准确、失败能定位、用例可独立运行，再减少重复和启动成本。
 
-本轮任务和实际执行结果分别见[任务地图](../.scratch/test-suite-refactor/map.md)与[验收记录](../.scratch/test-suite-refactor/verification/commands.md)。旧报告保留其执行日期与代码检查点，不代表当前代码已经重验。
+当前类与隔离见[测试清单](testing/inventory.md)，场景与入口见[覆盖映射](testing/scenario-coverage.md)，历史执行结果见[验收记录](verification-report.md)。
 
 ## 测试分层与入口
 
@@ -76,7 +76,7 @@ python3 scripts/compose_acceptance.py --http-client curl --http-report /tmp/appo
 - `RabbitConsumerFailureHandlerTest`集中验证重试次数、原正文/ID、TTL、confirm先于ACK、转发失败NACK和确认I/O异常。真实TTL、DLQ和提交窗口继续由容器验证。
 - `DeadLetterReplayContractTest`验证逻辑目标、原消息保留和确认顺序。退款结果没有消费者，不能把转发成功说成通知业务完成。
 
-当前S01～S32责任入口见[消息场景映射](../.scratch/test-suite-refactor/verification/message-scenarios.md)。历史消息改造记录不因本次合并而覆盖重写。
+当前S01～S32责任入口见[覆盖映射](testing/scenario-coverage.md)。
 
 ## 断言与故障注入
 
@@ -100,3 +100,7 @@ MyBatis Mapper是接口代理，故障恢复应撤销stub并恢复其原委托�
 架构正例扫描仅复用生产类集合。违规fixture单独导入，正反例使用同一条规则；不能为了让扫描更快缩小生产范围或删除负例。dev、test、prod的装配保障分别保留。
 
 删除或合并前记录原行为、接收测试、真实组件/profile/事务条件及实际结果。稳定存储名称属于契约，枚举声明顺序通常不属于。数量减少不是验收目标；无接收位置的独有断言默认保留。
+
+## 文档维护检查
+
+在项目根目录运行 `python3 scripts/check_documentation.py`。检查覆盖REST/DTO、测试入口、链接和归档证据，不替代业务测试。

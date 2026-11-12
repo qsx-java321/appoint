@@ -2,9 +2,9 @@
 
 交付日期：2026-11-11；现行契约复核：2026-11-12。本文接口及响应扩展已实现，实际验收结果见 [验证报告](../verification-report.md)。
 
-关联：[需求](../../.scratch/visit-workflow/spec.md)、[代码设计](design.md)、[改动影响](change-scope.md)。现有字段与规则继续参考 [现行 API](../api.md)。
+关联：[需求](requirements.md)、[代码设计](design.md)、[改动影响](change-scope.md)。现有字段与规则继续参考 [现行 API](../api.md)。
 
-Controller、Service、Mapper 的对应关系，以及响应 DTO 的 Java 定义，见设计文档第 8–14 节。本文负责 HTTP 契约，不另外定义一套业务规则。
+Controller、Service、Mapper 的对应关系，以及响应 DTO 的 Java 定义，见[设计的源码入口](design.md#6-源码阅读与并发保障)。本文负责 HTTP 契约，不另外定义一套业务规则。
 
 ## 1. 通用约定
 

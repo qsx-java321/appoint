@@ -1,0 +1,24 @@
+# 历史交付档案
+
+当前开发阶段已交付，当前能力、运行和学习入口见[项目状态](../docs/project-status.md)。这里保存阶段总结和验收证据；历史命令、数字、临时资源状态按原检查点理解。未来任务继续在 `.scratch/<feature-slug>/` 建立，完成后按[issue约定](../docs/agents/issue-tracker.md)归档。
+
+| 主题 | 交付档案 |
+| --- | --- |
+| 到院签到与门诊接诊交付 | [总结](archive/visit-workflow/summary.md) |
+| 消息代码设计交付 | [总结](archive/messaging-design/summary.md) |
+| 四场次与预约时间交付 | [总结](archive/booking-time/summary.md) |
+| 预约基础与目录交付 | [总结](archive/booking-foundation/summary.md) |
+| 支付与预约生命周期交付 | [总结](archive/payment-lifecycle/summary.md) |
+| 测试与文档收尾交付 | [总结](archive/delivery-quality/summary.md) |
+
+## 原文追溯
+
+[逐文件清单](archive-manifest.json)记录148份原文件的摘要、去向、章节及完整Git检查点。查询例子：
+
+```bash
+git show 1e83c0c6bb4ddfcdfe22196d1309e7e0c04c5bef:.scratch/three-day-booking-time/spec.md
+```
+
+## 核验
+
+在项目根目录运行 `python3 scripts/check_documentation.py`。新执行的文档整理核验见[整理报告](archive/delivery-quality/evidence/documentation-consolidation/report.md)。历史业务结果见[验收入口](../docs/verification-report.md)。

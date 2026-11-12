@@ -128,6 +128,8 @@ acceptedAt 同时保存为预约/支付创建时间；支付截止取创建时�
 
 ## 消息代码契约与阅读入口（2026-11-12）
 
+设计取舍：保留模块化单体、同模块Mapper和Spring事务，以明确业务接口隔离传输依赖；不全面Repository化或逐类增加interface。合法历史v1保持兼容，非法输入类型与关联校验允许收紧。Outbox租约、运维HTTP、通知和真实渠道另属未实现范围。
+
 本轮保持业务、数据库 V1～V10 和 Rabbit 拓扑不变，整理的是代码职责、输入校验、接口和注释。没有新增消息框架、租约状态、真实渠道或通知消费者。
 
 | 职责 | 接口/实现 | 契约 |
@@ -168,13 +170,13 @@ PaymentNotificationServiceImpl、DefaultPaymentRefundOperations、DefaultRefundW
 
 application/domain 不依赖 Spring AMQP 或 Rabbit Client；contract 包不依赖 Spring/Jackson/持久化；common messaging 不反向引用业务模块。应用接口检查入参、返回值及 record/泛型中的 Entity 泄漏，架构测试有违规负例。保留本模块 Inbox Mapper 和 Spring 事务，不全面 Repository 化。
 
-方案与阶段记录见 [任务地图](../.scratch/messaging-design-refactor/map.md)，最终执行结果见 [验证报告](verification-report.md)。固定旧 JSON 样本与新生产 Outbox 的契约测试分别验证兼容，真实 MySQL/Rabbit 继续验证事务和故障窗口。
+方案与阶段记录见 [任务地图](../.scratch/archive/messaging-design/summary.md)，最终执行结果见 [验证报告](verification-report.md)。固定旧 JSON 样本与新生产 Outbox 的契约测试分别验证兼容，真实 MySQL/Rabbit 继续验证事务和故障窗口。
 
 ## 兼容边界与验证
 
 旧 dev/test 同步模拟成功端点及 compat 支付尝试已删除，开发支付走真实 attempt→签名通知→Outbox→Inbox。正式 HTTP、schema V1–V10 与事件 v1 保持兼容。查询仍保留“到期待支付可取消”和“待确认已付 canCancel=false、写入口可取消退款”的历史差异。
 
-[架构测试](../src/test/java/com/qsx/appoint/architecture/ModuleDependencyTest.java) 用生产依赖及故意违规 fixture 固定上述约束；静态 SQL 检查不是任意动态 SQL 的完整证明。接口行为用快速事务测试，锁/约束用 MySQL，传输及故障窗口用 RabbitMQ，实际 HTTP 链路用隔离 Compose；当前覆盖对照见[逐方法审计](../.scratch/test-suite-refactor/verification/method-audit.md)和[消息场景映射](../.scratch/test-suite-refactor/verification/message-scenarios.md)；[旧baseline](../.scratch/booking-module-deepening/baseline.md)只记录2026-11-09改造前后的历史。
+[架构测试](../src/test/java/com/qsx/appoint/architecture/ModuleDependencyTest.java) 用生产依赖及故意违规 fixture 固定上述约束；静态 SQL 检查不是任意动态 SQL 的完整证明。接口行为用快速事务测试，锁/约束用 MySQL，传输及故障窗口用 RabbitMQ，实际 HTTP 链路用隔离 Compose；当前覆盖对照见[逐方法审计](../.scratch/archive/delivery-quality/evidence/test-suite-refactor/method-audit.md)和[消息场景映射](testing/scenario-coverage.md)；[旧baseline](../.scratch/archive/payment-lifecycle/evidence/booking-module-deepening/baseline.md)只记录2026-11-09改造前后的历史。
 
 ## 就诊写入与医生身份
 

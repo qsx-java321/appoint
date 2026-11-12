@@ -2,9 +2,9 @@
 
 设计交付日期：2026-11-11；现行内容复核：2026-11-12。状态：已实现；源码包含 V10、就诊模块及本文接口。实际验证结果见 [验证报告](../verification-report.md)。
 
-需求以 [spec.md](../../.scratch/visit-workflow/spec.md) 为准；请求响应见 [API](api.md)，实施范围及前后变化见 [改动说明](change-scope.md)。既有行为以 [现行模块设计](../module-design.md) 和 ADR 0003、0004、0005 为基础；公共预约目录与截止规则现按 [ADR 0007](../adr/0007-three-day-booking-and-session-cutoffs.md) 执行。
+需求以 [就诊需求](requirements.md) 为准；请求响应见 [API](api.md)，实施范围及前后变化见 [改动说明](change-scope.md)。既有行为以 [现行模块设计](../module-design.md) 和 ADR 0003、0004、0005 为基础；公共预约目录与截止规则现按 [ADR 0007](../adr/0007-three-day-booking-and-session-cutoffs.md) 执行。
 
-阅读顺序：第 1–7 节说明总体设计；第 8 节将 API 对应到 Controller / Service；第 9–14 节给出迁移、业务方法、SQL、DTO 和既有文件的具体改造；第 15 节给出实施单元及验证。文中的 Java、SQL 用于说明实现，省略常规 import、访问器与错误映射；具体源码及验证记录为最终依据。
+阅读顺序：先看[需求](requirements.md)，再看本页的职责、模型与契约，最后沿源码入口阅读实现。Java片段是契约说明，实际源码为准。
 
 ## 1. 模块分工与依赖
 
@@ -192,393 +192,33 @@ public record AppointmentVisitResponse(
 
 医生详情使用自己的 DTO，只有预约与就诊所需资料，不复用携带支付渠道摘要的用户完整响应。医生开始/完成返回更新后的医生详情，前端随后重新查询名单，更新按钮与统计。
 
-## 6. 代码组织
+## 6. 源码阅读与并发保障
 
-```text
-com.qsx.appoint/
-catalog/
-  controller/DoctorAccountController.java
-  dto/BindDoctorAccountRequest.java
-  dto/DoctorAccountResponse.java
-  service/DoctorAccountService.java
-  service/impl/DoctorAccountServiceImpl.java
-  entity/Doctor.java                         [修改]
-  mapper/DoctorMapper.java                   [修改]
+| 内容 | 实际入口 | 阅读重点 |
+| --- | --- | --- |
+| 数据库 | [V10](../../src/main/resources/db/migration/V10__visit_workflow.sql) | 账号关联唯一、预约与就诊一对一、状态及时间约束 |
+| 写入 | [DefaultVisitService](../../src/main/java/com/qsx/appoint/visit/application/DefaultVisitService.java) | 每个动作本地事务；归属、确认状态、进度判断 |
+| 条件更新 | [VisitRecordMapper](../../src/main/java/com/qsx/appoint/visit/mapper/VisitRecordMapper.java) | 首次插入唯一约束、WAITING→IN_PROGRESS→COMPLETED条件更新 |
+| 共享规则 | [VisitRules](../../src/main/java/com/qsx/appoint/visit/domain/VisitRules.java) | 当天签到，按当前进度判断医生动作 |
+| 用户查询 | [AppointmentResponseAssembler](../../src/main/java/com/qsx/appoint/bookingquery/application/AppointmentResponseAssembler.java) | 非确认visit为null；无记录推导待签到 |
+| 医生查询 | [DefaultDoctorVisitQueryService](../../src/main/java/com/qsx/appoint/bookingquery/application/DefaultDoctorVisitQueryService.java)、[Mapper](../../src/main/java/com/qsx/appoint/bookingquery/persistence/DoctorVisitQueryMapper.java) | 登录医生范围、四场补零、号码顺序、快照与脱敏 |
 
-user/
-  service/UserRoleService.java
-  service/impl/UserRoleServiceImpl.java
+visit只通过预约稳定接口读取事实，不写预约、支付或库存。账号首次绑定按医生→用户加锁，同事务增加DOCTOR角色；唯一约束防止一账号绑定多个医生，授权后重新登录。
 
-appointment/
-  controller/AppointmentController.java      [修改]
-  service/AppointmentService.java            [修改]
-  application/AppointmentLifecycleCase.java  [修改]
-  application/DefaultAppointmentLifecycle.java [修改]
-  dto/AppointmentTimeOrder.java
-  dto/AppointmentVisitResponse.java
-  dto/AppointmentResponse.java               [修改]
+重复或并发动作返回状态冲突，保留首次时间；不强制队首、不增加跨行忙碌限制、不按时间自动结束。就诊完成不释放号源。查询和写入共用VisitRules，名单固定按visitNumber升序。
 
-visit/
-  controller/UserVisitController.java
-  controller/DoctorVisitController.java
-  application/VisitService.java
-  application/DefaultVisitService.java
-  domain/VisitStatus.java
-  domain/VisitRules.java
-  entity/VisitRecord.java
-  mapper/VisitRecordMapper.java
+## 7. 返回契约
 
-bookingquery/
-  application/DoctorVisitQueryService.java
-  application/DefaultDoctorVisitQueryService.java
-  application/DoctorVisitResponseAssembler.java
-  application/DefaultBookingQueryService.java [修改]
-  application/AppointmentResponseAssembler.java [修改]
-  persistence/DoctorVisitQueryMapper.java
-  persistence/DoctorVisitQueryRecord.java
-  persistence/DoctorSessionCountRecord.java
-  persistence/BookingQueryMapper.java         [修改]
-  persistence/BookingQueryRecord.java         [修改]
-  dto/DoctorSessionResponse.java
-  dto/DoctorAppointmentRowResponse.java
-  dto/DoctorAppointmentDetailResponse.java
-  dto/DoctorPatientResponse.java
-  dto/DoctorVisitProgressResponse.java
-```
-
-上面均为根包下的相对位置，无标记项为本次新增。DTO、Entity、Mapper 沿用项目的命名习惯；不增加 Maven 子工程。
-
-继续复用现有用户查询组装，不为用户端再建一套查询 Service。医生查询使用一个内部 `DoctorVisitResponseAssembler` 集中转换快照与脱敏字段；它是普通类，不再为它增加接口。
-
-## 7. 设计约束与验证方向
-
-- 预约库存、快照、号码、防重复占用继续由预约模块拥有。
-- 查询不写库；写 Service 不依赖 `bookingquery` 或其他模块持久化对象。
-- 正常状态变化由三个明确动作完成，不提供通用“修改状态”接口。
-- 架构检查已覆盖新 `visit` 写模块和医生只读 Mapper。
-- 使用受控 Clock 验证当天签到规则，以正常用户/医生 HTTP 链路验收双方状态一致；实测结果见改动说明与验证报告。
-
-本设计细化现有模块化单体，不改变 ADR 0003 的库存与号码、ADR 0004 的支付协作、ADR 0005 的四场按需生成规则。
-
-## 8. API 到 Controller / Service 的实施映射
-
-所有路径以 `/api/v1` 为前缀。已有接口具体请求响应保留 [API 文档](api.md) 的约定。
-
-| API | Controller 方法 | 调用的 Service | 返回 data |
-| --- | --- | --- | --- |
-| `GET /appointments/my` | `AppointmentController.mine` | `AppointmentService.listMine(userId, order)` | `List<AppointmentResponse>` |
-| `GET /appointments/{id}` | `AppointmentController.get` | `AppointmentService.getOwned(userId, id)` | `AppointmentResponse` |
-| `POST /appointments/{id}/check-in` | `UserVisitController.checkIn` | `VisitService.checkIn`，成功后 `AppointmentService.getOwned` | 更新后的 `AppointmentResponse` |
-| `PUT /admin/doctors/{id}/account` | `DoctorAccountController.bindAccount` | `DoctorAccountService.bindAccount` | `DoctorAccountResponse` |
-| `GET /doctor/sessions` | `DoctorVisitController.listSessions` | `DoctorVisitQueryService.listSessions` | `List<DoctorSessionResponse>` |
-| `GET /doctor/appointments` | `DoctorVisitController.listAppointments` | `DoctorVisitQueryService.listAppointments` | `List<DoctorAppointmentRowResponse>` |
-| `GET /doctor/appointments/{id}` | `DoctorVisitController.getAppointment` | `DoctorVisitQueryService.getAppointment` | `DoctorAppointmentDetailResponse` |
-| `POST /doctor/appointments/{id}/start-visit` | `DoctorVisitController.startVisit` | `VisitService.startVisit`，成功后医生详情查询 | 更新后的医生详情 |
-| `POST /doctor/appointments/{id}/complete-visit` | `DoctorVisitController.completeVisit` | `VisitService.completeVisit`，成功后医生详情查询 | 更新后的医生详情 |
-
-Controller 统一返回 `Result.success(data)`。三种动作接口不接收请求体，身份来自现有 `Authentication` 的 Long principal。
-
-管理员 Controller 使用 `@PreAuthorize("hasRole('ADMIN')")`，医生 Controller 使用 `@PreAuthorize("hasRole('DOCTOR')")`；用户入口复用现有登录要求，再由业务方法确认预约归属。`SecurityConfig` 已启用方法权限，沿用该机制。
-
-医生日期概览的 `date` 可空，由查询 Service 使用业务 Clock 补成今天；名单的 `date`、`sessionType` 必填。场次参数可在 Controller 调用现有 `AppointmentSession.require(raw)` 转换，避免在 HTTP 层和业务层重复定义四场枚举。
-
-已有用户列表新增 `@RequestParam(defaultValue = "DESC") AppointmentTimeOrder order`。保留原详情方法、创建方法和取消方法的动作职责。
-
-## 9. 迁移与持久化实现
-
-### 9.1 V10 迁移中的核心 SQL
-
-下面是新增的 MySQL 结构，版本为 V10。新增两个普通查询索引，保留既有索引；H2 与 MySQL 的迁移适配按项目已有测试配置验证。
-
-```sql
-ALTER TABLE doctors ADD COLUMN user_id BIGINT;
-ALTER TABLE doctors ADD CONSTRAINT uk_doctors_user UNIQUE (user_id);
-ALTER TABLE doctors ADD CONSTRAINT fk_doctors_user
-    FOREIGN KEY (user_id) REFERENCES users (id);
-
-INSERT INTO roles (code, name) VALUES ('DOCTOR', '医生');
-
-CREATE TABLE visit_records (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    appointment_order_id BIGINT NOT NULL,
-    status VARCHAR(32) NOT NULL,
-    checked_in_at DATETIME NOT NULL,
-    started_at DATETIME,
-    completed_at DATETIME,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_visit_records_appointment UNIQUE (appointment_order_id),
-    CONSTRAINT fk_visit_records_appointment
-        FOREIGN KEY (appointment_order_id) REFERENCES appointment_orders (id),
-    CONSTRAINT ck_visit_records_status
-        CHECK (status IN ('WAITING', 'IN_PROGRESS', 'COMPLETED'))
-);
-
-CREATE INDEX idx_appointments_user_visit_time
-    ON appointment_orders (user_id, appointment_date, start_time, id);
-CREATE INDEX idx_appointments_doctor_visit_date
-    ON appointment_orders (doctor_id, appointment_date, status, schedule_id, visit_number);
-```
-
-这些操作只扩展结构。不给既有医生自动分配账号，不生成历史就诊记录，不改变预约状态约束，不初始化新的号源。
-
-### 9.2 Entity 与 Mapper
-
-`Doctor` 增加 `Long userId`。`VisitRecord` 使用 `@TableName("visit_records")`，字段与第 2 节对应；ID 使用显式 `@TableId(type = IdType.AUTO)`，与新表自增主键一致。Java 层实体状态保持 String，业务判断使用 `VisitStatus`。
+以下record字段与源码保持一致；HTTP语义见[就诊API](api.md)。
 
 ```java
-public enum VisitStatus {
-    NOT_CHECKED_IN,
-    WAITING,
-    IN_PROGRESS,
-    COMPLETED
-}
-
-public interface VisitRecordMapper extends BaseMapper<VisitRecord> {
-    VisitRecord selectByAppointmentOrderId(Long appointmentId);
-    int startIfWaiting(Long appointmentId, LocalDateTime now);
-    int completeIfInProgress(Long appointmentId, LocalDateTime now);
-}
+public record AppointmentVisitResponse(
+        String status,
+        LocalDateTime checkedInAt,
+        LocalDateTime startedAt,
+        LocalDateTime completedAt,
+        boolean canCheckIn) {}
 ```
-
-自定义方法使用静态 SQL，接口标注 `@Mapper`，参数沿用现有 `@Param` 风格；`appointmentId`、`now` 的参数名与 SQL 占位符一致。关键两条写语句为：
-
-```sql
-UPDATE visit_records
-SET status = 'IN_PROGRESS', started_at = #{now}, updated_at = #{now}
-WHERE appointment_order_id = #{appointmentId} AND status = 'WAITING';
-
-UPDATE visit_records
-SET status = 'COMPLETED', completed_at = #{now}, updated_at = #{now}
-WHERE appointment_order_id = #{appointmentId} AND status = 'IN_PROGRESS';
-```
-
-状态前置条件直接体现在 UPDATE 中，正常执行要求影响一行。原时间字段保持，完成操作不会覆盖签到和开始时间。签到插入时，由应用统一设置 `checkedInAt`、`createdAt`、`updatedAt`，与业务 Clock 保持一致。
-
-## 10. 三个业务方法的具体实现步骤
-
-### 10.1 依赖注入与规则
-
-`DefaultVisitService` 只注入：
-
-```text
-AppointmentLifecycle      读取预约事实
-DoctorAccountService      将医生登录账号解析为医生 ID
-VisitRecordMapper         读写本模块就诊表
-Clock appointmentClock    统一业务时间
-```
-
-共享规则只接收事实，不读取数据库或 Clock：
-
-```java
-public final class VisitRules {
-    private VisitRules() {}
-
-    public static boolean canCheckIn(
-            AppointmentStatus appointmentStatus,
-            LocalDate appointmentDate,
-            VisitStatus progress,
-            LocalDate today) {
-        return appointmentStatus == AppointmentStatus.CONFIRMED
-                && appointmentDate.equals(today)
-                && progress == VisitStatus.NOT_CHECKED_IN;
-    }
-
-    public static boolean canStart(VisitStatus progress) {
-        return progress == VisitStatus.WAITING;
-    }
-
-    public static boolean canComplete(VisitStatus progress) {
-        return progress == VisitStatus.IN_PROGRESS;
-    }
-}
-```
-
-读取状态时，已确认预约的空就诊记录转换成 `NOT_CHECKED_IN`；有记录则转换其已保存状态。非已确认预约的用户响应直接返回 `visit=null`，不进入这个初始状态转换。
-
-### 10.2 `checkIn(userId, appointmentId)`
-
-1. 调用 `appointmentLifecycle.find(appointmentId)` 取得稳定预约事实。
-2. 确认存在且 `appointment.userId()` 与登录用户一致。
-3. 查询本模块记录，得出当前进度。
-4. 采样一次秒精度 `now`，用 `now.toLocalDate()` 判断当天资格。
-5. 确认 `VisitRules.canCheckIn(...)`，插入 `WAITING` 记录。
-6. 提交事务，HTTP 层查询原预约详情返回。
-
-关键写入代码示意：
-
-```java
-LocalDateTime now = LocalDateTime.now(appointmentClock)
-        .truncatedTo(ChronoUnit.SECONDS);
-
-VisitRecord record = new VisitRecord();
-record.setAppointmentOrderId(appointmentId);
-record.setStatus(VisitStatus.WAITING.name());
-record.setCheckedInAt(now);
-record.setCreatedAt(now);
-record.setUpdatedAt(now);
-visitRecordMapper.insert(record);
-```
-
-普通查询不创建记录；只有这个方法首次插入。没有调用预约确认、号码分配、支付或库存方法。
-
-### 10.3 `startVisit(doctorUserId, appointmentId)`
-
-1. 调用 `doctorAccountService.requireDoctorId(doctorUserId)`。
-2. 读取预约事实，确认预约已确认且 `appointment.doctorId()` 为当前医生。
-3. 读取就诊记录，确认当前为 `WAITING`。
-4. 采样业务时间，调用 `startIfWaiting(appointmentId, now)`，正常影响一行。
-5. 提交后由 HTTP 层查询更新后的医生详情。
-
-### 10.4 `completeVisit(doctorUserId, appointmentId)`
-
-1. 解析医生身份，读取并确认预约归属。
-2. 确认已确认预约对应的进度为 `IN_PROGRESS`。
-3. 采样业务时间，调用 `completeIfInProgress(appointmentId, now)`。
-4. 提交后由 HTTP 层返回更新后的医生详情。
-
-开始和完成方法共用私有 `requireDoctorAppointment(doctorUserId, appointmentId)` 归属检查，避免重复实现。其余步骤直接写在业务方法中，不增加命令总线、事件分发或通用状态机类。
-
-## 11. 医生账号关联的具体实现
-
-`DoctorAccountServiceImpl` 放在 `catalog.service.impl`，注入 `DoctorMapper` 和 `UserRoleService`。`UserRoleServiceImpl` 放在 `user.service.impl`，仅访问本模块 `UserMapper`、`RoleMapper`、`UserRoleMapper`。
-
-| 方法 | 正常执行逻辑 |
-| --- | --- |
-| `bindAccount(doctorId, userId)` | 读取医生 → 确认账号可首次关联 → 调用角色授予 → 保存医生的 userId → 返回两个 ID |
-| `requireDoctorId(userId)` | 按 doctors.user_id 查询，返回医生 ID，不返回 Doctor Entity |
-| `grantDoctorRole(userId)` | 确认账号存在 → 查 DOCTOR 角色 → 在原角色基础上增加 user_roles 关联 |
-
-角色授予保留 USER、ADMIN 等已有角色，不用一份新角色列表覆盖旧关联。若账号已具有 DOCTOR，只保留已有角色关联，不重复插入；这里不扩展异常恢复机制。
-
-`bindAccount` 使用 `@Transactional`，内部角色方法使用默认事务传播加入同库事务，不使用 `REQUIRES_NEW`。完成后关联与角色一起提交，现有登录自动读取角色，无需修改 JWT 格式。
-
-`DoctorMapper` 增加 `Doctor selectByUserId(Long userId)` 和 `int bindAccountIfUnbound(Long doctorId, Long userId)`，参数均使用同名 `@Param`。首次绑定 SQL 为 `UPDATE doctors SET user_id = #{userId} WHERE id = #{doctorId} AND user_id IS NULL`，正常影响一行。请求 DTO 为 `BindDoctorAccountRequest(@NotNull Long userId)`，响应为 `DoctorAccountResponse(Long doctorId, Long userId)`。
-
-## 12. 查询 SQL 与组装算法
-
-### 12.1 用户列表、详情
-
-现有 `BookingQueryMapper.PROJECTION` 增加：
-
-```sql
-s.session_type,
-v.id AS visit_record_id,
-v.status AS visit_status,
-v.checked_in_at,
-v.started_at,
-v.completed_at
-```
-
-在已有 FROM / JOIN 后加入：
-
-```sql
-LEFT JOIN visit_records v ON v.appointment_order_id = a.id
-```
-
-`status` 仍是预约状态，`visit_status` 单独命名，避免混淆。`BookingQueryRecord` 对应增加 `String sessionType`、`Long visitRecordId`、`String visitStatus` 和三个时间字段。
-
-列表 Mapper 保留 `selectByUserId(userId)` 作为默认 DESC 的旧入口，增加 `selectByUserIdAsc(userId)`。两条固定排序分别为：
-
-```sql
-ORDER BY a.appointment_date DESC, a.start_time DESC, a.id DESC
-```
-
-```sql
-ORDER BY a.appointment_date ASC, a.start_time ASC, a.id ASC
-```
-
-`DefaultBookingQueryService.listMine(userId, order)` 选择对应查询，整个列表继续使用同一次 `serverTime`。原 `listMine(userId)` 委托新方法，传入 DESC。
-
-`AppointmentResponseAssembler` 在原支付关联检查和 workflow 投影之后组装 `visit`：
-
-```text
-预约不是 CONFIRMED
-    → visit = null
-
-预约是 CONFIRMED，没有就诊记录
-    → status = NOT_CHECKED_IN，三个时间为空
-    → 用共享规则计算 canCheckIn
-
-预约是 CONFIRMED，有就诊记录
-    → 读取保存的状态与时间
-    → canCheckIn = false
-```
-
-同一详情继续返回原 canPay、canCancel，原 workflow 计算不加入新的状态分支；前端根据非空 visit 优先展示就诊进度。
-
-### 12.2 医生名单与详情
-
-新增 `DoctorVisitQueryMapper` 只声明 SELECT，不继承 BaseMapper。方法：
-
-```java
-List<DoctorSessionCountRecord> countByDoctorAndDate(
-        Long doctorId, LocalDate date);
-
-List<DoctorVisitQueryRecord> selectByDoctorDateSession(
-        Long doctorId, LocalDate date, String sessionType);
-
-DoctorVisitQueryRecord selectOwnedDetail(
-        Long doctorId, Long appointmentId);
-```
-
-名单的核心查询范围：
-
-```sql
-SELECT a.id AS appointment_id, a.visit_number, a.patient_name,
-       v.status AS visit_status, v.checked_in_at
-FROM appointment_orders a
-JOIN schedules s ON s.id = a.schedule_id
-LEFT JOIN visit_records v ON v.appointment_order_id = a.id
-WHERE a.doctor_id = #{doctorId}
-  AND a.appointment_date = #{date}
-  AND s.session_type = #{sessionType}
-  AND a.status = 'CONFIRMED'
-ORDER BY a.visit_number ASC
-```
-
-详情采用同样的预约和就诊关联，查询条件为 `a.id = #{appointmentId} AND a.doctor_id = #{doctorId} AND a.status = 'CONFIRMED'`，额外选择第 13 节 DTO 所需快照字段、三个时间和场次类型。
-
-资料来自预约快照，不从当前医生、就诊人资料反向覆盖。名单和详情共用内部组合行类型 `DoctorVisitQueryRecord`，名单与详情使用相同快照投影，但 HTTP 名单只输出所需字段；内部组合行不直接返回 HTTP。
-
-`DoctorVisitResponseAssembler` 使用 `VisitStatus` 判断按钮，使用现有 `ResidentIdCard.mask(...)` 处理详情证件号：
-
-```text
-无就诊记录 → NOT_CHECKED_IN
-canStartVisit    = VisitRules.canStart(progress)
-canCompleteVisit = VisitRules.canComplete(progress)
-查看始终可用，不返回 canView
-```
-
-### 12.3 医生四场概览
-
-一次聚合读取已有预约人数，再由 Java 补齐固定四场：
-
-```sql
-SELECT s.session_type,
-       COUNT(*) AS confirmed_count,
-       SUM(CASE WHEN v.id IS NULL THEN 1 ELSE 0 END) AS not_checked_in_count,
-       SUM(CASE WHEN v.status = 'WAITING' THEN 1 ELSE 0 END) AS waiting_count,
-       SUM(CASE WHEN v.status = 'IN_PROGRESS' THEN 1 ELSE 0 END) AS in_progress_count,
-       SUM(CASE WHEN v.status = 'COMPLETED' THEN 1 ELSE 0 END) AS completed_count
-FROM appointment_orders a
-JOIN schedules s ON s.id = a.schedule_id
-LEFT JOIN visit_records v ON v.appointment_order_id = a.id
-WHERE a.doctor_id = #{doctorId}
-  AND a.appointment_date = #{date}
-  AND a.status = 'CONFIRMED'
-  AND s.session_type IN (
-      'MORNING_FIRST', 'MORNING_SECOND', 'AFTERNOON_FIRST', 'AFTERNOON_SECOND')
-GROUP BY s.session_type
-```
-
-`listSessions` 按以下步骤组装：解析医生 ID → 默认日期补今天 → 查询聚合结果并按类型建 Map → 按 `AppointmentSession.values()` 顺序遍历 → 使用枚举起止时间构造四项，缺失项填零。
-
-不使用今天至后天的公共可预约目录代替医生当天查询；医生看板和名单不因新下单截止而隐藏已确认预约，也不生成空场次。就诊表一对一约束保证聚合不会因关联产生重复计数。
-
-## 13. 返回 DTO 与字段来源
-
-### 13.1 医生端 DTO
 
 ```java
 public record DoctorSessionResponse(
@@ -591,7 +231,9 @@ public record DoctorSessionResponse(
         int waitingCount,
         int inProgressCount,
         int completedCount) {}
+```
 
+```java
 public record DoctorAppointmentRowResponse(
         Long appointmentId,
         Integer visitNumber,
@@ -600,19 +242,25 @@ public record DoctorAppointmentRowResponse(
         LocalDateTime checkedInAt,
         boolean canStartVisit,
         boolean canCompleteVisit) {}
+```
 
+```java
 public record DoctorVisitProgressResponse(
         String status,
         LocalDateTime checkedInAt,
         LocalDateTime startedAt,
         LocalDateTime completedAt) {}
+```
 
+```java
 public record DoctorPatientResponse(
         Long id,
         String name,
         String documentType,
         String documentNoMasked) {}
+```
 
+```java
 public record DoctorAppointmentDetailResponse(
         Long appointmentId,
         String appointmentNo,
@@ -626,64 +274,6 @@ public record DoctorAppointmentDetailResponse(
         DoctorVisitProgressResponse visit) {}
 ```
 
-详情复用已有 `AppointmentDoctorResponse` 及其医院、科室快照 DTO。就诊人使用精简 DTO，不携带用户详情中的联系方式或支付信息。
+## 8. 验证与演进
 
-DTO 的 ID 使用 Long，以复用项目现有字符串 ID 序列化；人数使用 int，保持 API 中的 JSON 数字。当前聚合行和人数 DTO 均使用 int，避免计数被 Long 序列化器输出为字符串。
-
-### 13.2 字段来源对照
-
-| 页面字段 | 数据来源 | 组装位置 |
-| --- | --- | --- |
-| 医院、科室、医生、就诊人 | appointment_orders 快照 | 用户原 Assembler / 医生 Assembler |
-| 日期、起止时间、号码、预约单号 | appointment_orders | 对应查询组合行 |
-| 场次标签 | schedules.session_type | 读取类型，前端映射中文 |
-| 待签到进度 | 已确认预约且无 visit_records | 对应 Assembler 计算 |
-| 候诊、就诊中、已就诊、三个时间 | visit_records | 对应 Assembler |
-| 用户签到按钮 | VisitRules + 统一业务日期 | 用户 Assembler |
-| 医生开始、完成按钮 | VisitRules + 当前行状态 | 医生 Assembler |
-| 四场时间与顺序 | AppointmentSession | 医生查询 Service |
-| 四场人数 | 已确认预约与就诊记录聚合 | 医生查询 Service |
-
-## 14. 既有文件的具体修改点
-
-| 既有文件 | 具体修改 | 必须保持 |
-| --- | --- | --- |
-| `catalog/entity/Doctor.java` | 增加 userId | doctorNo、目录字段含义 |
-| `catalog/mapper/DoctorMapper.java` | 增加按账号读取、首次绑定方法 | 原医生查询、目录 CRUD |
-| `appointment/application/AppointmentLifecycleCase.java` | 在末尾增加 Long doctorId | 原字段含义、find/lock 契约 |
-| `appointment/application/DefaultAppointmentLifecycle.java` | view 构造 record 时传入 order.getDoctorId() | 库存、确认、关闭与锁序逻辑 |
-| `appointment/service/AppointmentService.java` | 排序方法重载 | getOwned 与原列表调用入口 |
-| `appointment/controller/AppointmentController.java` | mine 接收 order，调用新重载 | 创建、取消和认证方式 |
-| `appointment/dto/AppointmentResponse.java` | 末尾追加 sessionType、visit | 所有原字段语义 |
-| `bookingquery/persistence/BookingQueryMapper.java` | LEFT JOIN、别名字段、两种固定排序 | 原支付、退款、快照投影 |
-| `bookingquery/persistence/BookingQueryRecord.java` | 增加六个就诊/场次相关字段 | 不改成 Entity 或写命令 |
-| `bookingquery/application/DefaultBookingQueryService.java` | 旧列表委托、新排序分支 | 归属校验、一次时间采样 |
-| `bookingquery/application/AppointmentResponseAssembler.java` | 构造两个新字段、计算签到标记 | 脱敏、资金检查、原 workflow |
-| `architecture/ModuleDependencyTest.java` | 扩充 visit 和新只读 Mapper 的约束 | 既有四模块约束 |
-
-`AppointmentLifecycleCase` 的生产构造点 `DefaultAppointmentLifecycle.view()` 与 `BookingLifecyclePolicyTest` 等测试构造点已同步传入 `doctorId`。`AppointmentResponse` 使用 Lombok 全参构造，现有 Assembler 已同步构造新增的 `sessionType` 和 `visit` 字段。
-
-不因增加字段重写整个预约响应，不迁移既有接口所在包，不把用户列表改成分页对象。创建接口继续返回 `AppointmentCreationResult`，没有新增就诊字段；查询及取消响应增加字段的影响见 API 文档。
-
-## 15. 已完成的实施单元与验证
-
-| 单元 | 主要交付 | 对应验证 |
-| --- | --- | --- |
-| A：数据和医生身份 | 新迁移、Doctor 字段、两个角色/账号 Service、管理员 Controller | 迁移后旧数据可读；绑定后登录 roles 含 DOCTOR；医生身份解析正确 |
-| B：就诊写业务 | VisitStatus、VisitRules、Entity、Mapper、VisitService | 固定 Clock 下签到日期规则；三个方法依次保存状态与时间 |
-| C：用户 HTTP 和查询 | 签到 Controller、用户 DTO、联查和排序 | 全部预约列表保持；ASC/DESC；原快照与新增进度组合正确 |
-| D：医生查询和 HTTP | 三个查询、两个动作入口、DTO 和组装 | 空四场、人数、排序、详情脱敏、四状态按钮矩阵 |
-| E：完整业务验证 | 用户预约确认、签到、医生接诊完成、双方查询 | 正常 HTTP 路径贯通；库存、号码和资金结果保持正确 |
-
-当前正常流程、查询、按钮与权限在 `visit/VisitHttpTest` 验证，真实并发在 `visit/VisitWorkflowMySqlIT`，迁移在 `catalog/VisitSchemaMigrationTest` 与 `catalog/VisitSchemaMySqlIT`。测试通过真实支付测试入口完成预约确认，避免另造支付实现。MySQL 验证新增迁移及一对一约束，Compose 验证实际正常 HTTP 链路。
-
-架构检查要区分 HTTP Adapter 和写业务层：`visit.application/domain/entity/mapper` 不依赖 `bookingquery` 或外部 Mapper；`visit.controller` 可以同时调用写 Service 和医生查询契约。医生查询 Mapper 只能 SELECT、不继承 BaseMapper；application 的公开返回值不泄漏 Entity。
-
-A—E 业务代码和测试已落地，实际执行结果与限制统一记录在 [验证报告](../verification-report.md)，不使用本节验收条目代替实测结果。
-
-## 16. 实施补充
-
-- V10 文件为 `src/main/resources/db/migration/V10__visit_workflow.sql`，兼容 H2 MySQL 模式与真实 MySQL 8.4。
-- 绑定拒绝已绑定医生或被占用账号，返回 409/4501；角色授予在用户行锁下保留原关联。三个就诊动作不满足日期或状态资格，包括重复请求及并发重复请求，返回 409/4502，不覆盖首次时间。
-- 医生详情查询按医生归属和 CONFIRMED 限定，无可见记录返回 404；写入口的非本人医生操作返回 403。必填参数缺失、非法日期、排序或场次返回统一 400。
-- HTTP 验收先走正常启动和支付消息链路；待资金及 Outbox 工作完成，使用测试专用启动类与固定上海业务 Clock 重启同一隔离库，继续当天就诊。测试类不进入生产包，不提供调时 API；JWT 不使用被替换的业务 Clock。
+当前测试入口见[场景覆盖](../testing/scenario-coverage.md)，历史实施SQL、DTO来源表、逐文件改动和阶段验证见[就诊档案](requirements.md)。原有预约、资金和库存规则见[业务流程](../business-flow.md)。

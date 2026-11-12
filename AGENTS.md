@@ -34,7 +34,7 @@
 
 ### Issue tracker
 
-项目使用本地 Markdown 文件管理 issue 和需求说明，文件放在 `.scratch/<feature-slug>/` 下。详见 `docs/agents/issue-tracker.md`。
+创建、读取或归档任务时，按 `docs/agents/issue-tracker.md` 执行；新任务放在 `.scratch/<feature-slug>/`，已交付档案从 `.scratch/README.md` 查阅。
 
 ### Triage labels
 
