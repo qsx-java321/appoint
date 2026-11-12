@@ -2,18 +2,15 @@ package com.qsx.appoint.payment.application;
 
 import com.qsx.appoint.payment.domain.PaymentOrderStatus;
 import com.qsx.appoint.payment.domain.RefundReason;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.payment.entity.PaymentAttempt;
 import com.qsx.appoint.payment.entity.PaymentOrder;
-import com.qsx.appoint.payment.entity.PaymentOutboxEvent;
 import com.qsx.appoint.payment.entity.PaymentRefund;
 import com.qsx.appoint.payment.mapper.PaymentAttemptMapper;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
-import com.qsx.appoint.payment.mapper.PaymentOutboxEventMapper;
 import com.qsx.appoint.payment.mapper.PaymentRefundMapper;
+import com.qsx.appoint.payment.contract.event.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,8 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -35,8 +30,7 @@ class DefaultPaymentRefundOperations implements PaymentRefundOperations {
     private final PaymentOrderMapper paymentOrderMapper;
     private final PaymentAttemptMapper paymentAttemptMapper;
     private final PaymentRefundMapper refundMapper;
-    private final PaymentOutboxEventMapper outboxMapper;
-    private final ObjectMapper objectMapper;
+    private final PaymentOutbox paymentOutbox;
     private final Clock appointmentClock;
     /** {@inheritDoc} */
     @Override
@@ -80,41 +74,9 @@ class DefaultPaymentRefundOperations implements PaymentRefundOperations {
      * <p>必须与退款单及REFUND_PENDING同事务；序列化失败不能留下无法投递的退款。
      */
     private void insertRequestedEvent(PaymentRefund refund, PaymentAttempt attempt, LocalDateTime now) {
-        String eventId = UUID.randomUUID().toString();
-        Map<String, Object> envelope = new LinkedHashMap<>();
-        envelope.put("eventId", eventId);
-        envelope.put("eventType", "RefundRequested");
-        envelope.put("eventVersion", 1);
-        envelope.put("aggregateId", refund.getPaymentOrderId());
-        envelope.put("occurredAt", now);
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("refundId", refund.getId());
-        payload.put("refundNo", refund.getRefundNo());
-        payload.put("paymentOrderId", refund.getPaymentOrderId());
-        payload.put("paymentAttemptId", refund.getPaymentAttemptId());
-        payload.put("providerTransactionNo", attempt.getProviderTransactionNo());
-        payload.put("amount", refund.getAmount());
-        payload.put("currency", refund.getCurrency());
-        payload.put("channel", refund.getChannel());
-        payload.put("reason", refund.getReason());
-        envelope.put("payload", payload);
-
-        PaymentOutboxEvent event = new PaymentOutboxEvent();
-        event.setEventId(eventId);
-        event.setAggregateType("PaymentOrder");
-        event.setAggregateId(refund.getPaymentOrderId());
-        event.setEventType("RefundRequested");
-        event.setEventVersion(1);
-        try {
-            event.setPayload(objectMapper.writeValueAsString(envelope));
-        } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        }
-        event.setOccurredAt(now);
-        event.setStatus("PENDING");
-        event.setPublishAttempts(0);
-        event.setNextAttemptAt(now);
-        outboxMapper.insert(event);
+        paymentOutbox.recordRefundRequested(new RefundRequestedPayload(refund.getId(), refund.getRefundNo(),
+                refund.getPaymentOrderId(), refund.getPaymentAttemptId(), attempt.getProviderTransactionNo(),
+                refund.getAmount(), refund.getCurrency(), refund.getChannel(), refund.getReason()), now);
     }
     /** 采样秒精度服务端时间用于退款申请及请求事件。 */
     private LocalDateTime now() {

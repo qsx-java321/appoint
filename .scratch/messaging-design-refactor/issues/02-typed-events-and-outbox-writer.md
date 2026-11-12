@@ -2,7 +2,7 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 Blocked by: 01
 
 依据：[spec 第 6、7.1、8 节](../spec.md)。责任场景：S01～S04、S14、S22、S24 的写入部分。
@@ -46,11 +46,13 @@ Blocked by: 01
 
 ## 完成条件
 
-- [ ] 三处迁移完成，四类事件字段与状态初始化不再散落。
-- [ ] Appender 契约/代理/MANDATORY 和事务回滚有直接测试。
-- [ ] 既有资金、退款和幂等测试保持，相关场景证据已更新。
-- [ ] 注释与实际代码一致，聚焦门禁通过，地图同步。
+- [x] 三处迁移完成，四类事件字段与状态初始化不再散落。
+- [x] Appender 契约/代理/MANDATORY 和事务回滚有直接测试。
+- [x] 既有资金、退款和幂等测试保持，相关场景证据已更新。
+- [x] 注释与实际代码一致，聚焦门禁通过，地图同步。
 
 ## Comments
 
 - 2026-11-12：任务已定义，依赖 01；未开始实现。
+
+- 2026-11-12：完成类型化四事件、MANDATORY PaymentOutbox 与三处生产者迁移；聚焦54项、真实MySQL支付/退款父锁15项通过，零失败/错误/跳过。命令：./mvnw -o -Dtest=PaymentOutboxTransactionTest,PaymentNotificationAtomicityTest,PaymentNotificationBoundaryTest,PaymentSucceededProcessorIntegrationTest,ModuleDependencyTest test；同过滤的-Pmysql-it -Dit.test=PaymentNotificationMySqlIT,PaymentParentLockMySqlIT verify。日志/tmp/messaging-02-unit.log及/tmp/messaging-02-mysql.log。初次编译暴露遗留构造器/导入，修复后完整聚焦及集成重跑成功。

@@ -1,31 +1,26 @@
 package com.qsx.appoint.payment.application;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.payment.domain.PaymentChannel;
 import com.qsx.appoint.payment.entity.PaymentAttempt;
-import com.qsx.appoint.payment.entity.PaymentOutboxEvent;
 import com.qsx.appoint.payment.entity.PaymentRefund;
 import com.qsx.appoint.payment.mapper.PaymentAttemptMapper;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
-import com.qsx.appoint.payment.mapper.PaymentOutboxEventMapper;
 import com.qsx.appoint.payment.mapper.PaymentRefundMapper;
 import com.qsx.appoint.payment.port.GatewayRefundRequest;
 import com.qsx.appoint.payment.port.GatewayRefundStatus;
 import com.qsx.appoint.payment.port.GatewayRefundSubmission;
 import com.qsx.appoint.payment.port.PaymentGatewayRegistry;
+import com.qsx.appoint.payment.contract.event.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.UUID;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * 退款分段执行器：短事务claim→事务外Gateway.refund→短事务complete或fail。
@@ -38,9 +33,8 @@ class DefaultRefundWorker implements RefundWorker {
     private final PaymentRefundMapper refundMapper;
     private final PaymentAttemptMapper attemptMapper;
     private final PaymentOrderMapper paymentOrderMapper;
-    private final PaymentOutboxEventMapper outboxMapper;
+    private final PaymentOutbox paymentOutbox;
     private final PaymentGatewayRegistry gatewayRegistry;
-    private final ObjectMapper objectMapper;
     private final Clock appointmentClock;
     private final TransactionTemplate transactionTemplate;
     /** {@inheritDoc} */
@@ -137,36 +131,13 @@ class DefaultRefundWorker implements RefundWorker {
      */
     private void insertResultEvent(String type, RefundWork work, String providerRefundNo,
                                    String failureMessage, LocalDateTime now) {
-        String eventId = UUID.randomUUID().toString();
-        Map<String, Object> envelope = new LinkedHashMap<>();
-        envelope.put("eventId", eventId);
-        envelope.put("eventType", type);
-        envelope.put("eventVersion", 1);
-        envelope.put("aggregateId", work.paymentOrderId());
-        envelope.put("occurredAt", now);
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("refundId", work.refundId());
-        payload.put("refundNo", work.refundNo());
-        payload.put("paymentOrderId", work.paymentOrderId());
-        payload.put("providerRefundNo", providerRefundNo);
-        payload.put("failureMessage", failureMessage);
-        envelope.put("payload", payload);
-        PaymentOutboxEvent outbox = new PaymentOutboxEvent();
-        outbox.setEventId(eventId);
-        outbox.setAggregateType("PaymentOrder");
-        outbox.setAggregateId(work.paymentOrderId());
-        outbox.setEventType(type);
-        outbox.setEventVersion(1);
-        try {
-            outbox.setPayload(objectMapper.writeValueAsString(envelope));
-        } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        if ("RefundSucceeded".equals(type)) {
+            paymentOutbox.recordRefundSucceeded(new RefundSucceededPayload(work.refundId(), work.refundNo(),
+                    work.paymentOrderId(), providerRefundNo, null), now);
+        } else {
+            paymentOutbox.recordRefundFailed(new RefundFailedPayload(work.refundId(), work.refundNo(),
+                    work.paymentOrderId(), null, failureMessage), now);
         }
-        outbox.setOccurredAt(now);
-        outbox.setStatus("PENDING");
-        outbox.setPublishAttempts(0);
-        outbox.setNextAttemptAt(now);
-        outboxMapper.insert(outbox);
     }
     /** 校验v1、UUID及退款ID/非空编号；永久无效契约在执行渠道前拒绝。 */
     private void validate(RefundRequestedEvent event) {

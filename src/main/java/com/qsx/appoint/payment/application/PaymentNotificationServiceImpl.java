@@ -3,21 +3,18 @@ package com.qsx.appoint.payment.application;
 import com.qsx.appoint.payment.domain.PaymentOrderStatus;
 import com.qsx.appoint.payment.domain.PaymentAttemptStatus;
 import com.qsx.appoint.payment.domain.RefundReason;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.payment.domain.PaymentChannel;
 import com.qsx.appoint.payment.entity.PaymentAttempt;
 import com.qsx.appoint.payment.entity.PaymentNotification;
 import com.qsx.appoint.payment.entity.PaymentOrder;
-import com.qsx.appoint.payment.entity.PaymentOutboxEvent;
 import com.qsx.appoint.payment.mapper.PaymentAttemptMapper;
 import com.qsx.appoint.payment.mapper.PaymentNotificationMapper;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
-import com.qsx.appoint.payment.mapper.PaymentOutboxEventMapper;
 import com.qsx.appoint.payment.dto.PaymentNotificationResponse;
 import com.qsx.appoint.payment.port.VerifiedPaymentNotification;
+import com.qsx.appoint.payment.contract.event.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -26,9 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * 支付通知核心事务：快速幂等检查→父子锁上下文→锁下幂等复验→Policy→原子执行。
@@ -43,9 +37,8 @@ class PaymentNotificationServiceImpl implements PaymentNotificationService {
     private final PaymentNotificationMapper notificationMapper;
     private final PaymentAttemptMapper attemptMapper;
     private final PaymentOrderMapper paymentOrderMapper;
-    private final PaymentOutboxEventMapper outboxMapper;
+    private final PaymentOutbox paymentOutbox;
     private final PaymentRefundOperations refunds;
-    private final ObjectMapper objectMapper;
     private final Clock appointmentClock;
     /** {@inheritDoc} */
     @Override
@@ -137,12 +130,6 @@ class PaymentNotificationServiceImpl implements PaymentNotificationService {
                 String eventId = insertOutbox(payment, attempt, verified, now);
                 if (latePayment) {
                     refunds.requestFullRefund(payment.getId(), RefundReason.LATE_PAYMENT);
-                    /**
-                     * 保存已验签通知的幂等审计，并返回本次处理摘要。
-                     * <p>唯一键冲突转可重试错误，由当前事务回滚资金与事件，重试后读取既有审计。
-                     * @param eventId 本次新建成功事件ID，无新事件时为null
-                     * @return 含processingResult的摘要；审计成功不等于一定收款成功
-                     */
                     yield audit(channel, verified, payloadHash, "SUCCEEDED_REFUND_PENDING",
                             payment.getId(), "REFUND_PENDING", false, eventId);
                 }
@@ -191,49 +178,9 @@ class PaymentNotificationServiceImpl implements PaymentNotificationService {
      */
     private String insertOutbox(PaymentOrder payment, PaymentAttempt attempt,
                                 VerifiedPaymentNotification verified, LocalDateTime now) {
-        PaymentOutboxEvent event = new PaymentOutboxEvent();
-        event.setEventId(UUID.randomUUID().toString());
-        event.setAggregateType("PaymentOrder");
-        event.setAggregateId(payment.getId());
-        event.setEventType("PaymentSucceeded");
-        event.setEventVersion(1);
-        event.setPayload(payload(event.getEventId(), payment, attempt, verified, now));
-        event.setOccurredAt(now);
-        event.setStatus("PENDING");
-        event.setPublishAttempts(0);
-        event.setNextAttemptAt(now);
-        outboxMapper.insert(event);
-        return event.getEventId();
-    }
-
-    /**
-     * 构造既有v1 envelope及payload，aggregateId始终为paymentOrderId。
-     * @param occurredAt 本系统确认收款时间，同时写作paidAt；不是渠道上报时间
-     * @return JSON正文，序列化失败令资金事务回滚
-     */
-    private String payload(String eventId, PaymentOrder payment, PaymentAttempt attempt,
-                           VerifiedPaymentNotification verified, LocalDateTime occurredAt) {
-        Map<String, Object> envelope = new LinkedHashMap<>();
-        envelope.put("eventId", eventId);
-        envelope.put("eventType", "PaymentSucceeded");
-        envelope.put("eventVersion", 1);
-        envelope.put("aggregateId", payment.getId());
-        envelope.put("occurredAt", occurredAt);
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("paymentOrderId", payment.getId());
-        payload.put("appointmentOrderId", payment.getAppointmentOrderId());
-        payload.put("paymentAttemptId", attempt.getId());
-        payload.put("providerTransactionNo", verified.providerTransactionNo());
-        payload.put("amount", payment.getAmount());
-        payload.put("currency", payment.getCurrency());
-        payload.put("channel", attempt.getChannel());
-        payload.put("paidAt", occurredAt);
-        envelope.put("payload", payload);
-        try {
-            return objectMapper.writeValueAsString(envelope);
-        } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        }
+        return paymentOutbox.recordPaymentSucceeded(new PaymentSucceededPayload(payment.getId(),
+                payment.getAppointmentOrderId(), attempt.getId(), verified.providerTransactionNo(),
+                payment.getAmount(), payment.getCurrency(), attempt.getChannel(), now), now);
     }
     /** 资金或尝试迁移必须恰好命中一行，否则触发可重试并发错误并回滚审计和Outbox。 */
     private void requireOne(int updated) {

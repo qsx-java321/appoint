@@ -1,6 +1,5 @@
 package com.qsx.appoint.payment.application;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.payment.domain.PaymentChannel;
@@ -19,10 +18,10 @@ class PaymentNotificationBoundaryTest {
     private final PaymentNotificationMapper notifications = mock(PaymentNotificationMapper.class);
     private final PaymentAttemptMapper attempts = mock(PaymentAttemptMapper.class);
     private final PaymentOrderMapper payments = mock(PaymentOrderMapper.class);
-    private final PaymentOutboxEventMapper outbox = mock(PaymentOutboxEventMapper.class);
+    private final PaymentOutbox outbox = mock(PaymentOutbox.class);
     private final PaymentRefundOperations refunds = mock(PaymentRefundOperations.class);
     private final PaymentNotificationService service = new PaymentNotificationServiceImpl(
-            notifications, attempts, payments, outbox, refunds, new ObjectMapper(), Clock.systemUTC());
+            notifications, attempts, payments, outbox, refunds, Clock.systemUTC());
     private final VerifiedPaymentNotification notification = new VerifiedPaymentNotification(
             "notice", "provider-order", "transaction", GatewayPaymentStatus.SUCCEEDED,
             new BigDecimal("10.00"), "CNY", LocalDateTime.of(2026, 11, 9, 8, 0));

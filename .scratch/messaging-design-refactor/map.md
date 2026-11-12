@@ -4,7 +4,7 @@ Type: refactor
 Triage: ready-for-agent
 Status: ready-for-agent
 
-日期：2026-11-12。方案已确认，实施完成数 **1 / 9**。
+日期：2026-11-12。方案已确认，实施完成数 **2 / 9**。
 
 ## 入口与当前状态
 
@@ -20,7 +20,7 @@ Status: ready-for-agent
 | 顺序 | 任务 | Type | Status | Blocked by |
 | --- | --- | --- | --- | --- |
 | 01 | [基线与消息契约样本](issues/01-baseline-contracts.md) | test | resolved | none |
-| 02 | [类型化事件与事务内 Outbox 写入](issues/02-typed-events-and-outbox-writer.md) | refactor | ready-for-agent | 01 |
+| 02 | [类型化事件与事务内 Outbox 写入](issues/02-typed-events-and-outbox-writer.md) | refactor | resolved | 01 |
 | 03 | [严格消费契约与类型化处理结果](issues/03-consumer-contracts-and-results.md) | refactor/fix | ready-for-agent | 02 |
 | 04 | [发布接口收紧与 Rabbit 适配器迁移](issues/04-publication-port-and-adapter.md) | refactor | ready-for-agent | 03 |
 | 05 | [共用消费失败处理与完整确认矩阵](issues/05-consumer-failure-handling.md) | refactor/fix | ready-for-agent | 04 |
@@ -80,3 +80,5 @@ flowchart LR
 - 2026-11-12：完成只读交叉复核并修正数据库发布异常传播、退款最小消费字段、失败路径重试头校验和 S29 分阶段验收的表述。14 份 Markdown、36 个本地链接、9 项连续编号/依赖无环、32 个场景及初始状态一致性静态检查通过；不是生产改造或业务测试通过。
 
 - 2026-11-12：01 已验收，相关常规264、MySQL16、可靠性15通过，进入02。
+
+- 2026-11-12：02 完成类型化四事件、MANDATORY PaymentOutbox 与三处生产者迁移；聚焦54项、真实MySQL支付/退款父锁15项通过，零失败/错误/跳过。命令：./mvnw -o -Dtest=PaymentOutboxTransactionTest,PaymentNotificationAtomicityTest,PaymentNotificationBoundaryTest,PaymentSucceededProcessorIntegrationTest,ModuleDependencyTest test；同过滤的-Pmysql-it -Dit.test=PaymentNotificationMySqlIT,PaymentParentLockMySqlIT verify。日志/tmp/messaging-02-unit.log及/tmp/messaging-02-mysql.log。初次编译暴露遗留构造器/导入，修复后完整聚焦及集成重跑成功。
