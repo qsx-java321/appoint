@@ -1,0 +1,14 @@
+{
+  "eventId": "00000000-0000-0000-0000-000000000001",
+  "eventType": "RefundSucceeded",
+  "eventVersion": 1,
+  "aggregateId": 51,
+  "occurredAt": "2026-11-12T08:00:00",
+  "payload": {
+    "paymentOrderId": 51,
+    "refundId": 71,
+    "refundNo": "REF71",
+    "providerRefundNo": "PR71",
+    "failureMessage": null
+  }
+}
