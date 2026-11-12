@@ -16,6 +16,7 @@ import java.time.Duration;
 @RequiredArgsConstructor
 @Slf4j
 public class RabbitConsumerFailureHandler {
+    private static final int MAX_PROCESSING_ATTEMPTS = 3;
     private final ConfirmedMessagePublisher publisher;
 
     /**
@@ -35,9 +36,12 @@ public class RabbitConsumerFailureHandler {
             return;
         }
         Object raw = original.getMessageProperties().getHeader(route.attemptHeader());
-        long previous = raw == null ? 0 : (raw instanceof Integer || raw instanceof Long) ? ((Number)raw).longValue() : -1;
+        long previous = 0;
+        if (raw != null) {
+            previous = (raw instanceof Integer || raw instanceof Long) ? ((Number) raw).longValue() : -1;
+        }
         // 先比较再递增，防止大计数溢出重新回到首次；非法头拒绝避免热重投。
-        if (previous < 0 || previous > Integer.MAX_VALUE || previous >= 2) {
+        if (previous < 0 || previous > Integer.MAX_VALUE || previous >= MAX_PROCESSING_ATTEMPTS - 1) {
             log.error("消息失败转入DLQ，eventId={}, previousAttempts={}",eventId,raw,failure);
             channel.basicReject(tag,false);
             return;

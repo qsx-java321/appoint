@@ -2,7 +2,7 @@
 
 Type: test/docs
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 Blocked by: 06
 
 依据：[spec 第 5、8 节](../spec.md)。责任场景：S27～S29。
@@ -39,11 +39,13 @@ Blocked by: 06
 
 ## 完成条件
 
-- [ ] 新旧架构规则同时通过，每类新规则的违规 fixture 均被拒绝。
-- [ ] 所有本轮接口契约与实现一致，关键顺序有原因说明。
-- [ ] 不存在 application 的 AMQP 依赖或实体接口泄漏。
-- [ ] 常规门禁通过，S27～S28 及 S29 的接口注释/源码引用子项完成；S29 的正式文档一致性由 09 收口，不提前标整项通过。
+- [x] 新旧架构规则同时通过，每类新规则的违规 fixture 均被拒绝。
+- [x] 所有本轮接口契约与实现一致，关键顺序有原因说明。
+- [x] 不存在 application 的 AMQP 依赖或实体接口泄漏。
+- [x] 常规门禁通过，S27～S28 及 S29 的接口注释/源码引用子项完成；S29 的正式文档一致性由 09 收口，不提前标整项通过。
 
 ## Comments
 
 - 2026-11-12：任务已定义，依赖 06；不要求全面隔离同模块 Mapper。
+
+- 2026-11-12：新增AMQP/contract/common依赖约束正反例及Entity入参/record成员泄漏负例，补足四类wire字段与接口事务/失败说明；./mvnw -o test 常规318项通过，含新增架构3项和全部Codec/Listener/重放契约测试。日志/tmp/messaging-07-unit.log。S29接口与技术说明完成，正式runbook由09收口。

@@ -4,7 +4,7 @@ Type: refactor
 Triage: ready-for-agent
 Status: ready-for-agent
 
-日期：2026-11-12。方案已确认，实施完成数 **6 / 9**。
+日期：2026-11-12。方案已确认，实施完成数 **7 / 9**。
 
 ## 入口与当前状态
 
@@ -25,7 +25,7 @@ Status: ready-for-agent
 | 04 | [发布接口收紧与 Rabbit 适配器迁移](issues/04-publication-port-and-adapter.md) | refactor | resolved | 03 |
 | 05 | [共用消费失败处理与完整确认矩阵](issues/05-consumer-failure-handling.md) | refactor/fix | resolved | 04 |
 | 06 | [DLQ 重放接口与适配器](issues/06-dead-letter-replay.md) | refactor | resolved | 05 |
-| 07 | [架构约束与注释复核](issues/07-architecture-and-comments.md) | test/docs | ready-for-agent | 06 |
+| 07 | [架构约束与注释复核](issues/07-architecture-and-comments.md) | test/docs | resolved | 06 |
 | 08 | [真实事务与 Rabbit 故障窗口门禁](issues/08-reliability-gates.md) | test | ready-for-agent | 07 |
 | 09 | [正式文档同步与完整验收](issues/09-documentation-and-acceptance.md) | docs/test | ready-for-agent | 08 |
 
@@ -90,3 +90,5 @@ flowchart LR
 - 2026-11-12：05 两个Listener共用RabbitConsumerFailureHandler，保留解码/业务/成功ACK主线；增加退款Listener、计数边界及确认顺序测试。./mvnw -o -Preliability-it -Dtest=PaymentSucceededListenerTest,RefundRequestedListenerTest,RabbitConsumerFailureHandlerTest,ConfirmedMessagePublisherTest -Dit.test=OutboxPublisherReliabilityIT,PaymentConfirmationReliabilityIT verify：聚焦28、可靠性16全通过；日志/tmp/messaging-05-reliability.log。
 
 - 2026-11-12：06 DLQ重放拆为应用接口、三个逻辑目标与Rabbit适配器；EMPTY与无ID的REPLAYED可区分。./mvnw -o clean test 常规315项通过；./mvnw -o -Preliability-it -Dtest=DeadLetterReplayContractTest -Dit.test=OutboxPublisherReliabilityIT,PaymentConfirmationReliabilityIT verify：重放契约6项及可靠性16项通过。日志/tmp/messaging-06-unit.log、/tmp/messaging-06-reliability.log，零失败/错误/跳过。
+
+- 2026-11-12：07 新增AMQP/contract/common依赖约束正反例及Entity入参/record成员泄漏负例，补足四类wire字段与接口事务/失败说明；./mvnw -o test 常规318项通过，含新增架构3项和全部Codec/Listener/重放契约测试。日志/tmp/messaging-07-unit.log。S29接口与技术说明完成，正式runbook由09收口。

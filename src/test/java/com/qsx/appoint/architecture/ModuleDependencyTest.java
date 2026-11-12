@@ -23,6 +23,44 @@ class ModuleDependencyTest {
             .importPackages("com.qsx.appoint");
 
     @Test
+    void businessApplicationDoesNotDependOnRabbitTransport() {
+        noClasses().that().resideInAnyPackage("..payment.application..","..payment.domain..",
+                "..coordination.application..","..coordination.domain..")
+                .should().dependOnClassesThat().resideInAnyPackage("org.springframework.amqp..","com.rabbitmq..")
+                .check(productionClasses);
+        noClasses().that().resideInAPackage("..payment.contract.event..")
+                .should().dependOnClassesThat().resideInAnyPackage("org.springframework..","com.fasterxml.jackson..",
+                        "..mapper..","..entity..","..coordination..")
+                .check(productionClasses);
+        noClasses().that().resideInAPackage("..common.messaging..")
+                .should().dependOnClassesThat().resideInAnyPackage("..payment..","..appointment..","..coordination..")
+                .check(productionClasses);
+    }
+
+    @Test
+    void messagingDependencyRulesRejectViolations() {
+        var business = new ClassFileImporter().importClasses(com.qsx.appoint.payment.application.archfixture.BusinessToRabbit.class);
+        assertThatThrownBy(() -> noClasses().that().resideInAnyPackage("..payment.application..","..coordination.application..")
+                .should().dependOnClassesThat().resideInAnyPackage("org.springframework.amqp..","com.rabbitmq..")
+                .check(business)).isInstanceOf(AssertionError.class);
+        var contract = new ClassFileImporter().importClasses(com.qsx.appoint.payment.contract.event.archfixture.ContractToJackson.class);
+        assertThatThrownBy(() -> noClasses().that().resideInAPackage("..payment.contract.event..")
+                .should().dependOnClassesThat().resideInAnyPackage("org.springframework..","com.fasterxml.jackson..","..entity..","..mapper..","..coordination..")
+                .check(contract)).isInstanceOf(AssertionError.class);
+        var common = new ClassFileImporter().importClasses(com.qsx.appoint.common.messaging.archfixture.CommonToPayment.class);
+        assertThatThrownBy(() -> noClasses().that().resideInAPackage("..common.messaging..")
+                .should().dependOnClassesThat().resideInAnyPackage("..payment..","..appointment..","..coordination..")
+                .check(common)).isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    void inputEntityLeakIsRejectedIncludingRecordMembers() {
+        assertThatThrownBy(() -> assertPublicReturnTypes(
+                com.qsx.appoint.payment.application.archfixture.LeakingInputContract.class))
+                .isInstanceOf(AssertionError.class);
+    }
+
+    @Test
     void paymentDoesNotReachIntoAppointmentInternals() {
         noClasses()
                 .that().resideInAPackage("..payment..")
@@ -164,6 +202,12 @@ class ModuleDependencyTest {
         if (!java.lang.reflect.Modifier.isPublic(type.getModifiers())) return;
         for (var method : type.getMethods()) {
             if (java.lang.reflect.Modifier.isPublic(method.getModifiers())) {
+                if (type.isInterface()) {
+                    for (var parameter : method.getGenericParameterTypes()) {
+                        assertThat(containsEntity(parameter,new java.util.HashSet<>()))
+                                .as("application入参不得泄漏Entity: %s",method).isFalse();
+                    }
+                }
                 assertThat(containsEntity(method.getGenericReturnType(),new java.util.HashSet<>()))
                         .as("application返回值不得泄漏Entity: %s",method).isFalse();
             }
@@ -173,6 +217,11 @@ class ModuleDependencyTest {
     private boolean containsEntity(java.lang.reflect.Type type, java.util.Set<java.lang.reflect.Type> visited) {
         if (!visited.add(type)) return false;
         if (type instanceof Class<?> concrete) {
+            if (concrete.isRecord() && concrete.getName().startsWith("com.qsx.appoint.")) {
+                for (var member : concrete.getRecordComponents()) {
+                    if (containsEntity(member.getGenericType(),visited)) return true;
+                }
+            }
             return concrete.getPackageName().matches("com\\.qsx\\.appoint\\.(appointment|payment)\\.entity.*")
                     || (concrete.isArray() && containsEntity(concrete.getComponentType(),visited));
         }

@@ -29,10 +29,10 @@ public class PaymentSucceededEventCodec {
     public PaymentSucceededEvent read(byte[] body) {
         try {
             JsonNode envelope = objectMapper.readTree(body);
-            if (!"PaymentSucceeded".equals(text(envelope, "eventType"))
-                    || integer(envelope, "eventVersion") != 1) {
+            if (!"PaymentSucceeded".equals(text(envelope, "eventType"))) {
                 throw invalid();
             }
+            com.qsx.appoint.common.messaging.MessageJsonFields.versionOne(envelope);
             JsonNode payload = envelope.required("payload");
             Long aggregateId = number(envelope, "aggregateId");
             Long paymentOrderId = number(payload, "paymentOrderId");
@@ -55,11 +55,6 @@ public class PaymentSucceededEventCodec {
         String value = node.required(field).textValue();
         if (value == null || value.isBlank()) throw invalid();
         return value;
-    }
-    /** 仅接受整数版本1，禁止隐式小数或文本转换。 */
-    private int integer(JsonNode node, String field) {
-        com.qsx.appoint.common.messaging.MessageJsonFields.versionOne(node);
-        return 1;
     }
     /** 委托共享严格整数读取，保持文本与数字ID兼容。 */
     private Long number(JsonNode node, String field) {
