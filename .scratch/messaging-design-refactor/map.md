@@ -4,7 +4,7 @@ Type: refactor
 Triage: ready-for-agent
 Status: ready-for-agent
 
-日期：2026-11-12。方案已确认，实施完成数 **5 / 9**。
+日期：2026-11-12。方案已确认，实施完成数 **6 / 9**。
 
 ## 入口与当前状态
 
@@ -24,7 +24,7 @@ Status: ready-for-agent
 | 03 | [严格消费契约与类型化处理结果](issues/03-consumer-contracts-and-results.md) | refactor/fix | resolved | 02 |
 | 04 | [发布接口收紧与 Rabbit 适配器迁移](issues/04-publication-port-and-adapter.md) | refactor | resolved | 03 |
 | 05 | [共用消费失败处理与完整确认矩阵](issues/05-consumer-failure-handling.md) | refactor/fix | resolved | 04 |
-| 06 | [DLQ 重放接口与适配器](issues/06-dead-letter-replay.md) | refactor | ready-for-agent | 05 |
+| 06 | [DLQ 重放接口与适配器](issues/06-dead-letter-replay.md) | refactor | resolved | 05 |
 | 07 | [架构约束与注释复核](issues/07-architecture-and-comments.md) | test/docs | ready-for-agent | 06 |
 | 08 | [真实事务与 Rabbit 故障窗口门禁](issues/08-reliability-gates.md) | test | ready-for-agent | 07 |
 | 09 | [正式文档同步与完整验收](issues/09-documentation-and-acceptance.md) | docs/test | ready-for-agent | 08 |
@@ -88,3 +88,5 @@ flowchart LR
 - 2026-11-12：04 发布接口改为不可变OutboxMessage和明确异常，Rabbit sender迁至messaging；数据库标记异常传播回滚整批。./mvnw -o clean test 常规291项通过；./mvnw -o -Preliability-it -Dtest=ConfirmedMessagePublisherTest -Dit.test=OutboxPublisherReliabilityIT verify：确认单测5项、可靠性9项通过。日志/tmp/messaging-04-unit.log、/tmp/messaging-04-reliability.log。新增故障测试修正隔离夹具及MySQL JSON规范化的期望，异常摘要保留底层原因，最终完整重跑通过。
 
 - 2026-11-12：05 两个Listener共用RabbitConsumerFailureHandler，保留解码/业务/成功ACK主线；增加退款Listener、计数边界及确认顺序测试。./mvnw -o -Preliability-it -Dtest=PaymentSucceededListenerTest,RefundRequestedListenerTest,RabbitConsumerFailureHandlerTest,ConfirmedMessagePublisherTest -Dit.test=OutboxPublisherReliabilityIT,PaymentConfirmationReliabilityIT verify：聚焦28、可靠性16全通过；日志/tmp/messaging-05-reliability.log。
+
+- 2026-11-12：06 DLQ重放拆为应用接口、三个逻辑目标与Rabbit适配器；EMPTY与无ID的REPLAYED可区分。./mvnw -o clean test 常规315项通过；./mvnw -o -Preliability-it -Dtest=DeadLetterReplayContractTest -Dit.test=OutboxPublisherReliabilityIT,PaymentConfirmationReliabilityIT verify：重放契约6项及可靠性16项通过。日志/tmp/messaging-06-unit.log、/tmp/messaging-06-reliability.log，零失败/错误/跳过。

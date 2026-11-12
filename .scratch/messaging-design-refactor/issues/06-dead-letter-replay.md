@@ -2,7 +2,7 @@
 
 Type: refactor
 Triage: ready-for-agent
-Status: ready-for-agent
+Status: resolved
 Blocked by: 05
 
 依据：[spec 第 7.6、9 节](../spec.md)。责任场景：S25～S26。
@@ -39,11 +39,13 @@ Blocked by: 05
 
 ## 完成条件
 
-- [ ] 应用接口没有物理队列字符串、AMQP 类型或具体 Rabbit 实现依赖。
-- [ ] 三个逻辑目标精确映射既有白名单，原文及确认顺序保持。
-- [ ] 旧实现和构造调用迁移完整，运行时只有一个实现。
-- [ ] 聚焦/真实重放通过，场景和接口注释更新。
+- [x] 应用接口没有物理队列字符串、AMQP 类型或具体 Rabbit 实现依赖。
+- [x] 三个逻辑目标精确映射既有白名单，原文及确认顺序保持。
+- [x] 旧实现和构造调用迁移完整，运行时只有一个实现。
+- [x] 聚焦/真实重放通过，场景和接口注释更新。
 
 ## Comments
 
 - 2026-11-12：任务已定义，依赖 05；未新增管理入口或恢复自动化。
+
+- 2026-11-12：DLQ重放拆为应用接口、三个逻辑目标与Rabbit适配器；EMPTY与无ID的REPLAYED可区分。./mvnw -o clean test 常规315项通过；./mvnw -o -Preliability-it -Dtest=DeadLetterReplayContractTest -Dit.test=OutboxPublisherReliabilityIT,PaymentConfirmationReliabilityIT verify：重放契约6项及可靠性16项通过。日志/tmp/messaging-06-unit.log、/tmp/messaging-06-reliability.log，零失败/错误/跳过。

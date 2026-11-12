@@ -232,7 +232,7 @@ class OutboxPublisherReliabilityIT {
         Binding binding = BindingBuilder.bind(new Queue(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE))
                 .to(new TopicExchange(RabbitEventTopology.DOMAIN_EXCHANGE))
                 .with(RabbitEventTopology.PAYMENT_SUCCEEDED_ROUTING_KEY);
-        var replay = new com.qsx.appoint.payment.application.DeadLetterReplayService(rabbitTemplate, objectMapper,
+        var replay = new com.qsx.appoint.payment.messaging.RabbitDeadLetterReplayService(rabbitTemplate, objectMapper,
                 new com.qsx.appoint.common.messaging.ConfirmedMessagePublisher(rabbitTemplate));
         rabbitTemplate.convertAndSend(RabbitEventTopology.DEAD_LETTER_EXCHANGE,
                 RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE,
@@ -246,20 +246,20 @@ class OutboxPublisherReliabilityIT {
                 assertThat(rabbitAdmin.getQueueProperties(dlq).get(RabbitAdmin.QUEUE_MESSAGE_COUNT)).isEqualTo(1));
         rabbitAdmin.removeBinding(binding);
         try {
-            org.assertj.core.api.Assertions.assertThatThrownBy(() -> replay.replayOne(dlq))
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> replay.replayOne(com.qsx.appoint.payment.application.ReplayTarget.PAYMENT_SUCCEEDED))
                     .isInstanceOf(RuntimeException.class);
             assertThat(rabbitAdmin.getQueueProperties(dlq).get(RabbitAdmin.QUEUE_MESSAGE_COUNT)).isEqualTo(1);
         } finally {
             rabbitAdmin.declareBinding(binding);
         }
-        assertThat(replay.replayOne(dlq)).isEqualTo(eventId);
+        assertThat(replay.replayOne(com.qsx.appoint.payment.application.ReplayTarget.PAYMENT_SUCCEEDED).eventId()).isEqualTo(eventId);
         Message restored = rabbitTemplate.receive(RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE, 5_000);
         assertThat(restored).isNotNull();
         assertThat(restored.getMessageProperties().getMessageId()).isEqualTo(eventId);
         assertThat(restored.getMessageProperties().getHeaders()).doesNotContainKeys("payment-succeeded-attempt", "refund-attempt");
         assertThat(restored.getMessageProperties().getExpiration()).isNull();
         assertThat(new String(restored.getBody(), java.nio.charset.StandardCharsets.UTF_8)).contains(eventId);
-        assertThat(replay.replayOne(dlq)).isNull();
+        assertThat(replay.replayOne(com.qsx.appoint.payment.application.ReplayTarget.PAYMENT_SUCCEEDED).status()).isEqualTo(com.qsx.appoint.payment.application.ReplayResult.Status.EMPTY);
     }
 
     @Test

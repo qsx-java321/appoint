@@ -107,7 +107,7 @@ class PaymentConfirmationReliabilityIT {
                     return message;
                 });
         await().untilAsserted(() -> assertThat(replayService.replayOne(
-                RabbitEventTopology.PAYMENT_SUCCEEDED_QUEUE + ".dlq")).isEqualTo(event.getEventId()));
+                com.qsx.appoint.payment.application.ReplayTarget.PAYMENT_SUCCEEDED).eventId()).isEqualTo(event.getEventId()));
         await().untilAsserted(() -> assertThat(inboxCount(event.getEventId())).isEqualTo(1));
     }
 
