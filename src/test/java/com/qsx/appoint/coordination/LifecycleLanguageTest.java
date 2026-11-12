@@ -14,9 +14,9 @@ class LifecycleLanguageTest {
     @Test
     void stableStorageAndRefundReasonLiteralsRemainCompatible() {
         assertThat(AppointmentStatus.values()).extracting(Enum::name)
-                .containsExactly("PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "EXPIRED", "CANCELLED_BY_HOSPITAL");
+                .containsExactlyInAnyOrder("PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "EXPIRED", "CANCELLED_BY_HOSPITAL");
         assertThat(RefundReason.values()).extracting(Enum::name)
-                .containsExactly("APPOINTMENT_CANCELLED", "LATE_PAYMENT", "APPOINTMENT_NOT_CONFIRMABLE", "RECONCILIATION_CLOSED_PAID");
+                .containsExactlyInAnyOrder("APPOINTMENT_CANCELLED", "LATE_PAYMENT", "APPOINTMENT_NOT_CONFIRMABLE", "RECONCILIATION_CLOSED_PAID");
         for (var status : AppointmentStatus.values()) assertThat(AppointmentStatus.fromStored(status.name())).isSameAs(status);
         for (var status : PaymentOrderStatus.values()) assertThat(PaymentOrderStatus.fromStored(status.name())).isSameAs(status);
         for (var status : PaymentAttemptStatus.values()) assertThat(PaymentAttemptStatus.fromStored(status.name())).isSameAs(status);

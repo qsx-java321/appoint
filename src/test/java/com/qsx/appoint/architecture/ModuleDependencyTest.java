@@ -17,8 +17,9 @@ import org.apache.ibatis.annotations.Update;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.bookingquery.persistence.BookingQueryMapper;
 
+/** 类内只扫描一次生产类；违规样例分别导入，不能污染正向规则的被测集合。 */
 class ModuleDependencyTest {
-    private final JavaClasses productionClasses = new ClassFileImporter()
+    private static final JavaClasses PRODUCTION_CLASSES = new ClassFileImporter()
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
             .importPackages("com.qsx.appoint");
 
@@ -27,14 +28,14 @@ class ModuleDependencyTest {
         noClasses().that().resideInAnyPackage("..payment.application..","..payment.domain..",
                 "..coordination.application..","..coordination.domain..")
                 .should().dependOnClassesThat().resideInAnyPackage("org.springframework.amqp..","com.rabbitmq..")
-                .check(productionClasses);
+                .check(PRODUCTION_CLASSES);
         noClasses().that().resideInAPackage("..payment.contract.event..")
                 .should().dependOnClassesThat().resideInAnyPackage("org.springframework..","com.fasterxml.jackson..",
                         "..mapper..","..entity..","..coordination..")
-                .check(productionClasses);
+                .check(PRODUCTION_CLASSES);
         noClasses().that().resideInAPackage("..common.messaging..")
                 .should().dependOnClassesThat().resideInAnyPackage("..payment..","..appointment..","..coordination..")
-                .check(productionClasses);
+                .check(PRODUCTION_CLASSES);
     }
 
     @Test
@@ -66,12 +67,12 @@ class ModuleDependencyTest {
                 .that().resideInAPackage("..payment..")
                 .should().dependOnClassesThat().resideInAPackage("..appointment..")
                 .because("支付写模块只能通过稳定 application interface 或事件与预约协作")
-                .check(productionClasses);
+                .check(PRODUCTION_CLASSES);
     }
 
     @Test
     void appointmentDoesNotAddNewPaymentPersistenceDependencies() {
-        appointmentPersistenceRule().check(productionClasses);
+        appointmentPersistenceRule().check(PRODUCTION_CLASSES);
     }
 
     @Test
@@ -98,7 +99,7 @@ class ModuleDependencyTest {
                 .that().resideInAPackage("..appointment..")
                 .should().dependOnClassesThat().resideInAPackage("..payment..")
                 .because("预约写模块只能经协调模块与支付协作")
-                .check(productionClasses);
+                .check(PRODUCTION_CLASSES);
     }
 
     @Test
@@ -109,7 +110,7 @@ class ModuleDependencyTest {
                         "..appointment.entity..", "..appointment.mapper..")
                 .should().dependOnClassesThat().resideInAPackage("..coordination..")
                 .because("协调层可以调用预约 application interface，预约业务层不能反向依赖协调层")
-                .check(productionClasses);
+                .check(PRODUCTION_CLASSES);
     }
 
     @Test
@@ -121,7 +122,7 @@ class ModuleDependencyTest {
                         "..payment.mapper..", "..payment.entity..")
                 .because("协调模块只依赖两个写模块的 application interface")
                 .allowEmptyShould(true)
-                .check(productionClasses);
+                .check(PRODUCTION_CLASSES);
     }
 
     @Test
@@ -130,7 +131,7 @@ class ModuleDependencyTest {
                 .that().resideInAnyPackage("..appointment..", "..payment..")
                 .should().dependOnClassesThat().resideInAPackage("..bookingquery..")
                 .because("写模块不能反向依赖只读组合投影")
-                .check(productionClasses);
+                .check(PRODUCTION_CLASSES);
     }
 
     @Test
@@ -145,7 +146,7 @@ class ModuleDependencyTest {
     }
     @Test
     void coordinationOnlyUsesWriteModuleInterfacesAndFacts() {
-        implementationRule().check(productionClasses);
+        implementationRule().check(PRODUCTION_CLASSES);
     }
 
     @Test
@@ -181,7 +182,7 @@ class ModuleDependencyTest {
 
     @Test
     void publicApplicationReturnsDoNotExposePersistenceEntities() throws Exception {
-        for (var imported : productionClasses) {
+        for (var imported : PRODUCTION_CLASSES) {
             if (imported.getPackageName().contains(".application")) {
                 var type = Class.forName(imported.getName(),false,getClass().getClassLoader());
                 assertPublicReturnTypes(type);
@@ -241,7 +242,7 @@ class ModuleDependencyTest {
     }
 
     @Test
-    void controllersDoNotAccessMappers() { controllerRule().check(productionClasses); }
+    void controllersDoNotAccessMappers() { controllerRule().check(PRODUCTION_CLASSES); }
 
     @Test
     void controllerRuleRejectsDirectMapperAccess() {
@@ -276,10 +277,10 @@ class ModuleDependencyTest {
                 .should().dependOnClassesThat().resideInAnyPackage("..bookingquery..", "..appointment.mapper..",
                         "..appointment.entity..", "..payment..", "..catalog.mapper..", "..catalog.entity..",
                         "..user.mapper..", "..user.entity..")
-                .check(productionClasses);
+                .check(PRODUCTION_CLASSES);
         noClasses().that().resideInAnyPackage("..appointment..", "..payment..")
                 .should().dependOnClassesThat().resideInAnyPackage("..visit.application..", "..visit.entity..", "..visit.mapper..")
-                .check(productionClasses);
+                .check(PRODUCTION_CLASSES);
     }
 
     private void assertReadOnly(Class<?> mapper) {

@@ -6,9 +6,6 @@ import com.qsx.appoint.payment.adapter.mock.MockPaymentGateway;
 import com.qsx.appoint.payment.domain.PaymentChannel;
 import com.qsx.appoint.payment.port.*;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -17,15 +14,16 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:gateway-contract;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
-        "appoint.expiration.enabled=false",
-        "appoint.mock-pay.signing-key=contract-test-key"
-})
-@ActiveProfiles("test")
+/** 直接构造真实Mock渠道及Registry，每例新建内存状态；Spring装配和profile由集成测试负责。 */
 class PaymentGatewayContractTest {
-    @Autowired private PaymentGatewayRegistry registry;
-    @Autowired private MockPaymentGateway mockGateway;
+    private PaymentGatewayRegistry registry;
+    private MockPaymentGateway mockGateway;
+
+    @org.junit.jupiter.api.BeforeEach
+    void createFreshGateway() {
+        mockGateway = new MockPaymentGateway("contract-test-key");
+        registry = new PaymentGatewayRegistry(java.util.List.of(mockGateway));
+    }
 
     @Test
     void registryResolvesMockAndRejectsUnavailableChannel() {
@@ -99,7 +97,8 @@ class PaymentGatewayContractTest {
         mockGateway.complete(paid.providerOrderNo(), unique("notify"), LocalDateTime.now());
         assertThatThrownBy(() -> mockGateway.closePayment(new GatewayCloseRequest(
                 paidRequest.paymentNo(), paidRequest.attemptNo(), paid.providerOrderNo())))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOfSatisfying(BusinessException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.ORDER_STATE_ERROR));
     }
 
     @Test

@@ -79,3 +79,9 @@
 - 命令：`./mvnw -o -Preliability-it -Dtest=PaymentOutboxTransactionTest,MessageConsumerContractTest,PaymentSucceededEventCodecTest,PaymentSucceededListenerTest,RefundRequestedListenerTest,RabbitConsumerFailureHandlerTest,ConfirmedMessagePublisherTest,DeadLetterReplayContractTest verify`
 - 日志：`/tmp/test-refactor-05.log`
 - Maven汇总（普通/集成分别计）：[('85', '0', '0', '0'), ('16', '0', '0', '0')]；耗时：['01:34 min']; BUILD SUCCESS=True。
+
+## 06 完整常规
+
+- 命令：`./mvnw -o test`
+- 日志：`/tmp/test-refactor-06.log`
+- Maven汇总（普通/集成分别计）：[('340', '0', '0', '0')]；耗时：['36.942 s']; BUILD SUCCESS=True。
