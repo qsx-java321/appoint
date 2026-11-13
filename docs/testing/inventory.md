@@ -1,6 +1,6 @@
 # 当前测试类清单
 
-签到窗口增量核对：2026-11-13，基于`4bfc1d5`未提交工作区；历史核对基线为`1e83c0c`。表中方法数含参数化方法，不等于执行用例数；显式 profile 指测试类注解，Maven 执行入口见[测试约定](../testing.md)。所有表列类已与当前源码核对。历史原方法迁移见[审计](../../.scratch/archive/delivery-quality/evidence/test-suite-refactor/method-audit.md)。
+签到窗口增量核对：2026-11-13，实现交付`d75f73c`（基线`4bfc1d5`，源码摘要与提交一致）；历史核对基线为`1e83c0c`。表中方法数含参数化方法，不等于执行用例数；显式 profile 指测试类注解，Maven 执行入口见[测试约定](../testing.md)。所有表列类已与当前源码核对。历史原方法迁移见[审计](../../.scratch/archive/delivery-quality/evidence/test-suite-refactor/method-audit.md)。
 
 | 测试类 | 层次/数据库 | 显式profile | 时钟 | 隔离方式 | 方法数 |
 | --- | --- | --- | --- | --- | --- |

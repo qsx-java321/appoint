@@ -1,0 +1,25 @@
+{
+  "implementationCommit": "d75f73c65e01bf2e956686715a2c3400be526150",
+  "sourceFilesVerifiedAgainstCommit": 368,
+  "byteExactSourceFiles": 367,
+  "gitLineEndingNormalizationFiles": [
+    "mvnw.cmd"
+  ],
+  "sourceManifestSha256": "7a112306e7275a60293a6c16c990fef5b374fa720420a3461f61a808ce335f16",
+  "archivedEvidenceFiles": [
+    "final-focused-suites.json",
+    "final-unit-suites.json",
+    "documentation-check.json",
+    "checker-regression-checks.json",
+    "final-counts.json",
+    "runtime-contract-checks.json",
+    "resource-audit.json",
+    "final-mysql-suites.json",
+    "final-reliability-suites.json",
+    "code-manifest.sha256",
+    "curl-report.json"
+  ],
+  "archivedEvidenceBytesMatchOriginal": true,
+  "businessTestsRerunForDocumentationCommit": false,
+  "pushed": false
+}

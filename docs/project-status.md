@@ -1,6 +1,6 @@
 # 当前项目状态与文档入口
 
-核对日期：2026-11-13（Asia/Shanghai）。签到窗口改造基于`4bfc1d5`未提交工作区，代码、完整回归、正式文档与核验工具已完成，尚未提交或推送。前次实现/测试交付为`71e4ec8`，测试源码检查点为`9c5878b`；其结果独立保留。
+核对日期：2026-11-13（Asia/Shanghai）。签到窗口改造实现已本地提交为`d75f73c`（基线`4bfc1d5`），代码、完整回归、正式文档与核验工具已完成；未推送。前次实现/测试交付为`71e4ec8`，测试源码检查点为`9c5878b`；其结果独立保留。
 
 ## 当前已完成
 
@@ -24,18 +24,18 @@
 
 ## 最新实际验收
 
-2026-11-13签到窗口改造（`4bfc1d5`未提交工作区）：聚焦106、干净常规381、完整MySQL38、可靠性16通过，零失败/错误/跳过；隔离curl92请求符合预期。聚焦和集成profile重复常规不累计。[实际验收](../.scratch/visit-checkin-window/verification/report.md)保存命令、源码摘要、逐用例、HTTP及资源证据。
+2026-11-13签到窗口改造（实现交付`d75f73c`，验收源码摘要与该提交一致）：聚焦106、干净常规381、完整MySQL38、可靠性16通过，零失败/错误/跳过；隔离curl92请求符合预期。聚焦和集成profile重复常规不累计。[实际验收](../.scratch/visit-checkin-window/verification/report.md)保存命令、源码摘要、逐用例、HTTP及资源证据。
 
 前次2026-11-12测试整理的340/38/16及curl92保留在[历史验收](../.scratch/archive/delivery-quality/evidence/test-suite-refactor/final-acceptance.md)，对应源码9c5878b，不作为本次验证。当前基础服务已恢复停止，容器和卷保留；需要体验时按启动约定重新启动。
 
 ## 交付档案与阅读
 
-本阶段业务和工程任务已交付，14个阶段合并为[六组交付档案](../.scratch/README.md)。历史任务全文可按[去向清单](../.scratch/archive-manifest.json)中的提交和原路径读取。档案里的“当前”“新增”和旧命令按历史检查点理解。
+业务和工程任务已交付；原14个阶段保存在[六组交付档案](../.scratch/README.md)，签到窗口增量已追加到[到院接诊档案](../.scratch/archive/visit-workflow/summary.md#2026-11-13-签到窗口增量)。历史任务全文可按[去向清单](../.scratch/archive-manifest.json)中的提交和原路径读取。档案里的“当前”“新增”和旧命令按历史检查点理解。
 
 当前就诊要求见[正式需求](visit/requirements.md)，测试类与职责见[清单](testing/inventory.md)和[场景覆盖](testing/scenario-coverage.md)。旧七天入口由ADR0007替代；历史测试结果分别保留。
 
 ## 维护约定
 
-已完成增量：[签到时间窗口方案](../.scratch/visit-checkin-window/spec.md)，规则为[预约开始前30分钟,预约结束)，历史已签保留，医生可截止后/跨日接诊，超时未签不自动取消或退款。详见[ADR0008](adr/0008-visit-checkin-window.md)、[任务地图](../.scratch/visit-checkin-window/map.md)和[本任务验收](../.scratch/visit-checkin-window/verification/report.md)。尚未提交，原任务资料保留。
+已完成增量：[签到时间窗口方案](../.scratch/visit-checkin-window/spec.md)，规则为[预约开始前30分钟,预约结束)，历史已签保留，医生可截止后/跨日接诊，超时未签不自动取消或退款。详见[ADR0008](adr/0008-visit-checkin-window.md)、[任务地图](../.scratch/visit-checkin-window/map.md)和[本任务验收](../.scratch/visit-checkin-window/verification/report.md)。实现交付为`d75f73c`，未推送；原任务资料保留，验收证据已归入到院接诊档案。
 
 修改REST或DTO时同步API和HTTP示例；修改时间/状态/事务规则时同步业务流程、模块/就诊设计及相关ADR；修改测试职责时同步测试约定和场景映射。完成任务后按issue约定同步状态、归档交付总结，保存实际执行命令与源码检查点。文档链接和静态契约检查通过不替代业务测试。

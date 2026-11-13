@@ -89,7 +89,7 @@
 
 ## 签到窗口
 
-2026-11-13增量以`4bfc1d5`未提交工作区为基线；本任务实际结果与源码摘要见[签到窗口验收](../../.scratch/visit-checkin-window/verification/report.md)。历史通过保持原检查点，不能替代本任务验证。
+2026-11-13增量实现交付为`d75f73c`，实现基线`4bfc1d5`；本任务实际结果与源码摘要见[签到窗口验收](../../.scratch/visit-checkin-window/verification/report.md)。历史通过保持原检查点，不能替代本任务验证。
 
 | 场景 | 预期行为 | 当前测试入口或证据 |
 | --- | --- | --- |

@@ -2,9 +2,9 @@
 
 ## 最新业务验收
 
-2026-11-13签到窗口改造，基于`4bfc1d5`未提交工作区：聚焦106、干净常规381、MySQL38、可靠性16通过，零失败/错误/跳过；隔离curl92请求状态全部符合预期。聚焦属于常规子集，集成profile重复常规不累计。
+2026-11-13签到窗口改造，实现交付`d75f73c`（基线`4bfc1d5`，验收摘要与该提交一致）：聚焦106、干净常规381、MySQL38、可靠性16通过，零失败/错误/跳过；隔离curl92请求状态全部符合预期。聚焦属于常规子集，集成profile重复常规不累计。
 
-[本任务验收](../.scratch/visit-checkin-window/verification/report.md)保存命令、源码摘要、逐用例、HTTP和资源复核。服务已恢复停止、原卷保留；没有提交或推送。前次测试源码9c5878b的340/38/16/92结果独立保留在[历史验收](../.scratch/archive/delivery-quality/evidence/test-suite-refactor/final-acceptance.md)。当前边界见[项目状态](project-status.md)。
+[本任务验收](../.scratch/visit-checkin-window/verification/report.md)保存命令、源码摘要、逐用例、HTTP和资源复核。服务已恢复停止、原卷保留；实现已本地提交为`d75f73c`，未推送。前次测试源码9c5878b的340/38/16/92结果独立保留在[历史验收](../.scratch/archive/delivery-quality/evidence/test-suite-refactor/final-acceptance.md)。归档见[签到窗口验收档案](../.scratch/archive/visit-workflow/evidence/visit-checkin-window/report.md)。当前边界见[项目状态](project-status.md)。
 
 ## 按日期追溯
 
@@ -18,7 +18,7 @@
 | 2026-11-12 测试整理 | 常规340、MySQL38、可靠性16、curl92 | [最终验收](../.scratch/archive/delivery-quality/evidence/test-suite-refactor/final-acceptance.md) |
 | 2026-11-12 文档对齐 | REST/DTO、链接、JSON和示例静态检查；未重跑业务测试 | [原复核记录](../.scratch/archive/delivery-quality/evidence/documentation-alignment/report.md) |
 | 2026-11-12 文档归档整理 | 文件去向、证据摘要、当前契约与导航检查；未重跑业务测试 | [整理报告](../.scratch/archive/delivery-quality/evidence/documentation-consolidation/report.md) |
-| 2026-11-13 签到窗口 | 聚焦106、常规381、MySQL38、可靠性16、curl92；未提交 | [本任务验收](../.scratch/visit-checkin-window/verification/report.md) |
+| 2026-11-13 签到窗口 | 聚焦106、常规381、MySQL38、可靠性16、curl92；实现交付d75f73c | [本任务验收](../.scratch/visit-checkin-window/verification/report.md) |
 
 ## 证据的适用范围
 

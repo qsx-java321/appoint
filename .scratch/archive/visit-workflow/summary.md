@@ -49,3 +49,13 @@ git show 1e83c0c6bb4ddfcdfe22196d1309e7e0c04c5bef:.scratch/visit-workflow/spec.m
 历史详细说明：[visit-design-history](evidence/visit-design-history.md)。
 
 历史详细说明：[visit-change-history](evidence/visit-change-history.md)。
+
+## 2026-11-13 签到窗口增量
+
+实现交付提交：`d75f73c65e01bf2e956686715a2c3400be526150`，实现基线4bfc1d5。任务01规则、02实现、03验证、04文档与工具均resolved；[原方案和任务](../../visit-checkin-window/map.md)保留，可通过该实现提交追溯，不在本次合并删除，因此不修改原148份档案的去向清单。
+
+本增量将首次签到从就诊日全天改为预约快照[开始前30分钟,结束)，新增窗口响应与4503/4504，4502状态错误优先；旧已签事实保留，医生可截止后或跨日接诊。未签到超时不自动取消、退款、释放库存、删占用或标记爽约。上文早期全天规则及241/36/15等数字仍属于原交付检查点。
+
+本轮聚焦106、干净常规381、MySQL38、可靠性16及curl92全部通过，聚焦与重复常规不累计。源码368文件与实现提交逐项核对：367份字节一致，mvnw.cmd仅由Git按core.autocrlf=input规范化CRLF为LF；隔离资源已清理，基础服务恢复停止，容器和原卷保留。本轮仅本地提交，未推送。
+
+命令、逐用例、HTTP、失败修正及限制见[独立验收档案](evidence/visit-checkin-window/report.md)。JSON/摘要原内容复制归档，活动目录保留同份证据供现行核验工具使用。

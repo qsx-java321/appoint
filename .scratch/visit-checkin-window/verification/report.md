@@ -1,6 +1,6 @@
 # 签到窗口实际验收
 
-执行日期：2026-11-13（Asia/Shanghai）。代码基线为`4bfc1d513bbe7a5649e1e073a5fe60d7efe809d4`，本次交付为未提交工作区，没有新提交或推送。任务01固定规则、02实现、03完整验证、04文档与工具交付。
+执行日期：2026-11-13（Asia/Shanghai）。代码基线为`4bfc1d513bbe7a5649e1e073a5fe60d7efe809d4`，验收时为未提交工作区，随后实现交付为`d75f73c65e01bf2e956686715a2c3400be526150`，未推送。任务01固定规则、02实现、03完整验证、04文档与工具交付。
 
 ## 行为与关键取舍
 
@@ -42,6 +42,8 @@ W01～W12逐项入口见[覆盖映射](../../../docs/testing/scenario-coverage.m
 
 [资源复核](resource-audit.json)：本轮隔离数据库、MySQL账号与RabbitMQ vhost剩余均为0；三个Compose服务恢复为停止状态，容器和原数据卷保留；项目Java进程和8080监听均为0。原始运行日志在该JSON记录的/tmp目录中暂存，不纳入交付，持久证据为本目录摘要与脱敏HTTP。
 
-正式规则/API/HTTP、业务及模块设计、测试清单/覆盖映射已同步，新增ADR0008；历史档案未改写。原方案、地图和任务全文尚无本任务Git检查点，按issue约定继续保留，待后续明确提交后再处理归档。原有scripts/__pycache__/保留且不纳入提交。
+正式规则/API/HTTP、业务及模块设计、测试清单/覆盖映射已同步，新增ADR0008。实现提交`d75f73c65e01bf2e956686715a2c3400be526150`可追溯全部原方案、地图和任务全文；原文保留，验收证据已按原内容复制到到院接诊档案。早期规则和数字保持原检查点。原有scripts/__pycache__/保留且不纳入提交。
 
-最终执行`python3 scripts/check_documentation.py`与`git diff --check`，均通过；文档静态结果见[documentation-check.json](documentation-check.json)，当前源码与368文件验收摘要一致。任务01～04全部resolved，未提交、未推送。
+最终执行`python3 scripts/check_documentation.py`与`git diff --check`，均通过；文档静态结果见[documentation-check.json](documentation-check.json)，当前源码与368文件验收摘要一致。任务01～04全部resolved，实现已本地提交为`d75f73c`，未推送。
+
+提交后的文档/进度核对见[交付记录](../delivery.md)；验收时final-counts.json中的uncommittedWorkingTree保留原事实，不改写成“提交后重跑”。

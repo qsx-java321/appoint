@@ -1,6 +1,6 @@
 # 核心模块代码设计与事务契约
 
-签到窗口于2026-11-13按新规则更新，源码基于`4bfc1d5`的未提交工作区；决策见[ADR0008](adr/0008-visit-checkin-window.md)。
+签到窗口于2026-11-13按新规则更新，实现交付为`d75f73c`（基于`4bfc1d5`）；决策见[ADR0008](adr/0008-visit-checkin-window.md)。
 
 本文对应预约支付核心模块及新增 visit 就诊模块的当前实现。业务结果见 [业务流程](business-flow.md)，HTTP 字段见 [API](api.md)，历史实测覆盖与后续文档核对见 [验证报告](verification-report.md)。系统仍是一个 Spring Boot 应用、同一 MySQL，原四模块改造保留既有数据库和事件版本；数据库最新为 V10；三天窗口、消息设计和测试整理均已交付，后两轮未新增迁移，事件契约仍为 v1；Redis 仅作为本地依赖运行。
 

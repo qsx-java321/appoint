@@ -1,8 +1,8 @@
 # 任务入口与历史交付档案
 
-## 已完成、待提交的增量
+## 最近交付
 
-- [签到时间窗口改造](visit-checkin-window/spec.md)：[开诊前30分钟,场次结束)规则已实现；聚焦106、常规381、MySQL38、可靠性16及curl92通过，文档与工具同步。[任务地图](visit-checkin-window/map.md) · [实际验收](visit-checkin-window/verification/report.md)。尚未提交或推送，原方案/任务待可追溯Git检查点后再归档。
+- [签到时间窗口改造](visit-checkin-window/spec.md)：[开诊前30分钟,场次结束)规则已实现；聚焦106、常规381、MySQL38、可靠性16及curl92通过，文档与工具同步。[任务地图](visit-checkin-window/map.md) · [实际验收](visit-checkin-window/verification/report.md)。实现交付`d75f73c`，未推送。[交付记录](visit-checkin-window/delivery.md)；证据已归入到院接诊档案，原方案/任务保留。
 
 ## 已交付档案
 

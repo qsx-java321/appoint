@@ -1,6 +1,6 @@
 # REST API
 
-签到窗口于2026-11-13按新规则更新，源码基于`4bfc1d5`的未提交工作区；决策见[ADR0008](adr/0008-visit-checkin-window.md)。
+签到窗口于2026-11-13按新规则更新，实现交付为`d75f73c`（基于`4bfc1d5`）；决策见[ADR0008](adr/0008-visit-checkin-window.md)。
 
 本文为现行HTTP契约，2026-11-12已对照Controller/DTO复核。进度见[当前项目状态](project-status.md)。固定年月日的JSON仅说明字段和时间关系，不承诺在阅读当天可直接下单；实际日期以服务端目录和截止为准。
 

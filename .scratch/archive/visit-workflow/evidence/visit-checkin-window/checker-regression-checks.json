@@ -1,0 +1,7 @@
+{
+  "normalCurrentEvidenceMatches": true,
+  "simulatedCurrentSourceDriftReportedWithoutFreezingHistory": true,
+  "simulatedHistoricalSourceCorruptionRejected": true,
+  "simulatedNewAcceptanceCountCorruptionRejected": true,
+  "simulationMethod": "仅在进程内替换读取结果，未修改工作区源码或证据"
+}
