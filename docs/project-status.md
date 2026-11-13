@@ -12,9 +12,11 @@
 | 到院接诊 | [开诊前30分钟,场次结束)签到→候诊→开始→完成，医生四场概览/名单/详情，双方查询一致；完成不释放库存 | [就诊设计](visit/design.md)、[就诊API](visit/api.md) |
 | 工程验证 | 消息设计九步和测试整理八步均完成，接口契约、架构正反例、真实事务/并发/故障窗口及隔离HTTP均已验证 | [测试约定](testing.md)、[最新验收](../.scratch/visit-checkin-window/verification/report.md) |
 
-数据库最新迁移为V10；单Spring Boot、单Maven和共享MySQL的模块化单体保持。Redis不参与当前业务。创建、付款资格以持久化截止及服务端业务时间为准，不能把停止新单与原订单失去支付资格混为一谈。
+数据库最新迁移为V10；单Spring Boot、单Maven和共享MySQL的模块化单体保持。Redis已接入医院、科室、医生目录缓存，本轮完整验收已通过。创建、付款资格以持久化截止及服务端业务时间为准，不能把停止新单与原订单失去支付资格混为一谈。
 
 ## 当前边界
+
+- Redis首期仅缓存目录；限流、场次缓存和JWT撤销未实施。范围及步骤见[方案](redis-catalog-cache-design.md)和[任务地图](../.scratch/redis-catalog-cache/map.md)。
 
 - 未接入真实支付资金渠道；MockPay只在dev/test注册，prod不注册Mock渠道/入口。
 - 没有业务前端。旧独立讲解页`docs/business-flow-demo.html`已在四场次改造中删除，不是当前交付物。
@@ -24,9 +26,11 @@
 
 ## 最新实际验收
 
+2026-11-14 Redis目录缓存：干净常规389、Redis7、MySQL38、可靠性16及curl97请求通过；Redis启动前不可达补强复验通过，零失败/错误/跳过，profile重复常规不累计。[交付与证据](../.scratch/archive/redis-catalog-cache/summary.md)。数据库仍为V10。
+
 2026-11-13签到窗口改造（实现交付`d75f73c`，验收源码摘要与该提交一致）：聚焦106、干净常规381、完整MySQL38、可靠性16通过，零失败/错误/跳过；隔离curl92请求符合预期。聚焦和集成profile重复常规不累计。[实际验收](../.scratch/visit-checkin-window/verification/report.md)保存命令、源码摘要、逐用例、HTTP及资源证据。
 
-前次2026-11-12测试整理的340/38/16及curl92保留在[历史验收](../.scratch/archive/delivery-quality/evidence/test-suite-refactor/final-acceptance.md)，对应源码9c5878b，不作为本次验证。当前基础服务已恢复停止，容器和卷保留；需要体验时按启动约定重新启动。
+前次2026-11-12测试整理的340/38/16及curl92保留在[历史验收](../.scratch/archive/delivery-quality/evidence/test-suite-refactor/final-acceptance.md)，对应源码9c5878b，不作为本次验证。该历史验收结束时基础服务已恢复停止，容器和卷保留；需要体验时按启动约定重新启动。
 
 ## 交付档案与阅读
 

@@ -2,6 +2,8 @@
 
 ## 最近交付
 
+- [Redis目录缓存交付](archive/redis-catalog-cache/summary.md)：医院、科室、医生共享缓存、提交后失效、故障回源与隔离验收已完成；常规389、Redis7、MySQL38、可靠性16及HTTP97通过。
+
 - [签到时间窗口改造](visit-checkin-window/spec.md)：[开诊前30分钟,场次结束)规则已实现；聚焦106、常规381、MySQL38、可靠性16及curl92通过，文档与工具同步。[任务地图](visit-checkin-window/map.md) · [实际验收](visit-checkin-window/verification/report.md)。实现交付`d75f73c`，未推送。[交付记录](visit-checkin-window/delivery.md)；证据已归入到院接诊档案，原方案/任务保留。
 
 ## 已交付档案
@@ -10,6 +12,7 @@
 
 | 主题 | 交付档案 |
 | --- | --- |
+| Redis目录缓存交付 | [总结](archive/redis-catalog-cache/summary.md) |
 | 到院签到与门诊接诊交付 | [总结](archive/visit-workflow/summary.md) |
 | 消息代码设计交付 | [总结](archive/messaging-design/summary.md) |
 | 四场次与预约时间交付 | [总结](archive/booking-time/summary.md) |

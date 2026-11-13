@@ -1,0 +1,539 @@
+[
+  {
+    "kind": "unit",
+    "command": "./mvnw -o clean test",
+    "exitCode": 0,
+    "suites": [
+      {
+        "name": "com.qsx.appoint.ApiFlowIntegrationTest",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "1.606"
+      },
+      {
+        "name": "com.qsx.appoint.appointment.AppointmentExpirationJobTest",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.119"
+      },
+      {
+        "name": "com.qsx.appoint.appointment.AppointmentIdempotencyIntegrationTest",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "2.035"
+      },
+      {
+        "name": "com.qsx.appoint.appointment.AppointmentLifecycleIntegrationTest",
+        "tests": "12",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "2.548"
+      },
+      {
+        "name": "com.qsx.appoint.appointment.AppointmentLifecycleInterfaceTest",
+        "tests": "9",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.645"
+      },
+      {
+        "name": "com.qsx.appoint.appointment.AppointmentQueryIntegrationTest",
+        "tests": "10",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "2.786"
+      },
+      {
+        "name": "com.qsx.appoint.appointment.BookingMidnightIntegrationTest",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.623"
+      },
+      {
+        "name": "com.qsx.appoint.appointment.OnDemandBookingHttpTest",
+        "tests": "14",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.936"
+      },
+      {
+        "name": "com.qsx.appoint.appointment.ScheduleInventoryIntegrationTest",
+        "tests": "6",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.926"
+      },
+      {
+        "name": "com.qsx.appoint.architecture.ModuleDependencyTest",
+        "tests": "20",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "2.559"
+      },
+      {
+        "name": "com.qsx.appoint.bookingquery.application.AppointmentResponseAssemblerTest",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.013"
+      },
+      {
+        "name": "com.qsx.appoint.bookingquery.application.BookingQueryServiceTest",
+        "tests": "3",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.079"
+      },
+      {
+        "name": "com.qsx.appoint.bookingquery.application.BookingWorkflowProjectorTest",
+        "tests": "14",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.024"
+      },
+      {
+        "name": "com.qsx.appoint.catalog.BookingSettingsHttpTest",
+        "tests": "3",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.04"
+      },
+      {
+        "name": "com.qsx.appoint.catalog.CatalogManagementIntegrationTest",
+        "tests": "11",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.305"
+      },
+      {
+        "name": "com.qsx.appoint.catalog.DoctorNumberIntegrationTest",
+        "tests": "3",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.594"
+      },
+      {
+        "name": "com.qsx.appoint.catalog.InitialSchemaMigrationTest",
+        "tests": "4",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.193"
+      },
+      {
+        "name": "com.qsx.appoint.catalog.SessionCatalogHttpTest",
+        "tests": "4",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.644"
+      },
+      {
+        "name": "com.qsx.appoint.catalog.VisitSchemaMigrationTest",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.074"
+      },
+      {
+        "name": "com.qsx.appoint.catalog.cache.CatalogDirectoryCacheTest",
+        "tests": "8",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.355"
+      },
+      {
+        "name": "com.qsx.appoint.catalog.model.BookingTimeRulesTest",
+        "tests": "9",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.01"
+      },
+      {
+        "name": "com.qsx.appoint.common.messaging.ConfirmedMessagePublisherTest",
+        "tests": "5",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.022"
+      },
+      {
+        "name": "com.qsx.appoint.common.messaging.RabbitConsumerFailureHandlerTest",
+        "tests": "22",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.06"
+      },
+      {
+        "name": "com.qsx.appoint.coordination.LifecycleLanguageTest",
+        "tests": "2",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.008"
+      },
+      {
+        "name": "com.qsx.appoint.coordination.PaymentSucceededEventCodecTest",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.007"
+      },
+      {
+        "name": "com.qsx.appoint.coordination.PaymentSucceededProcessorIntegrationTest",
+        "tests": "28",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.849"
+      },
+      {
+        "name": "com.qsx.appoint.coordination.application.BookingLifecyclePolicyTest",
+        "tests": "42",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.054"
+      },
+      {
+        "name": "com.qsx.appoint.coordination.messaging.PaymentSucceededListenerTest",
+        "tests": "5",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.254"
+      },
+      {
+        "name": "com.qsx.appoint.patient.PatientIntegrationTest",
+        "tests": "4",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "1.289"
+      },
+      {
+        "name": "com.qsx.appoint.payment.LegacyDevRouteAbsenceTest",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.635"
+      },
+      {
+        "name": "com.qsx.appoint.payment.LegacyTestRouteAbsenceTest",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.93"
+      },
+      {
+        "name": "com.qsx.appoint.payment.MockPayProductionProfileTest",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "1.842"
+      },
+      {
+        "name": "com.qsx.appoint.payment.PaymentAttemptIntegrationTest",
+        "tests": "3",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.816"
+      },
+      {
+        "name": "com.qsx.appoint.payment.PaymentDomainEnumTest",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.003"
+      },
+      {
+        "name": "com.qsx.appoint.payment.PaymentGatewayContractTest",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.033"
+      },
+      {
+        "name": "com.qsx.appoint.payment.PaymentOutboxTransactionTest",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "6.52"
+      },
+      {
+        "name": "com.qsx.appoint.payment.PaymentPersistenceIntegrationTest",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "1.233"
+      },
+      {
+        "name": "com.qsx.appoint.payment.application.PaymentNotificationAtomicityTest",
+        "tests": "2",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "1.509"
+      },
+      {
+        "name": "com.qsx.appoint.payment.application.PaymentNotificationBoundaryTest",
+        "tests": "2",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.229"
+      },
+      {
+        "name": "com.qsx.appoint.payment.application.PaymentNotificationPolicyTest",
+        "tests": "10",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.042"
+      },
+      {
+        "name": "com.qsx.appoint.payment.messaging.DeadLetterReplayContractTest",
+        "tests": "10",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.281"
+      },
+      {
+        "name": "com.qsx.appoint.payment.messaging.MessageConsumerContractTest",
+        "tests": "30",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.188"
+      },
+      {
+        "name": "com.qsx.appoint.payment.messaging.RefundRequestedListenerTest",
+        "tests": "5",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.443"
+      },
+      {
+        "name": "com.qsx.appoint.visit.VisitHttpTest",
+        "tests": "37",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "1.728"
+      },
+      {
+        "name": "com.qsx.appoint.visit.application.VisitServiceTest",
+        "tests": "2",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.302"
+      },
+      {
+        "name": "com.qsx.appoint.visit.domain.VisitRulesTest",
+        "tests": "6",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "0.009"
+      }
+    ]
+  },
+  {
+    "kind": "redis",
+    "command": "./mvnw -o -Predis-it verify",
+    "exitCode": 0,
+    "startedAt": "2026-11-13T16:08:50.768487+00:00",
+    "finishedAt": "2026-11-13T16:09:51.843517+00:00",
+    "suites": [
+      {
+        "name": "com.qsx.appoint.catalog.cache.CatalogDirectoryCacheRedisIT",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "22.018"
+      }
+    ]
+  },
+  {
+    "kind": "mysql",
+    "command": "./mvnw -o -Pmysql-it verify",
+    "exitCode": 0,
+    "startedAt": "2026-11-13T16:09:51.844714+00:00",
+    "finishedAt": "2026-11-13T16:12:59.059021+00:00",
+    "suites": [
+      {
+        "name": "com.qsx.appoint.PatientJourneyHttpMySqlIT",
+        "tests": "2",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "18.573"
+      },
+      {
+        "name": "com.qsx.appoint.appointment.AppointmentLifecycleMySqlIT",
+        "tests": "13",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "14.784"
+      },
+      {
+        "name": "com.qsx.appoint.catalog.CatalogManagementMySqlIT",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "10.649"
+      },
+      {
+        "name": "com.qsx.appoint.catalog.VisitSchemaMySqlIT",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "10.462"
+      },
+      {
+        "name": "com.qsx.appoint.coordination.LatePaymentMySqlIT",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "11.147"
+      },
+      {
+        "name": "com.qsx.appoint.payment.PaymentAttemptMySqlIT",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "11.685"
+      },
+      {
+        "name": "com.qsx.appoint.payment.PaymentMigrationMySqlIT",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "10.307"
+      },
+      {
+        "name": "com.qsx.appoint.payment.PaymentNotificationMySqlIT",
+        "tests": "6",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "17.687"
+      },
+      {
+        "name": "com.qsx.appoint.payment.PaymentPersistenceMySqlIT",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "13.481"
+      },
+      {
+        "name": "com.qsx.appoint.payment.application.PaymentParentLockMySqlIT",
+        "tests": "10",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "15.676"
+      },
+      {
+        "name": "com.qsx.appoint.visit.VisitWorkflowMySqlIT",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "11.523"
+      }
+    ]
+  },
+  {
+    "kind": "reliability",
+    "command": "./mvnw -o -Preliability-it verify",
+    "exitCode": 0,
+    "startedAt": "2026-11-13T16:12:59.064282+00:00",
+    "finishedAt": "2026-11-13T16:15:04.662848+00:00",
+    "suites": [
+      {
+        "name": "com.qsx.appoint.coordination.PaymentConfirmationReliabilityIT",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "48.444"
+      },
+      {
+        "name": "com.qsx.appoint.payment.OutboxPublisherReliabilityIT",
+        "tests": "9",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "29.004"
+      }
+    ]
+  },
+  {
+    "kind": "http",
+    "command": "python3 scripts/compose_acceptance.py --http-client curl --http-report /home/qsx/JavaEEProject/ChatGPT/.scratch/redis-catalog-cache/verification/http-report.json",
+    "exitCode": 0,
+    "startedAt": "2026-11-13T16:15:04.667145+00:00",
+    "finishedAt": "2026-11-13T16:15:48.650166+00:00"
+  },
+  {
+    "kind": "redis-startup-recheck",
+    "command": "./mvnw -o -Predis-it -Dtest=CatalogDirectoryCacheTest verify",
+    "exitCode": 0,
+    "finishedAt": "2026-11-14T00:16:59+08:00",
+    "suites": [
+      {
+        "name": "com.qsx.appoint.catalog.cache.CatalogDirectoryCacheRedisIT",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "21.966"
+      }
+    ]
+  }
+]

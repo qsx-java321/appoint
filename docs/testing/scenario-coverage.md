@@ -105,3 +105,20 @@
 | checkin-window/W10 | 09:59签到、10:10开始、次日完成，双方进度一致 | VisitHttpTest.checkedInPatientCanStartAfterCloseAndCompleteNextDayWithStableWindowAndFirstTime；VisitWorkflowMySqlIT.concurrentBindingCheckInStartAndCompletionKeepOneIdentityAndOneVisit |
 | checkin-window/W11 | 旧零点签到保留并可跨日接诊；未签用快照窗口、超时不自动关闭退款 | VisitServiceTest.legacyMidnightCheckInIsNotRevokedAndCanStartOnNextDay；AppointmentResponseAssemblerTest.legacySignedVisitKeepsFirstTimeAndSnapshotWindowAfterClosing；AppointmentLifecycleInterfaceTest.readFactsUseAppointmentStartAndEndSnapshots；VisitHttpTest.staleQueryDoesNotAuthorizeCheckInAtDeadlineOrNextDay |
 | checkin-window/W12 | 隔离curl注册→预约→支付→签到→完成，窗口字段与用户/医生查询一致，库存快照不变 | scripts/compose_acceptance.py；本任务curl-report.json |
+
+## Redis目录缓存
+
+完整R01～R15行为标准见[实施方案](../redis-catalog-cache-design.md)。以下为本轮新增责任入口，HTTP与完整回归实际结果由任务交付证据保存。
+
+| 场景 | 验证入口 |
+| --- | --- |
+| R01/R02/R03/R15 命中、SQL减少、JSON、TTL和指标 | CatalogDirectoryCacheRedisIT.repeatedDirectoryReadsAvoidSqlAndPreserveLargeIdsAndNulls；CatalogDirectoryCacheTest.redisReadFailureLoadsDatabaseWithoutRetryingRedisWrite |
+| R04 九种提交后失效及无关列表保留 | CatalogDirectoryCacheRedisIT.allNineMutationsEvictOnlyRelatedListsAfterRealCommit |
+| R05 事务读己之写、回滚不污染 | CatalogDirectoryCacheRedisIT.rollbackPreservesSharedCacheWhileTransactionReadsOwnWrites |
+| R06 旧值回填与到期刷新、不续期 | CatalogDirectoryCacheRedisIT.staleInFlightFillIsAllowedButExpiresWithoutReadRenewal |
+| R07/R08 Redis中断、失效失败、损坏值回源 | CatalogDirectoryCacheRedisIT.unavailableRedisFallsBackAndCommittedWriteStillSucceeds；CatalogDirectoryCacheTest.malformedAndIncompleteValuesRecoverThroughDatabase；CatalogDirectoryCacheTest.writeFailurePreservesLoadedResult |
+| R09 数据库错误只传播一次且不缓存 | CatalogDirectoryCacheTest.databaseFailureIsPropagatedOnceAndNeverCached |
+| R10 两个独立应用共享及失效可见 | CatalogDirectoryCacheRedisIT.separateApplicationSharesCacheAndSeesCommittedInvalidation |
+| R11 namespace隔离及定向清理 | CatalogDirectoryCacheRedisIT.isolatedNamespacesAndMalformedValuesCannotPoisonCatalog；compose_acceptance.py |
+| R12/R13 原认证、场次、预约支付接诊契约 | 原常规/MySQL/可靠性回归；compose_acceptance.py |
+| R14 关闭绕过及配置校验 | CatalogDirectoryCacheTest.disabledCacheNeverReadsOrRegistersInvalidation；CatalogDirectoryCacheTest.configurationRejectsUnsafeNamespaceAndInvalidTtlOnlyWhenEnabled |

@@ -178,7 +178,7 @@ if (visit_evidence/'final-counts.json').exists():
 
 # Current test class inventory and explicit Class.method references.
 test_files = list(Path('src/test/java').rglob('*.java'))
-tests = {p.stem:p.read_text() for p in test_files if p.name.endswith(('Test.java','MySqlIT.java','ReliabilityIT.java'))}
+tests = {p.stem:p.read_text() for p in test_files if p.name.endswith(('Test.java','MySqlIT.java','ReliabilityIT.java','RedisIT.java'))}
 inventory = Path('docs/testing/inventory.md').read_text()
 listed = re.findall(r'^\| `([A-Za-z0-9]+)` \|', inventory, re.M)
 assert set(listed) == set(tests), ('测试清单不匹配', sorted(set(tests)-set(listed)), sorted(set(listed)-set(tests)))
@@ -188,10 +188,10 @@ for namespace, maximum in [('messaging',32), ('booking-time',18)]:
     assert len(ids) == maximum and set(map(int,ids)) == set(range(1,maximum+1)), namespace
 window_ids = re.findall(r'^\| checkin-window/W(\d+) \|', coverage, re.M)
 assert len(window_ids) == 12 and set(map(int, window_ids)) == set(range(1, 13)), '签到窗口场景映射不完整'
-method_refs = re.findall(r'\b([A-Z][A-Za-z0-9_]*(?:Test|MySqlIT|ReliabilityIT))\.([a-z][A-Za-z0-9_]+)', coverage)
+method_refs = re.findall(r'\b([A-Z][A-Za-z0-9_]*(?:Test|MySqlIT|ReliabilityIT|RedisIT))\.([a-z][A-Za-z0-9_]+)', coverage)
 for cls, method in method_refs:
     assert cls in tests and re.search(r'\b'+method+r'\s*\(', tests[cls]), ('测试方法不存在',cls,method)
-for cls in set(re.findall(r'\b([A-Z]\w*(?:Test|MySqlIT|ReliabilityIT))\b', coverage)):
+for cls in set(re.findall(r'\b([A-Z]\w*(?:Test|MySqlIT|ReliabilityIT|RedisIT))\b', coverage)):
     assert cls in tests, ('测试类不存在',cls)
 # Active documents may mention archive evidence, but cannot rely on removed specs.
 for p in [Path('README.md'), *Path('docs').rglob('*.md')]:

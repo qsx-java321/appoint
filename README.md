@@ -6,7 +6,7 @@
 
 - 账号注册、JWT 登录、当前用户查询及管理员角色访问控制。
 - 本人就诊人的新增、查询、资料修改与启停，以及证件校验和脱敏。
-- 医院、科室、医生目录管理和查询。
+- 医院、科室、医生目录管理和查询，以及 Redis 共享目录缓存、提交后失效和故障回源。
 - 每位医生今天、明天、后天的 12 个固定预约场次查询，返回下单截止与可预约状态。
 - 管理员统一预约设置，默认每时段 20 个号源、挂号费 10.00 CNY。
 - 预约幂等创建、库存暂占、跨账号同证件防重复、费用和就诊资料快照。
@@ -57,7 +57,7 @@ docker compose --env-file compose.env up -d --wait mysql redis rabbitmq
 ./mvnw spring-boot:run
 ```
 
-其他 Compose 命令同样需要 `--env-file compose.env`。IDE 的工作目录应设为项目根目录；系统环境变量可覆盖应用 `.env`。Redis 不参与当前业务，但隔离验收会检查其健康状态。
+其他 Compose 命令同样需要 `--env-file compose.env`。IDE 的工作目录应设为项目根目录；系统环境变量可覆盖应用 `.env`。Redis 用于医院、科室、医生目录缓存。本地 `.env` 启用缓存并使用 `local-dev` namespace；不同数据库必须配置不同 namespace。
 
 使用 Compose 实际依赖执行隔离业务验收：
 
@@ -71,7 +71,7 @@ python3 scripts/compose_acceptance.py
 python3 scripts/compose_acceptance.py --http-client curl --http-report /tmp/appoint-curl-report.json
 ```
 
-验收入口会创建独立数据库、数据库账号和 RabbitMQ vhost，启动 dev profile，验证预约、支付、异步确认、取消退款、迟到支付释放退款及库存守恒及医生绑定、窗口内签到、四状态看板和接诊完成；成功后删除验收资源，失败时保留资源标识和日志。Redis 只检查健康状态。
+验收入口会创建独立数据库、数据库账号和 RabbitMQ vhost，启动 dev profile，验证预约、支付、异步确认、取消退款、迟到支付释放退款及库存守恒及医生绑定、窗口内签到、四状态看板和接诊完成；成功后删除验收资源，失败时保留资源标识和日志。Redis 使用每轮独立 namespace，验证缓存读取和管理后失效；成功后定向清理本轮键。
 
 测试分层、夹具隔离及新增用例的编写方式见 [测试约定](docs/testing.md)。
 
@@ -79,6 +79,12 @@ python3 scripts/compose_acceptance.py --http-client curl --http-report /tmp/appo
 
 ```bash
 ./mvnw test
+```
+
+真实 Redis 缓存、事务、故障和双实例测试：
+
+```bash
+./mvnw -Predis-it verify
 ```
 
 包含真实 MySQL 迁移、唯一约束和并发竞争的测试：
@@ -142,6 +148,7 @@ WHERE u.email = 'student@example.com';
 
 ## 文档
 
+- [Redis目录缓存方案](docs/redis-catalog-cache-design.md)：已确认的首期引入方案、事务与故障边界、隔离和验收标准；代码与完整回归已交付，实测结果见任务档案。
 - [docs/project-status.md](docs/project-status.md)：当前能力、交付进度、未实现边界及历史记录阅读规则。
 - [docs/testing.md](docs/testing.md)：测试分层、隔离、夹具和验收约定。
 - [GLOSSARY.md](GLOSSARY.md)：领域术语。

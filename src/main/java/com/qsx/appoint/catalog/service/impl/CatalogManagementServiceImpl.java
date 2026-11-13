@@ -1,5 +1,6 @@
 package com.qsx.appoint.catalog.service.impl;
 
+import com.qsx.appoint.catalog.cache.CatalogDirectoryCache;
 import com.qsx.appoint.catalog.dto.AdminDepartmentResponse;
 import com.qsx.appoint.catalog.dto.AdminDoctorResponse;
 import com.qsx.appoint.catalog.dto.AdminHospitalResponse;
@@ -30,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CatalogManagementServiceImpl implements CatalogManagementService {
     private final HospitalMapper hospitalMapper;
+    private final CatalogDirectoryCache directoryCache;
     private final DepartmentMapper departmentMapper;
     private final DoctorMapper doctorMapper;
     private final ScheduleMapper scheduleMapper;
@@ -42,6 +44,7 @@ public class CatalogManagementServiceImpl implements CatalogManagementService {
         hospital.setName(required(request.getName()));
         hospital.setAddress(required(request.getAddress()));
         hospitalMapper.insert(hospital);
+        directoryCache.evictHospitalsAfterCommit();
         return new AdminHospitalResponse(hospital.getId(), hospital.getName(), hospital.getAddress());
     }
 
@@ -56,6 +59,7 @@ public class CatalogManagementServiceImpl implements CatalogManagementService {
         if (request.getName() != null) hospital.setName(required(request.getName()));
         if (request.getAddress() != null) hospital.setAddress(required(request.getAddress()));
         hospitalMapper.updateById(hospital);
+        directoryCache.evictHospitalsAfterCommit();
         return hospitalResponse(hospital);
     }
 
@@ -69,6 +73,7 @@ public class CatalogManagementServiceImpl implements CatalogManagementService {
             throw new BusinessException(ErrorCode.CATALOG_RESOURCE_IN_USE);
         }
         deleteOrResourceInUse(() -> hospitalMapper.deleteById(hospitalId));
+        directoryCache.evictHospitalsAfterCommit();
     }
 
     @Override
@@ -85,6 +90,7 @@ public class CatalogManagementServiceImpl implements CatalogManagementService {
         } catch (DuplicateKeyException exception) {
             throw new BusinessException(ErrorCode.DEPARTMENT_NAME_EXISTS);
         }
+        directoryCache.evictDepartmentsAfterCommit(hospitalId);
         return new AdminDepartmentResponse(department.getId(), department.getHospitalId(), department.getName());
     }
 
@@ -100,19 +106,22 @@ public class CatalogManagementServiceImpl implements CatalogManagementService {
         } catch (DuplicateKeyException exception) {
             throw new BusinessException(ErrorCode.DEPARTMENT_NAME_EXISTS);
         }
+        directoryCache.evictDepartmentsAfterCommit(department.getHospitalId());
         return departmentResponse(department);
     }
 
     @Override
     @Transactional
     public void deleteDepartment(Long departmentId) {
-        if (departmentMapper.selectByIdForUpdate(departmentId) == null) {
+        Department department = departmentMapper.selectByIdForUpdate(departmentId);
+        if (department == null) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         }
         if (doctorMapper.countByDepartmentId(departmentId) > 0) {
             throw new BusinessException(ErrorCode.CATALOG_RESOURCE_IN_USE);
         }
         deleteOrResourceInUse(() -> departmentMapper.deleteById(departmentId));
+        directoryCache.evictDepartmentsAfterCommit(department.getHospitalId());
     }
 
     @Override
@@ -128,6 +137,7 @@ public class CatalogManagementServiceImpl implements CatalogManagementService {
         doctor.setTitle(required(request.getTitle()));
         doctor.setIntroduction(optionalProvided(request.getIntroduction()));
         doctorMapper.insert(doctor);
+        directoryCache.evictDoctorsAfterCommit(doctor.getDepartmentId());
         return doctorResponse(doctor);
     }
 
@@ -143,19 +153,22 @@ public class CatalogManagementServiceImpl implements CatalogManagementService {
         if (request.getTitle() != null) doctor.setTitle(required(request.getTitle()));
         if (request.getIntroduction() != null) doctor.setIntroduction(optionalProvided(request.getIntroduction()));
         doctorMapper.updateById(doctor);
+        directoryCache.evictDoctorsAfterCommit(doctor.getDepartmentId());
         return doctorResponse(doctor);
     }
 
     @Override
     @Transactional
     public void deleteDoctor(Long doctorId) {
-        if (doctorMapper.selectByIdForUpdate(doctorId) == null) {
+        Doctor doctor = doctorMapper.selectByIdForUpdate(doctorId);
+        if (doctor == null) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         }
         if (scheduleMapper.countByDoctorId(doctorId) > 0) {
             throw new BusinessException(ErrorCode.CATALOG_RESOURCE_IN_USE);
         }
         deleteOrResourceInUse(() -> doctorMapper.deleteById(doctorId));
+        directoryCache.evictDoctorsAfterCommit(doctor.getDepartmentId());
     }
 
     private void deleteOrResourceInUse(Runnable deletion) {

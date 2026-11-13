@@ -17,6 +17,12 @@ spring:
     locations: classpath:db/migration
   jackson:
     time-zone: Asia/Shanghai
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      connect-timeout: 500ms
+      timeout: 200ms
   rabbitmq:
     publisher-confirm-type: correlated
     publisher-returns: true
@@ -28,6 +34,13 @@ mybatis-plus:
     banner: false
 
 appoint:
+  catalog-cache:
+    enabled: false
+    namespace: ${CATALOG_CACHE_NAMESPACE:}
+    hospital-ttl: 5m
+    department-ttl: 5m
+    doctor-ttl: 2m
+    empty-ttl: 30s
   messaging:
     enabled: true
   jwt:

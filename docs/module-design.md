@@ -2,7 +2,7 @@
 
 签到窗口于2026-11-13按新规则更新，实现交付为`d75f73c`（基于`4bfc1d5`）；决策见[ADR0008](adr/0008-visit-checkin-window.md)。
 
-本文对应预约支付核心模块及新增 visit 就诊模块的当前实现。业务结果见 [业务流程](business-flow.md)，HTTP 字段见 [API](api.md)，历史实测覆盖与后续文档核对见 [验证报告](verification-report.md)。系统仍是一个 Spring Boot 应用、同一 MySQL，原四模块改造保留既有数据库和事件版本；数据库最新为 V10；三天窗口、消息设计和测试整理均已交付，后两轮未新增迁移，事件契约仍为 v1；Redis 仅作为本地依赖运行。
+本文对应预约支付核心模块及新增 visit 就诊模块的当前实现。业务结果见 [业务流程](business-flow.md)，HTTP 字段见 [API](api.md)，历史实测覆盖与后续文档核对见 [验证报告](verification-report.md)。系统仍是一个 Spring Boot 应用、同一 MySQL，原四模块改造保留既有数据库和事件版本；数据库最新为 V10；三天窗口、消息设计和测试整理均已交付，后两轮未新增迁移，事件契约仍为 v1；Redis负责公开目录共享缓存，库存和资金事实继续由MySQL保障。
 
 已新增 `visit` 就诊模块，详细接口与实现见 [到院签到与门诊接诊设计](visit/design.md)，前后行为见 [改动范围](visit/change-scope.md)。预约支付既有事务及消息恢复契约继续适用。
 
@@ -189,3 +189,9 @@ application/domain 不依赖 Spring AMQP 或 Rabbit Client；contract 包不依�
 医生账号绑定按医生→用户加锁，在同库事务中增加角色并条件绑定。账号唯一约束和首次绑定条件防止换绑；角色授予不覆盖原角色。查询 Mapper 只读，医生查询按登录身份限定范围，详情用快照和既有脱敏方式。
 
 真实 HTTP 就诊验收由 scripts/compose_acceptance.py 使用测试源码中的 VisitAcceptanceApplication 替换业务 Clock；生产启动类和配置不接受该受控时间，JWT 继续使用系统时间。验收先完成支付、退款及 Outbox 发布，再重启到就诊日，避免 MockPay 内存事实丢失影响资金操作。
+
+## 目录缓存边界
+
+CatalogServiceImpl的医院、科室、医生列表通过CatalogDirectoryCache旁路缓存；认证仍在Controller之前执行。当前事务内查询绕过共享缓存，管理写入在afterCommit定向删除父列表，回滚不触达缓存。Redis读写故障按操作记录指标并回源；数据库错误仍按原契约传播。跨实例共享同一namespace，不同数据库隔离namespace。
+
+TTL、旧值回填竞态、启用与回退、配置及验收统一见[Redis目录缓存](redis-catalog-cache-design.md)。场次、统一设置、预约创建快照、支付与就诊查询保持直接数据库路径；未增加迁移或事件版本。

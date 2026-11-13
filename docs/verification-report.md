@@ -25,3 +25,7 @@
 早期交付的全部独有执行记录、临时资源标识、失败修复和限制保存在[整理前报告快照](../.scratch/archive/delivery-quality/evidence/project-verification-history.md)。历史数字维持原检查点，不统一替换成最新数字。/tmp日志不承诺长期存在，持久证据以归档报告和摘要为准。
 
 本地dev/test资金链路使用MockPay，实际HTTP不是前端验收，也不是接入真实支付。历史服务状态不能证明现在仍在运行；历史通过不是未来代码继续通过的保证。
+
+## 2026-11-14 Redis目录缓存
+
+目录共享缓存已实现，干净常规389、Redis7、MySQL38、可靠性16、curl97通过，零失败/错误/跳过；profile重复常规不累计。数据库无新增迁移，仍为V10。[本轮源码摘要与实际证据](../.scratch/archive/redis-catalog-cache/summary.md)独立保存，不将旧签到验收作为当前源码通过证据。

@@ -1,4 +1,8 @@
 spring:
+  data:
+    redis:
+      connect-timeout: 500ms
+      timeout: 200ms
   datasource:
     url: jdbc:h2:mem:appoint;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
     username: sa
@@ -10,6 +14,8 @@ spring:
     time-zone: Asia/Shanghai
 
 appoint:
+  catalog-cache:
+    enabled: false
   messaging:
     enabled: false
   jwt:

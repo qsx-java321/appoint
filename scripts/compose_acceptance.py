@@ -21,6 +21,9 @@ DB = 'accept_' + RUN
 USER = 'a_' + RUN
 PASSWORD = secrets.token_hex(16)
 VHOST = 'accept-' + RUN
+CACHE_NAMESPACE = 'accept-' + RUN
+CACHE_PREFIX = 'appoint:' + CACHE_NAMESPACE + ':catalog:v1:'
+CACHE_GUARD = 'appoint:guard-' + RUN + ':catalog:v1:hospitals'
 LOG = Path(tempfile.gettempdir()) / ('appoint-accept-' + RUN + '.log')
 HTTP_CLIENT = 'urllib'
 HTTP_REPORT = None
@@ -78,6 +81,21 @@ def mysql(sql):
 
 def rabbit(*args):
     command('docker', 'compose', '--env-file', 'compose.env', 'exec', '-T', 'rabbitmq', 'rabbitmqctl', *args)
+
+
+def redis_cli(*args):
+    return command('docker', 'compose', '--env-file', 'compose.env', 'exec', '-T',
+                   'redis', 'redis-cli', '--raw', *args, capture=True).strip()
+
+
+def cleanup_cache():
+    # 应用必须先停止；只遍历本轮前缀，保留开发和其他验收键。
+    keys = redis_cli('--scan', '--pattern', CACHE_PREFIX + '*').splitlines()
+    for offset in range(0, len(keys), 100):
+        redis_cli('DEL', *keys[offset:offset + 100])
+    assert not redis_cli('--scan', '--pattern', CACHE_PREFIX + '*')
+    assert redis_cli('GET', CACHE_GUARD) == 'guard'
+    redis_cli('DEL', CACHE_GUARD)
 
 
 def request(port, method, path, data=None, token=None, headers=None, expected=200):
@@ -151,6 +169,7 @@ def main():
     command('docker', 'compose', '--env-file', 'compose.env', 'up', '-d', '--wait', 'mysql', 'redis', 'rabbitmq')
     assert command('docker', 'compose', '--env-file', 'compose.env', 'exec', '-T', 'redis', 'redis-cli', 'ping', capture=True).strip() == 'PONG'
     rabbit('status', '--quiet')
+    redis_cli('SET', CACHE_GUARD, 'guard', 'EX', '3600')
     mysql(f"CREATE DATABASE `{DB}`; CREATE USER '{USER}'@'%' IDENTIFIED BY '{PASSWORD}'; GRANT ALL PRIVILEGES ON `{DB}`.* TO '{USER}'@'%';")
     rabbit('add_vhost', VHOST)
     rabbit('set_permissions', '-p', VHOST, rabbit_user, '.*', '.*', '.*')
@@ -165,6 +184,9 @@ def main():
                 'SPRING_RABBITMQ_VIRTUAL_HOST': VHOST, 'SPRING_PROFILES_ACTIVE': 'dev',
                 'SERVER_PORT': str(port), 'APPOINT_OUTBOX_SCAN_DELAY': '500ms',
                 'APPOINT_EXPIRATION_ENABLED': 'false', 'APPOINT_RECONCILIATION_ENABLED': 'false',
+                'APPOINT_CATALOG_CACHE_ENABLED': 'true',
+                'APPOINT_CATALOG_CACHE_NAMESPACE': CACHE_NAMESPACE,
+                'SPRING_DATA_REDIS_HOST': '127.0.0.1', 'SPRING_DATA_REDIS_PORT': '6379',
                 'APPOINT_JWT_SECRET': secrets.token_urlsafe(48)})
     success = False
     with LOG.open('w') as log:
@@ -178,6 +200,9 @@ def main():
             token = request(port, 'POST', '/api/v1/auth/login', credentials)['accessToken']
             # 查看真实目录，验证完整的用户选院、科室、医生入口。
             hospitals = request(port, 'GET', '/api/v1/hospitals', token=token)
+            assert request(port, 'GET', '/api/v1/hospitals', token=token) == hospitals
+            assert json.loads(redis_cli('GET', CACHE_PREFIX + 'hospitals'))
+            assert 0 < int(redis_cli('TTL', CACHE_PREFIX + 'hospitals')) <= 300
             departments = request(port, 'GET', f"/api/v1/hospitals/{hospitals[0]['id']}/departments", token=token)
             doctors = request(port, 'GET', f"/api/v1/departments/{departments[0]['id']}/doctors", token=token)
             assert any(item['id'] == '1' for item in doctors)
@@ -249,6 +274,16 @@ def main():
             user_id = request(port, 'GET', '/api/v1/users/me', token=token)['id']
             mysql(f"USE `{DB}`; INSERT INTO user_roles(user_id,role_id) SELECT {int(user_id)},id FROM roles WHERE code='ADMIN';")
             admin_token = request(port, 'POST', '/api/v1/auth/login', credentials)['accessToken']
+            # HTTP管理成功后缓存删除，重新查询恢复；只改本轮独立库。
+            hospital_id = hospitals[0]['id']
+            original_name = hospitals[0]['name']
+            request(port, 'PATCH', f'/api/v1/admin/hospitals/{hospital_id}',
+                    {'name': '缓存验收医院'}, admin_token)
+            assert redis_cli('EXISTS', CACHE_PREFIX + 'hospitals') == '0'
+            refreshed = request(port, 'GET', '/api/v1/hospitals', token=token)
+            assert any(x['id'] == hospital_id and x['name'] == '缓存验收医院' for x in refreshed)
+            request(port, 'PATCH', f'/api/v1/admin/hospitals/{hospital_id}',
+                    {'name': original_name}, admin_token)
             doctor_credentials = {'email': 'doctor-' + email, 'password': 'password123'}
             doctor_user = request(port, 'POST', '/api/v1/auth/register', doctor_credentials, expected=201)
             doctor_user_id = doctor_user['id']
@@ -294,6 +329,8 @@ def main():
                                     '-Dspring-boot.run.main-class=com.qsx.appoint.support.VisitAcceptanceApplication'],
                                    cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             wait_app(app, port)
+            assert request(port, 'GET', '/api/v1/hospitals', token=token) == hospitals
+            assert json.loads(redis_cli('GET', CACHE_PREFIX + 'hospitals'))
             assert len(request(port, 'GET', '/api/v1/doctor/sessions', token=doctor_token)) == 4
             for item in visits:
                 visit = request(port, 'GET', f"/api/v1/appointments/{item['id']}", token=token)['visit']
@@ -365,10 +402,12 @@ def main():
         finally:
             stop_app(app)
             if success:
+                cleanup_cache()
+                print('Redis本轮缓存已定向清理，其他命名空间保持。')
                 rabbit('delete_vhost', VHOST)
                 mysql(f"DROP DATABASE `{DB}`; DROP USER '{USER}'@'%';")
             else:
-                print(f'验收失败，保留隔离数据库 {DB}、vhost {VHOST} 和日志 {LOG}')
+                print(f'验收失败，保留隔离数据库 {DB}、vhost {VHOST} 、Redis namespace {CACHE_NAMESPACE} 和日志 {LOG}')
 
 
 if __name__ == '__main__':

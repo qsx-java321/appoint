@@ -1,5 +1,6 @@
 package com.qsx.appoint.catalog.service.impl;
 
+import com.qsx.appoint.catalog.cache.CatalogDirectoryCache;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.qsx.appoint.catalog.dto.*;
 import com.qsx.appoint.catalog.entity.*;
@@ -20,19 +21,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** 演示数据查询实现，刻意保持一层清晰的数据映射。 */
+/** 公开目录使用共享缓存；场次仍按数据库事实和当前业务时间实时组装。 */
 @Service @RequiredArgsConstructor
 public class CatalogServiceImpl implements CatalogService {
     private final HospitalMapper hospitalMapper;
+    private final CatalogDirectoryCache directoryCache;
     private final DepartmentMapper departmentMapper;
     private final DoctorMapper doctorMapper;
     private final ScheduleMapper scheduleMapper;
     private final BookingSettingsMapper bookingSettingsMapper;
     private final Clock appointmentClock;
 
-    public List<HospitalResponse> listHospitals() { return hospitalMapper.selectList(null).stream().map(x -> new HospitalResponse(x.getId(), x.getName(), x.getAddress())).toList(); }
-    public List<DepartmentResponse> listDepartments(Long hospitalId) { return departmentMapper.selectList(new LambdaQueryWrapper<Department>().eq(Department::getHospitalId, hospitalId)).stream().map(x -> new DepartmentResponse(x.getId(), x.getName())).toList(); }
-    public List<DoctorResponse> listDoctors(Long departmentId) { return doctorMapper.selectList(new LambdaQueryWrapper<Doctor>().eq(Doctor::getDepartmentId, departmentId)).stream().map(x -> new DoctorResponse(x.getId(), x.getDoctorNo(), x.getName(), x.getTitle(), x.getIntroduction())).toList(); }
+    public List<HospitalResponse> listHospitals() { return directoryCache.hospitals(() -> hospitalMapper.selectList(null).stream().map(x -> new HospitalResponse(x.getId(), x.getName(), x.getAddress())).toList()); }
+    public List<DepartmentResponse> listDepartments(Long hospitalId) { return directoryCache.departments(hospitalId, () -> departmentMapper.selectList(new LambdaQueryWrapper<Department>().eq(Department::getHospitalId, hospitalId)).stream().map(x -> new DepartmentResponse(x.getId(), x.getName())).toList()); }
+    public List<DoctorResponse> listDoctors(Long departmentId) { return directoryCache.doctors(departmentId, () -> doctorMapper.selectList(new LambdaQueryWrapper<Doctor>().eq(Doctor::getDepartmentId, departmentId)).stream().map(x -> new DoctorResponse(x.getId(), x.getDoctorNo(), x.getName(), x.getTitle(), x.getIntroduction())).toList()); }
     @Transactional(readOnly = true)
     public List<ScheduleResponse> listSchedules(Long doctorId) {
         Doctor doctor = doctorMapper.selectById(doctorId);

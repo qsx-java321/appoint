@@ -106,3 +106,11 @@ MyBatis Mapper是接口代理，故障恢复应撤销stub并恢复其原委托�
 在项目根目录运行 `python3 scripts/check_documentation.py`。检查覆盖REST/DTO、测试入口、链接和归档证据，不替代业务测试。
 
 签到窗口W01～W12见[场景覆盖](testing/scenario-coverage.md#签到窗口)。聚焦测试可执行`./mvnw -o -Dtest=VisitRulesTest,VisitServiceTest,VisitHttpTest,AppointmentResponseAssemblerTest,BookingQueryServiceTest,AppointmentLifecycleInterfaceTest,BookingLifecyclePolicyTest test`。文档工具以Git检查点`9c5878b`验证旧360文件摘要；本任务逐用例摘要、HTTP报告及源码清单独立核验，源码漂移会显示`sourceMatchesWorkingTree=false`，不将旧通过结果认作当前代码验证。
+
+## Redis目录缓存验证
+
+`./mvnw -Predis-it verify` 执行 `*RedisIT.java`，使用独占MySQL和Redis容器验证缓存及事务，不连接开发库。该profile也重复运行常规测试，不重复累计数量。常规H2测试默认关闭目录缓存。
+
+`CatalogDirectoryCacheTest` 验证数据库异常不被吞掉、缓存故障回源、损坏值、开关与事务绕过；`CatalogDirectoryCacheRedisIT` 验证实际TTL、九种目录写入、提交/回滚、并发旧值回填、两个独立应用共享缓存和Redis暂停故障。完整标准见[缓存方案](redis-catalog-cache-design.md)。
+
+Compose验收显式开启缓存，每轮使用独立namespace，并在重启到测试Clock时复用该namespace。成功后停止应用，再按前缀SCAN并删除本轮键；其他namespace的守卫键必须保留。故障注入在独占测试容器执行，避免影响开发Redis。
