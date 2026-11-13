@@ -1,5 +1,7 @@
 # REST API
 
+签到窗口于2026-11-13按新规则更新，源码基于`4bfc1d5`的未提交工作区；决策见[ADR0008](adr/0008-visit-checkin-window.md)。
+
 本文为现行HTTP契约，2026-11-12已对照Controller/DTO复核。进度见[当前项目状态](project-status.md)。固定年月日的JSON仅说明字段和时间关系，不承诺在阅读当天可直接下单；实际日期以服务端目录和截止为准。
 
 本文记录当前已实现的接口。到院签到、医生看板及接诊的 7 个新增接口与原预约查询扩展见 [就诊 API 契约](visit/api.md)。
@@ -216,7 +218,7 @@
 | `doctor`（创建快照） | `id/doctorNo/name/title/department/hospital`；`department` 为 `id/name`，`hospital` 为 `id/name/address` |
 | `latestPaymentAttempt` | `id/attemptNo/channel/status/providerOrderNo/failureCode/createdAt/completedAt` |
 | `refund` | `id/refundNo/amount/currency/channel/status/reason/attemptCount/lastFailureCode/completedAt` |
-| `visit` | `status/checkedInAt/startedAt/completedAt/canCheckIn`；仅已确认预约非 null，未签到时计算 NOT_CHECKED_IN |
+| `visit` | `status/checkedInAt/startedAt/completedAt/canCheckIn/checkInOpensAt/checkInClosesAt`；仅已确认预约非 null，未签到时计算 NOT_CHECKED_IN |
 
 `visitNumber` 在确认前可为 null，按同场次确认顺序分配、取消后不复用；尝试处理中的 `completedAt`、尚未成功退款的 `completedAt` 和无失败时的失败代码可为 null。详情顶层及退款摘要的 `amount` 为 JSON 数值，区别于首次创建响应的字符串金额；单位均为元。`canPay/canCancel` 是展示标记，不代替操作入口的权限、时间和状态复验。
 
@@ -278,7 +280,9 @@
 | 支付渠道不可用 | `503 / 4301` |
 | 需要沿原键重试的并发冲突 | `503 / 5001` |
 | 医生档案或账号已绑定，不支持换绑 | `409 / 4501` |
-| 签到日期、就诊状态或重复动作不满足资格 | `409 / 4502` |
+| 预约、就诊状态或重复动作不满足资格（优先于时间） | `409 / 4502` |
+| 尚未到签到开放时间 | `409 / 4503` |
+| 已超过预约场次签到截止时间 | `409 / 4504` |
 | 查询状态组合或关联完整性异常 | `500 / 1002` |
 
 ## 历史兼容

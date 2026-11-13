@@ -1,4 +1,10 @@
-# 历史交付档案
+# 任务入口与历史交付档案
+
+## 已完成、待提交的增量
+
+- [签到时间窗口改造](visit-checkin-window/spec.md)：[开诊前30分钟,场次结束)规则已实现；聚焦106、常规381、MySQL38、可靠性16及curl92通过，文档与工具同步。[任务地图](visit-checkin-window/map.md) · [实际验收](visit-checkin-window/verification/report.md)。尚未提交或推送，原方案/任务待可追溯Git检查点后再归档。
+
+## 已交付档案
 
 当前开发阶段已交付，当前能力、运行和学习入口见[项目状态](../docs/project-status.md)。这里保存阶段总结和验收证据；历史命令、数字、临时资源状态按原检查点理解。未来任务继续在 `.scratch/<feature-slug>/` 建立，完成后按[issue约定](../docs/agents/issue-tracker.md)归档。
 

@@ -106,7 +106,7 @@ class BookingLifecyclePolicyTest {
     }
 
     private AppointmentLifecycleCase appointment(AppointmentStatus status,LocalDateTime expiry,LocalDateTime opening) {
-        return new AppointmentLifecycleCase(1L,2L,3L,status,expiry,opening.toLocalDate(),opening.toLocalTime(),null,1L);
+        return new AppointmentLifecycleCase(1L,2L,3L,status,expiry,opening.toLocalDate(),opening.toLocalTime(),null,1L,opening.plusHours(2).toLocalTime());
     }
     private PaymentLifecycleCase payment(PaymentOrderStatus status,LocalDateTime paidAt) {
         return new PaymentLifecycleCase(4L,"P4",1L,2L,status,paidAt);

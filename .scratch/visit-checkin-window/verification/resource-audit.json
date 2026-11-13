@@ -1,0 +1,26 @@
+{
+  "runId": "d36ce6266aae",
+  "isolatedDatabaseRemaining": 0,
+  "isolatedMySqlUserRemaining": 0,
+  "isolatedVhostRemaining": 0,
+  "composeFinalState": [
+    "mysql exited",
+    "rabbitmq exited",
+    "redis exited"
+  ],
+  "retainedVolumes": {
+    "appoint-mysql": [
+      "appoint_appoint-mysql-data"
+    ],
+    "appoint-redis": [
+      "appoint_appoint-redis-data"
+    ],
+    "appoint-rabbitmq": [
+      "appoint_appoint-rabbitmq-data"
+    ]
+  },
+  "projectJavaProcesses": 0,
+  "port8080Listeners": 0,
+  "systemClockChanged": false,
+  "localRawLogDirectory": "/tmp/appoint-checkin-window-20261113-ie8ismb3"
+}

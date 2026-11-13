@@ -31,7 +31,7 @@ import com.qsx.appoint.support.TestExecutor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.test.annotation.DirtiesContext;
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
 
 /** 类独占MySQL验证并发绑定、签到、接诊只形成唯一身份和记录；提交数据按例清理。 */
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -86,16 +86,34 @@ class VisitWorkflowMySqlIT {
         Long id = created.getAppointmentOrderId();
         var facts = jdbc.queryForMap("SELECT * FROM appointment_orders WHERE id=?", id);
         var inventory = jdbc.queryForMap("SELECT * FROM schedules WHERE id=?", facts.get("schedule_id"));
-        clock.set("2026-11-13T08:00:00");
+        var paymentFacts = jdbc.queryForMap("SELECT * FROM payment_orders WHERE id=?", created.getPaymentOrderId());
+        var claimFacts = jdbc.queryForMap("SELECT * FROM appointment_active_claims WHERE appointment_order_id=?", id);
+        clock.set("2026-11-13T07:29:59");
+        assertThatThrownBy(() -> visits.checkIn(90001L,id)).isInstanceOfSatisfying(BusinessException.class,
+                error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.CHECK_IN_NOT_OPEN));
+        clock.set("2026-11-13T10:00:00");
+        assertThatThrownBy(() -> visits.checkIn(90001L,id)).isInstanceOfSatisfying(BusinessException.class,
+                error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.CHECK_IN_CLOSED));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM visit_records WHERE appointment_order_id=?",Integer.class,id)).isZero();
+        assertThat(jdbc.queryForMap("SELECT * FROM appointment_orders WHERE id=?",id)).isEqualTo(facts);
+        assertThat(jdbc.queryForMap("SELECT * FROM schedules WHERE id=?",facts.get("schedule_id"))).isEqualTo(inventory);
+        assertThat(jdbc.queryForMap("SELECT * FROM payment_orders WHERE id=?", created.getPaymentOrderId())).isEqualTo(paymentFacts);
+        assertThat(jdbc.queryForMap("SELECT * FROM appointment_active_claims WHERE appointment_order_id=?", id)).isEqualTo(claimFacts);
+        clock.set("2026-11-13T09:59:59");
         assertOneConflict(race(() -> { visits.checkIn(90001L,id); return "OK"; }, () -> { visits.checkIn(90001L,id); return "OK"; }));
         var checkedIn = appointments.getOwned(90001L,id).getVisit().checkedInAt();
+        assertThat(checkedIn).isEqualTo(java.time.LocalDateTime.parse("2026-11-13T09:59:59"));
+        clock.set("2026-11-13T10:10:00");
         assertOneConflict(race(() -> { visits.startVisit(90002L,id); return "OK"; }, () -> { visits.startVisit(90002L,id); return "OK"; }));
         var started = appointments.getOwned(90001L,id).getVisit().startedAt();
+        clock.set("2026-11-14T08:00:00");
         assertOneConflict(race(() -> { visits.completeVisit(90002L,id); return "OK"; }, () -> { visits.completeVisit(90002L,id); return "OK"; }));
         var completed = appointments.getOwned(90001L,id);
         assertThat(completed.getVisit().status()).isEqualTo("COMPLETED");
         assertThat(completed.getVisit().checkedInAt()).isEqualTo(checkedIn);
         assertThat(completed.getVisit().startedAt()).isEqualTo(started);
+        assertThat(jdbc.queryForMap("SELECT * FROM payment_orders WHERE id=?", created.getPaymentOrderId())).isEqualTo(paymentFacts);
+        assertThat(jdbc.queryForMap("SELECT * FROM appointment_active_claims WHERE appointment_order_id=?", id)).isEqualTo(claimFacts);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM visit_records WHERE appointment_order_id=?",Integer.class,id)).isEqualTo(1);
         assertThat(jdbc.queryForMap("SELECT * FROM appointment_orders WHERE id=?",id)).isEqualTo(facts);
         assertThat(jdbc.queryForMap("SELECT * FROM schedules WHERE id=?",facts.get("schedule_id"))).isEqualTo(inventory);

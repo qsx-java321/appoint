@@ -296,7 +296,10 @@ def main():
             wait_app(app, port)
             assert len(request(port, 'GET', '/api/v1/doctor/sessions', token=doctor_token)) == 4
             for item in visits:
-                assert request(port, 'GET', f"/api/v1/appointments/{item['id']}", token=token)['visit']['canCheckIn']
+                visit = request(port, 'GET', f"/api/v1/appointments/{item['id']}", token=token)['visit']
+                assert visit['canCheckIn']
+                assert visit['checkInOpensAt'] == date + 'T07:30:00'
+                assert visit['checkInClosesAt'] == date + 'T10:00:00'
             # 同一场次同时保留四种状态；验证非队首接诊且没有跨行忙碌限制。
             for item in visits[1:]:
                 request(port, 'POST', f"/api/v1/appointments/{item['id']}/check-in", token=token)
@@ -317,6 +320,9 @@ def main():
                 for field in ('status', 'checkedInAt', 'startedAt', 'completedAt'):
                     assert user_detail['visit'][field] == doctor_detail['visit'][field]
                 assert user_detail['status'] == 'CONFIRMED' and user_detail['paymentStatus'] == 'PAID'
+                assert user_detail['visit']['checkInOpensAt'] == date + 'T07:30:00'
+                assert user_detail['visit']['checkInClosesAt'] == date + 'T10:00:00'
+                assert user_detail['visit']['canCheckIn'] == (state == 'NOT_CHECKED_IN')
             overview = request(port, 'GET', '/api/v1/doctor/sessions', token=doctor_token)[0]
             assert overview['appointmentDate'] == date and overview['confirmedCount'] == 4
             assert [overview[key] for key in ('notCheckedInCount', 'waitingCount', 'inProgressCount', 'completedCount')] == [1, 1, 1, 1]
@@ -324,6 +330,12 @@ def main():
             asc = request(port, 'GET', '/api/v1/appointments/my?order=ASC', token=token)
             assert [item['id'] for item in desc] == list(reversed([item['id'] for item in asc]))
             assert len(desc) == 6 and any(item['status'] == 'CANCELLED' for item in desc) and any(item['status'] == 'EXPIRED' for item in desc)
+            for item in desc:
+                if item['status'] == 'CONFIRMED':
+                    assert item['visit']['checkInOpensAt'] == date + 'T07:30:00'
+                    assert item['visit']['checkInClosesAt'] == date + 'T10:00:00'
+                else:
+                    assert item['visit'] is None
             assert mysql(snapshots_sql) == before
             # 再推进剩余人员至终态，验证整个用户/医生操作闭环。
             for item in visits[:2]:

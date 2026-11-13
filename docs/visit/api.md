@@ -1,5 +1,7 @@
 # 到院签到与医生看板 API
 
+签到窗口于2026-11-13按新规则更新，源码基于`4bfc1d5`的未提交工作区；决策见[ADR0008](../adr/0008-visit-checkin-window.md)。
+
 交付日期：2026-11-11；现行契约复核：2026-11-12。本文接口及响应扩展已实现，实际验收结果见 [验证报告](../verification-report.md)。
 
 关联：[需求](requirements.md)、[代码设计](design.md)、[改动影响](change-scope.md)。现有字段与规则继续参考 [现行 API](../api.md)。
@@ -14,7 +16,7 @@ Controller、Service、Mapper 的对应关系，以及响应 DTO 的 Java 定义
 - Java Long ID 输出为 JSON 字符串，前端按不透明标识处理；`visitNumber` 和人数是 JSON 数字。
 - 日期为 `yyyy-MM-dd`，时间为 `HH:mm:ss`，日期时间为 `yyyy-MM-dd'T'HH:mm:ss`，按 `Asia/Shanghai` 解释。
 - `null` 时间表示该动作尚未发生，页面显示“—”。`visitNumber=3` 可格式化显示为 003，不改变号码值。
-- 示例使用虚构资料，独立展示不同操作时刻；涉及当天签到的示例假定服务端日期为 2026-11-13。
+- 示例使用虚构资料，独立展示不同操作时刻；涉及签到的示例假定服务端时间为 2026-11-13 07:50:00（Asia/Shanghai）。
 - 本文限定正常流程；身份、归属与状态资格仍在后端判断，不扩展异常状态与错误码矩阵。
 
 ## 2. 接口总览
@@ -78,7 +80,9 @@ GET /api/v1/appointments/103
       "checkedInAt": null,
       "startedAt": null,
       "completedAt": null,
-      "canCheckIn": true
+      "canCheckIn": true,
+      "checkInOpensAt": "2026-11-13T07:30:00",
+      "checkInClosesAt": "2026-11-13T10:00:00"
     }
   }
 }
@@ -92,13 +96,15 @@ GET /api/v1/appointments/103
 | `visit.checkedInAt` | 签到时间 |
 | `visit.startedAt` | 开始接诊时间 |
 | `visit.completedAt` | 完成接诊时间 |
-| `visit.canCheckIn` | 已确认、就诊当天、尚未签到时为 true |
+| `visit.canCheckIn` | 已确认、尚未签到且开放时间 <= serverTime < 截止时间时为 true |
+| `visit.checkInOpensAt` | 预约日期和开始时间快照减30分钟（包含此刻） |
+| `visit.checkInClosesAt` | 预约日期和结束时间快照（不包含此刻） |
 
 `sessionType` 读取关联场次类型；日期和起止时间仍使用预约快照。待支付、取消等原记录继续按 `workflowStatus` 展示，不将没有就诊记录统一解释为待签到。
 
-确认预约没有就诊记录时，GET 计算 `NOT_CHECKED_IN`，不创建记录。尚未到就诊日时 `canCheckIn=false`；就诊当天为 true。签到后以及后续阶段均为 false。
+确认预约没有就诊记录时，GET 计算 `NOT_CHECKED_IN`，不创建记录。窗口外 `canCheckIn=false`；窗口内为 true。已签到及后续阶段均为 false，但仍返回窗口字段。非已确认预约仍为 visit=null。查询资格不授权之后的写入：09:59查询可签、10:00提交须重新判断并拒绝。
 
-当天范围为上海时间 00:00（含）至次日 00:00（不含）；没有预约时段或提前分钟限制，下午场当天上午及场次结束后仍可签到，次日不能首次签到。医生开始/完成只校验归属、已确认预约及当前进度，没有额外的日期或场次时间限制；跨日未完成记录不自动变更。
+签到按上海业务时间，使用预约日期和起止时间快照计算：开诊前30分钟开放（含），场次结束时截止（不含）。例如08:00–10:00允许在[07:30,10:00)首次签到，推荐07:30–08:00到院，08:00之后、10:00之前仍可签到。新旧尚未签到的已确认预约统一适用；已签到记录保留。超时未签到继续已确认且待签到，不自动取消、退款、释放库存、删除有效占用或标记爽约。医生开始/完成只校验归属、已确认预约及当前进度，没有额外的日期或场次时间限制；跨日未完成记录不自动变更。
 
 ### 3.3 签到
 
@@ -106,7 +112,7 @@ GET /api/v1/appointments/103
 POST /api/v1/appointments/103/check-in
 ```
 
-无请求体，不提交状态、时间或就诊序号。正常前置条件：本人预约、已确认、当天、尚未签到。
+无请求体，不提交状态、时间或就诊序号。正常前置条件：本人预约、已确认、尚未签到，且处于[预约开始前30分钟,预约结束)。
 
 创建就诊记录并进入 `WAITING`，签到时间由服务端生成。响应为更新后的完整 `AppointmentResponse`，其中 `visit` 为：
 
@@ -116,7 +122,9 @@ POST /api/v1/appointments/103/check-in
   "checkedInAt": "2026-11-13T07:50:00",
   "startedAt": null,
   "completedAt": null,
-  "canCheckIn": false
+  "canCheckIn": false,
+  "checkInOpensAt": "2026-11-13T07:30:00",
+  "checkInClosesAt": "2026-11-13T10:00:00"
 }
 ```
 
@@ -334,7 +342,7 @@ POST /api/v1/doctor/appointments/103/complete-visit
 
 三个动作请求均无 body，时间和状态由服务端产生。HTTP 层先执行写 Service，事务完成后再调用查询 Service 返回最新详情；不由前端拼出一份“已签到”或“已就诊”的替代响应。
 
-人数 DTO 使用 int、号码使用 Integer，保持数值输出；标识使用 Long，沿用字符串输出。用户进度 DTO 带 canCheckIn，医生进度 DTO 只含状态与时间；医生名单另带 canStartVisit 和 canCompleteVisit。
+人数 DTO 使用 int、号码使用 Integer，保持数值输出；标识使用 Long，沿用字符串输出。用户进度 DTO 带 canCheckIn、checkInOpensAt、checkInClosesAt，医生进度 DTO 只含状态与时间；医生名单另带 canStartVisit 和 canCompleteVisit。
 
 前端按以下顺序接入：列表 GET → 详情 GET → 签到 POST 后替换当前详情；医生概览 GET → 场次名单 GET → 查看详情 GET 或动作 POST → 重查名单与概览。无需新增卡片摘要、用户接诊动作或修改状态的接口。
 
@@ -342,4 +350,4 @@ POST /api/v1/doctor/appointments/103/complete-visit
 
 未登录返回 401；角色或写操作归属不符返回 403；预约、账号不存在返回 404。医生详情查询范围内找不到已确认预约也返回 404，不返回其他医生的数据。缺失必填参数、非法日期、排序或场次返回 400/1001。
 
-医生或账号已经绑定返回 409/4501，首版不提供同绑定重复成功、换绑和解绑。签到日期、预约或就诊状态不满足资格，以及重复签到、开始、完成返回 409/4502；首次成功时间保留，不用新的请求时间覆盖。
+医生或账号已经绑定返回 409/4501，首版不提供同绑定重复成功、换绑和解绑。签到按不存在/非本人（原404/403）→预约或就诊状态（409/4502）→尚未开放（409/4503，“尚未到签到开放时间”）→已截止（409/4504，“已超过预约场次签到截止时间”）的顺序校验。重复签到即使已过截止仍返回4502；次日首次签到为4504。重复开始、完成也返回4502；首次成功时间保留，不用新的请求时间覆盖。

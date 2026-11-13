@@ -1,5 +1,7 @@
 # 核心模块代码设计与事务契约
 
+签到窗口于2026-11-13按新规则更新，源码基于`4bfc1d5`的未提交工作区；决策见[ADR0008](adr/0008-visit-checkin-window.md)。
+
 本文对应预约支付核心模块及新增 visit 就诊模块的当前实现。业务结果见 [业务流程](business-flow.md)，HTTP 字段见 [API](api.md)，历史实测覆盖与后续文档核对见 [验证报告](verification-report.md)。系统仍是一个 Spring Boot 应用、同一 MySQL，原四模块改造保留既有数据库和事件版本；数据库最新为 V10；三天窗口、消息设计和测试整理均已交付，后两轮未新增迁移，事件契约仍为 v1；Redis 仅作为本地依赖运行。
 
 已新增 `visit` 就诊模块，详细接口与实现见 [到院签到与门诊接诊设计](visit/design.md)，前后行为见 [改动范围](visit/change-scope.md)。预约支付既有事务及消息恢复契约继续适用。
@@ -12,7 +14,7 @@
 | payment | 支付单、尝试、通知验签与审计、退款、Outbox、渠道调用 | `PaymentOrderCreationService`、`PaymentAttemptService`、`PaymentNotificationIngress`、`PaymentLifecycle`、`PaymentRefundOperations`、`RefundWorker`、`PaymentOutbox`、`DeadLetterReplayService` |
 | coordination | 同库创建、取消、过期、确认与对账的跨模块规则 | `BookingCoordinator`、`BookingLifecycleCoordinator`、`PaymentSucceededProcessor` |
 | bookingquery | 预约/支付/退款/就诊组合，以及医生四场概览、名单和详情 | `AppointmentService`、`DoctorVisitQueryService` |
-| visit | 当天签到、开始与完成接诊，共享一份就诊记录 | `VisitService`、纯规则 `VisitRules` |
+| visit | 窗口内签到、开始与完成接诊，共享一份就诊记录 | `VisitService`、纯规则 `VisitRules` |
 
 appointment 和 payment 写模块互不引用；coordination 使用稳定 application interface、业务事实和事件，不接触写模块 Mapper、Entity 或 implementation。HTTP Adapter 可以调用 coordination。bookingquery 可读取两侧数据及稳定类型，写模块不能反向依赖它。
 
@@ -180,9 +182,9 @@ application/domain 不依赖 Spring AMQP 或 Rabbit Client；contract 包不依�
 
 ## 就诊写入与医生身份
 
-`VisitService` 的三个动作各有本地事务，只读取 `AppointmentLifecycle.find()` 的稳定事实，通过 `DoctorAccountService` 解析医生，只写本模块 visit_records；不反向访问 bookingquery 或外部 Mapper。`AppointmentLifecycleCase` 追加 doctorId，其 find/lock 写授权含义不变。签到的一对一唯一键和两个带原状态条件的 UPDATE 防止并发重复操作与覆盖首次时间。
+`VisitService` 的三个动作各有本地事务，只读取 `AppointmentLifecycle.find()` 的稳定事实，通过 `DoctorAccountService` 解析医生，只写本模块 visit_records；不反向访问 bookingquery 或外部 Mapper。`AppointmentLifecycleCase` 包含 doctorId 和预约结束时间快照 endTime，其 find/lock 写授权含义不变。签到的一对一唯一键和两个带原状态条件的 UPDATE 防止并发重复操作与覆盖首次时间。
 
-`VisitRules` 是查询和写入共享的纯规则：已确认、当天、未签到才可签到；WAITING 可开始，IN_PROGRESS 可完成。当天签到不校验场次起止时间，医生动作不另限日期或时间；时间推进不自动结束就诊。医生名单不按状态重排，也不强制队首或跨行互斥。
+`VisitRules` 是查询和写入共享的纯规则：已确认、未签到且处于[预约开始前30分钟,预约结束)才可签到；窗口由预约快照推导。WAITING 可开始，IN_PROGRESS 可完成。签到写入口按不存在/归属→状态→开放→截止校验，资格与记录使用同一次秒精度采样；列表使用统一 serverTime。医生动作不另限日期或时间；时间推进不自动结束就诊。医生名单不按状态重排，也不强制队首或跨行互斥。
 
 医生账号绑定按医生→用户加锁，在同库事务中增加角色并条件绑定。账号唯一约束和首次绑定条件防止换绑；角色授予不覆盖原角色。查询 Mapper 只读，医生查询按登录身份限定范围，详情用快照和既有脱敏方式。
 

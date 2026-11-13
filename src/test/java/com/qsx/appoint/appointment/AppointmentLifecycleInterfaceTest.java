@@ -38,6 +38,14 @@ class AppointmentLifecycleInterfaceTest {
     void removeFixture() { fixtureScope.close(); }
 
     @Test
+    void readFactsUseAppointmentStartAndEndSnapshots() {
+        var facts = appointments.find(11003L);
+        assertThat(facts.startTime()).isEqualTo(java.time.LocalTime.of(9, 0));
+        assertThat(facts.endTime()).isEqualTo(java.time.LocalTime.of(9, 30));
+        transaction.executeWithoutResult(status -> assertThat(appointments.lock(11003L)).isEqualTo(facts));
+    }
+
+    @Test
     void mandatoryRejectsLocksAndWritesWithoutCallerTransaction() {
         var appointment=appointments.find(11003L);
         assertThatThrownBy(() -> appointments.lock(11003L)).isInstanceOf(IllegalTransactionStateException.class);

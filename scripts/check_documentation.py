@@ -91,6 +91,16 @@ for p in Path('http').glob('*.http'):
     assert not re.search(r'^@\w*[Dd]ate\s*=\s*\d{4}-\d{2}-\d{2}', text, re.M), ('固定运行日期', str(p))
 json.loads(Path('http/http-client.env.json').read_text())
 
+# Current visit contracts are checked independently of historical test evidence.
+window_fields = {'checkInOpensAt', 'checkInClosesAt'}
+assert window_fields <= set(record_fields(visit_response, 'AppointmentVisitResponse'))
+for field in window_fields:
+    assert f'`visit.{field}`' in api, ('签到窗口API字段缺失', field)
+error_codes = Path('src/main/java/com/qsx/appoint/common/ErrorCode.java').read_text()
+for number, message in [(4503, '尚未到签到开放时间'), (4504, '已超过预约场次签到截止时间')]:
+    assert re.search(r'\(' + str(number) + r', "' + message + r'", HttpStatus.CONFLICT\)', error_codes), number
+    assert str(number) in api, ('签到窗口错误码未记录', number)
+
 # Archive completeness is verified against the actual Git tree, not just entry count.
 manifest = json.loads(Path('.scratch/archive-manifest.json').read_text())
 checkpoint = manifest['baselineCommit']
@@ -115,7 +125,8 @@ archive = Path('.scratch/archive/delivery-quality/evidence/test-suite-refactor')
 source_manifest = (archive/'code-manifest.sha256').read_text().splitlines()
 for row in source_manifest:
     digest, name = row.split('  ', 1)
-    assert hashlib.sha256(Path(name).read_bytes()).hexdigest() == digest, ('实现或测试发生变化', name)
+    original = subprocess.check_output(['git', 'show', '9c5878b:' + name])
+    assert hashlib.sha256(original).hexdigest() == digest, ('历史被测源码摘要不匹配', name)
 counts = json.loads((archive/'final-counts.json').read_text())
 for kind in ['unit', 'mysql', 'reliability']:
     suites = json.loads((archive/f'final-{kind}-suites.json').read_text())
@@ -124,6 +135,46 @@ for kind in ['unit', 'mysql', 'reliability']:
 requests = json.loads((archive/'curl-report.json').read_text())['requests']
 assert len(requests) == counts['final']['httpRequests']
 assert all(x['status'] == x['expectedStatus'] for x in requests)
+
+# New acceptance is separate evidence. Future source changes are reported as drift,
+# not relabeled as tested or forced to match an old delivery's working tree.
+visit_evidence = Path('.scratch/visit-checkin-window/verification')
+visit_acceptance = None
+if (visit_evidence/'final-counts.json').exists():
+    visit_counts = json.loads((visit_evidence/'final-counts.json').read_text())
+    for kind in ['focused', 'unit', 'mysql', 'reliability']:
+        suites = json.loads((visit_evidence/f'final-{kind}-suites.json').read_text())
+        assert sum(int(x['tests']) for x in suites) == visit_counts[kind], kind
+        assert suites and all(int(x[k]) == 0 for x in suites for k in ['failures', 'errors', 'skipped']), kind
+        assert all(len(x['cases']) == int(x['tests']) and all(c['result'] == 'passed' for c in x['cases']) for x in suites), kind
+        suffix = {'mysql': 'MySqlIT', 'reliability': 'ReliabilityIT'}.get(kind)
+        assert suffix is None or all(x['name'].endswith(suffix) for x in suites), ('混入其他profile旧报告', kind)
+    visit_requests = json.loads((visit_evidence/'curl-report.json').read_text())['requests']
+    assert len(visit_requests) == visit_counts['httpRequests']
+    assert all(x['status'] == x['expectedStatus'] for x in visit_requests)
+    for item in visit_requests:
+        data = item['response'].get('data')
+        if item['method'] == 'GET' and item['path'].startswith('/api/v1/appointments') and item['status'] == 200:
+            rows = data if isinstance(data, list) else [data]
+            for row in rows:
+                if row['status'] == 'CONFIRMED':
+                    assert window_fields <= row['visit'].keys(), item['path']
+                else:
+                    assert row['visit'] is None, item['path']
+    current_manifest = (visit_evidence/'code-manifest.sha256').read_text().splitlines()
+    assert len(current_manifest) == visit_counts['sourceFiles']
+    assert hashlib.sha256((visit_evidence/'code-manifest.sha256').read_bytes()).hexdigest() == visit_counts['sourceManifestSha256']
+    recorded_names = set()
+    matches = True
+    for row in current_manifest:
+        digest, name = row.split('  ', 1)
+        assert name not in recorded_names, ('重复被测源码', name)
+        recorded_names.add(name)
+        matches = matches and Path(name).is_file() and hashlib.sha256(Path(name).read_bytes()).hexdigest() == digest
+    current_names = {str(p) for root in ['src', 'scripts', '.mvn'] for p in Path(root).rglob('*')
+                     if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc' and p.name != 'timing.properties'} | {'pom.xml', 'mvnw', 'mvnw.cmd', 'compose.yaml', '.env.example', 'compose.env.example'}
+    matches = matches and recorded_names == current_names
+    visit_acceptance = {'counts': visit_counts, 'sourceMatchesWorkingTree': matches}
 
 # Current test class inventory and explicit Class.method references.
 test_files = list(Path('src/test/java').rglob('*.java'))
@@ -135,6 +186,8 @@ coverage = Path('docs/testing/scenario-coverage.md').read_text()
 for namespace, maximum in [('messaging',32), ('booking-time',18)]:
     ids = re.findall(r'^\| '+namespace+r'/S(\d+) \|', coverage, re.M)
     assert len(ids) == maximum and set(map(int,ids)) == set(range(1,maximum+1)), namespace
+window_ids = re.findall(r'^\| checkin-window/W(\d+) \|', coverage, re.M)
+assert len(window_ids) == 12 and set(map(int, window_ids)) == set(range(1, 13)), '签到窗口场景映射不完整'
 method_refs = re.findall(r'\b([A-Z][A-Za-z0-9_]*(?:Test|MySqlIT|ReliabilityIT))\.([a-z][A-Za-z0-9_]+)', coverage)
 for cls, method in method_refs:
     assert cls in tests and re.search(r'\b'+method+r'\s*\(', tests[cls]), ('测试方法不存在',cls,method)
@@ -146,4 +199,4 @@ for p in [Path('README.md'), *Path('docs').rglob('*.md')]:
     for entry in entries:
         if entry['source'] in text:
             assert p.as_posix() == 'docs/agents/issue-tracker.md', ('现行文档残留旧路径',str(p),entry['source'])
-print(json.dumps({'markdownFiles':len(markdown),'localLinksAndAnchors':link_count,'documentedRestOperations':len(routes),'appointmentDtoFields':len(fields),'scheduleDtoFields':len(public_fields),'doctorRecordContracts':len(record_names),'appointmentVisitRecordContracts':1,'jsonExamples':json_samples,'httpRequests':http_requests,'httpJsonBodies':http_json,'archiveSources':len(entries),'unchangedSourceManifestFiles':len(source_manifest),'currentTestClasses':len(tests),'explicitTestMethodReferences':len(method_refs),'historicalCounts':counts['final'],'businessTestsRerun':False}, ensure_ascii=False, indent=2))
+print(json.dumps({'markdownFiles':len(markdown),'localLinksAndAnchors':link_count,'documentedRestOperations':len(routes),'appointmentDtoFields':len(fields),'scheduleDtoFields':len(public_fields),'doctorRecordContracts':len(record_names),'appointmentVisitRecordContracts':1,'jsonExamples':json_samples,'httpRequests':http_requests,'httpJsonBodies':http_json,'archiveSources':len(entries),'historicalSourceCheckpoint':'9c5878b','historicalSourceManifestFiles':len(source_manifest),'visitWindowAcceptance':visit_acceptance,'currentTestClasses':len(tests),'explicitTestMethodReferences':len(method_refs),'historicalCounts':counts['final'],'businessTestsRerun':False}, ensure_ascii=False, indent=2))

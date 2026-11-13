@@ -1,5 +1,7 @@
 # 到院签到与门诊接诊设计
 
+签到窗口于2026-11-13按新规则更新，源码基于`4bfc1d5`的未提交工作区；决策见[ADR0008](../adr/0008-visit-checkin-window.md)。
+
 设计交付日期：2026-11-11；现行内容复核：2026-11-12。状态：已实现；源码包含 V10、就诊模块及本文接口。实际验证结果见 [验证报告](../verification-report.md)。
 
 需求以 [就诊需求](requirements.md) 为准；请求响应见 [API](api.md)，实施范围及前后变化见 [改动说明](change-scope.md)。既有行为以 [现行模块设计](../module-design.md) 和 ADR 0003、0004、0005 为基础；公共预约目录与截止规则现按 [ADR 0007](../adr/0007-three-day-booking-and-session-cutoffs.md) 执行。
@@ -76,15 +78,15 @@ Controller 不访问 Mapper。`visit` 业务 Service 不依赖 `bookingquery`，
 
 共享 `VisitRules` 是小型纯规则类，不再增加 interface：
 
-- 已确认、就诊日期等于服务端今天、无签到记录：允许签到。
+- 已确认、无签到记录且处于[预约开始前30分钟,预约结束)：允许签到。
 - `WAITING`：允许开始接诊。
 - `IN_PROGRESS`：允许完成接诊。
 
 正常操作由医生一位一位接诊。本期不引入跨行忙碌状态、强制队首规则或精确到分钟的开诊资格。按钮矩阵只按当前行就诊状态计算；身份与归属在对应写入口确认。
 
-签到按上海日期判断整天资格，不校验场次起止；医生动作没有额外的当天或场次时间要求。未签到、未完成记录不会被时钟推进自动改写。
+签到按上海业务时间，使用预约日期和起止时间快照计算：开诊前30分钟开放（含），场次结束时截止（不含）。例如08:00–10:00允许在[07:30,10:00)首次签到，推荐07:30–08:00到院，08:00之后、10:00之前仍可签到。新旧尚未签到的已确认预约统一适用；已签到记录保留。超时未签到继续已确认且待签到，不自动取消、退款、释放库存、删除有效占用或标记爽约。医生动作没有额外的当天或场次时间要求。未签到、未完成记录不会被时钟推进自动改写。
 
-全部业务时间复用现有 `appointmentClock`（`Asia/Shanghai`）。一次列表统一采样时间，查询标记与写入共用同样的日期规则；写入时重新判断正常操作资格。
+全部业务时间复用现有 `appointmentClock`（`Asia/Shanghai`），截断到秒。写入口按不存在/归属→预约和进度状态→开放→截止的顺序拒绝，4502优先于4503/4504；资格判断与写入时间使用同一次采样。一次列表统一采样时间，查询标记与写入共用同样的窗口计算；写入时重新判断正常操作资格。
 
 ## 4. Service 契约
 
@@ -120,13 +122,13 @@ public interface VisitService {
 
 | 方法 | 正常执行步骤 |
 | --- | --- |
-| `checkIn` | 读取预约事实 → 确认账号归属、已确认、当天、待签到 → 插入候诊记录和时间 |
+| `checkIn` | 读取预约事实 → 确认账号归属、已确认及待签到 → 校验开放与截止 → 插入候诊记录和时间 |
 | `startVisit` | 解析医生身份 → 确认预约所属医生、候诊状态 → 更新就诊中和开始时间 |
 | `completeVisit` | 解析医生身份 → 确认预约所属医生、就诊中状态 → 更新已就诊和完成时间 |
 
 三个方法由 `DefaultVisitService` 实现，分别使用普通 `@Transactional` 同步提交。它们只写就诊表，不调用释放库存或取消退款方法。
 
-预约事实通过 `AppointmentLifecycle.find()`读取。`AppointmentLifecycleCase`已包含`doctorId`，由`DefaultAppointmentLifecycle`从预约快照映射，生产构造点和测试数据已同步。该字段只用于归属校验，不授予预约生命周期写入权限。
+预约事实通过 `AppointmentLifecycle.find()`读取。`AppointmentLifecycleCase`包含`doctorId`及预约结束时间快照`endTime`，由`DefaultAppointmentLifecycle`从预约快照映射，生产构造点和测试数据已同步。该字段只用于归属校验，不授予预约生命周期写入权限。
 
 ### 4.3 医生只读查询
 
@@ -185,7 +187,9 @@ public record AppointmentVisitResponse(
         LocalDateTime checkedInAt,
         LocalDateTime startedAt,
         LocalDateTime completedAt,
-        boolean canCheckIn) {}
+        boolean canCheckIn,
+        LocalDateTime checkInOpensAt,
+        LocalDateTime checkInClosesAt) {}
 ```
 
 `BookingQueryMapper` 增加对 `visit_records` 的 LEFT JOIN，并读取关联场次的 `session_type`；`BookingQueryRecord` 增加相应字段，`AppointmentResponseAssembler` 结合预约状态与统一时间组装上述对象。日期和起止时间仍取预约快照，历史空或旧场次类型继续可读。已有取消接口返回 `AppointmentResponse`，因此也带上新增字段；创建接口使用独立的 `AppointmentCreationResult`，响应结构保持原样。
@@ -199,7 +203,7 @@ public record AppointmentVisitResponse(
 | 数据库 | [V10](../../src/main/resources/db/migration/V10__visit_workflow.sql) | 账号关联唯一、预约与就诊一对一、状态及时间约束 |
 | 写入 | [DefaultVisitService](../../src/main/java/com/qsx/appoint/visit/application/DefaultVisitService.java) | 每个动作本地事务；归属、确认状态、进度判断 |
 | 条件更新 | [VisitRecordMapper](../../src/main/java/com/qsx/appoint/visit/mapper/VisitRecordMapper.java) | 首次插入唯一约束、WAITING→IN_PROGRESS→COMPLETED条件更新 |
-| 共享规则 | [VisitRules](../../src/main/java/com/qsx/appoint/visit/domain/VisitRules.java) | 当天签到，按当前进度判断医生动作 |
+| 共享规则 | [VisitRules](../../src/main/java/com/qsx/appoint/visit/domain/VisitRules.java) | 预约快照计算签到窗口，按当前进度判断医生动作 |
 | 用户查询 | [AppointmentResponseAssembler](../../src/main/java/com/qsx/appoint/bookingquery/application/AppointmentResponseAssembler.java) | 非确认visit为null；无记录推导待签到 |
 | 医生查询 | [DefaultDoctorVisitQueryService](../../src/main/java/com/qsx/appoint/bookingquery/application/DefaultDoctorVisitQueryService.java)、[Mapper](../../src/main/java/com/qsx/appoint/bookingquery/persistence/DoctorVisitQueryMapper.java) | 登录医生范围、四场补零、号码顺序、快照与脱敏 |
 
@@ -217,7 +221,9 @@ public record AppointmentVisitResponse(
         LocalDateTime checkedInAt,
         LocalDateTime startedAt,
         LocalDateTime completedAt,
-        boolean canCheckIn) {}
+        boolean canCheckIn,
+        LocalDateTime checkInOpensAt,
+        LocalDateTime checkInClosesAt) {}
 ```
 
 ```java

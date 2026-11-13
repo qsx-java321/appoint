@@ -86,3 +86,22 @@
 | booking-time/S18 | 原订单达到自己的支付截止，查询及支付尝试资格 | OnDemandBookingHttpTest.reachingPaymentDeadlineDisablesPaymentWithoutWaitingForExpirationScan |
 
 消息S29～S32包含交付检查；不作为可单独运行的业务测试方法。原八份v1样本见 `src/test/resources/messaging/v1/`；退款结果仅验证结构与重放，当前没有通知消费者。
+
+## 签到窗口
+
+2026-11-13增量以`4bfc1d5`未提交工作区为基线；本任务实际结果与源码摘要见[签到窗口验收](../../.scratch/visit-checkin-window/verification/report.md)。历史通过保持原检查点，不能替代本任务验证。
+
+| 场景 | 预期行为 | 当前测试入口或证据 |
+| --- | --- | --- |
+| checkin-window/W01 | 四场开放前一秒4503，恰好开放允许 | VisitRulesTest.fourSessionsIncludeOpeningButExcludeClosing；VisitHttpTest.allFourWindowsUseStrictBoundariesInQueriesAndWrites |
+| checkin-window/W02 | 四场截止前一秒允许，截止时刻/后一秒4504 | VisitRulesTest.fourSessionsIncludeOpeningButExcludeClosing；VisitHttpTest.allFourWindowsUseStrictBoundariesInQueriesAndWrites |
+| checkin-window/W03 | 前一天/上海当天零点4503，次日首次4504 | VisitHttpTest.userAndDoctorShareProgressAndPreserveBookingFactsThroughTheWholeVisit；VisitHttpTest.staleQueryDoesNotAuthorizeCheckInAtDeadlineOrNextDay；VisitRulesTest.fourSessionsIncludeOpeningButExcludeClosing |
+| checkin-window/W04 | 开诊后、截止前仍可首次签到 | VisitHttpTest.allFourWindowsUseStrictBoundariesInQueriesAndWrites |
+| checkin-window/W05 | 用户列表/详情返回快照窗口，同一列表统一serverTime与资格 | VisitHttpTest.allFourWindowsUseStrictBoundariesInQueriesAndWrites；BookingQueryServiceTest.confirmedListUsesOneSampleEvenWhenClockWouldCrossCheckInDeadline |
+| checkin-window/W06 | 查询尚可签，写入到截止须拒绝；写入单次秒采样 | VisitHttpTest.staleQueryDoesNotAuthorizeCheckInAtDeadlineOrNextDay；VisitServiceTest.oneSecondPrecisionSampleDeterminesEligibilityAndAllInsertTimes |
+| checkin-window/W07 | 未付/取消/过期4502优先时间；归属/不存在优先；重复保留首次事实 | VisitHttpTest.appointmentStateErrorsPrecedeBothWindowErrors；VisitHttpTest.ownershipAndExistencePrecedeWindowErrorsWithoutSideEffects；VisitHttpTest.checkedInPatientCanStartAfterCloseAndCompleteNextDayWithStableWindowAndFirstTime |
+| checkin-window/W08 | 失败不产生记录、不改预约/资金/库存/号码/占用/快照 | VisitHttpTest.allFourWindowsUseStrictBoundariesInQueriesAndWrites及其他拒绝用例完整行比较；VisitWorkflowMySqlIT.concurrentBindingCheckInStartAndCompletionKeepOneIdentityAndOneVisit |
+| checkin-window/W09 | 两请求一成功一4502，仅一记录、首次时间稳定 | VisitWorkflowMySqlIT.concurrentBindingCheckInStartAndCompletionKeepOneIdentityAndOneVisit |
+| checkin-window/W10 | 09:59签到、10:10开始、次日完成，双方进度一致 | VisitHttpTest.checkedInPatientCanStartAfterCloseAndCompleteNextDayWithStableWindowAndFirstTime；VisitWorkflowMySqlIT.concurrentBindingCheckInStartAndCompletionKeepOneIdentityAndOneVisit |
+| checkin-window/W11 | 旧零点签到保留并可跨日接诊；未签用快照窗口、超时不自动关闭退款 | VisitServiceTest.legacyMidnightCheckInIsNotRevokedAndCanStartOnNextDay；AppointmentResponseAssemblerTest.legacySignedVisitKeepsFirstTimeAndSnapshotWindowAfterClosing；AppointmentLifecycleInterfaceTest.readFactsUseAppointmentStartAndEndSnapshots；VisitHttpTest.staleQueryDoesNotAuthorizeCheckInAtDeadlineOrNextDay |
+| checkin-window/W12 | 隔离curl注册→预约→支付→签到→完成，窗口字段与用户/医生查询一致，库存快照不变 | scripts/compose_acceptance.py；本任务curl-report.json |

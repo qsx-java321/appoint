@@ -1,6 +1,6 @@
 # 当前测试类清单
 
-核对基线：`1e83c0c`。表中方法数含参数化方法，不等于执行用例数；显式 profile 指测试类注解，Maven 执行入口见[测试约定](../testing.md)。所有表列类已与当前源码核对。历史原方法迁移见[审计](../../.scratch/archive/delivery-quality/evidence/test-suite-refactor/method-audit.md)。
+签到窗口增量核对：2026-11-13，基于`4bfc1d5`未提交工作区；历史核对基线为`1e83c0c`。表中方法数含参数化方法，不等于执行用例数；显式 profile 指测试类注解，Maven 执行入口见[测试约定](../testing.md)。所有表列类已与当前源码核对。历史原方法迁移见[审计](../../.scratch/archive/delivery-quality/evidence/test-suite-refactor/method-audit.md)。
 
 | 测试类 | 层次/数据库 | 显式profile | 时钟 | 隔离方式 | 方法数 |
 | --- | --- | --- | --- | --- | --- |
@@ -9,15 +9,15 @@
 | `AppointmentExpirationJobTest` | 普通对象测试 | 未显式指定 | 注入/固定Clock，见配置 | 只读上下文/对象每例新建 | 1 |
 | `AppointmentIdempotencyIntegrationTest` | Spring/H2 | test | 显式时间输入 | 新增ID清理+目录快照；真实提交 | 7 |
 | `AppointmentLifecycleIntegrationTest` | Spring/H2 | test | 注入/固定Clock，见配置 | 新增ID清理+目录快照；真实提交 | 12 |
-| `AppointmentLifecycleInterfaceTest` | Spring/H2 | 未显式指定 | 显式时间输入 | 新增ID清理+目录快照；真实提交 | 8 |
+| `AppointmentLifecycleInterfaceTest` | Spring/H2 | 未显式指定 | 显式时间输入 | 新增ID清理+目录快照；真实提交 | 9 |
 | `AppointmentLifecycleMySqlIT` | MySQL容器 | test | 显式时间输入 | 新增ID清理+目录快照；真实提交 | 13 |
 | `AppointmentQueryIntegrationTest` | Spring/H2 | test | 显式时间输入 | 测试事务回滚；特殊提交显式清理 | 10 |
 | `BookingMidnightIntegrationTest` | Spring/H2 | 未显式指定 | 可变上海钟，每例重置 | 新增ID清理+目录快照；真实提交 | 1 |
 | `OnDemandBookingHttpTest` | Spring/H2 | test | 可变上海钟，每例重置 | 测试事务回滚；特殊提交显式清理 | 14 |
 | `ScheduleInventoryIntegrationTest` | Spring/H2 | test | 可变上海钟，每例重置 | 新增ID清理+目录快照；真实提交 | 6 |
 | `ModuleDependencyTest` | ArchUnit | 未显式指定 | 无专用时钟 | 只读上下文/对象每例新建 | 20 |
-| `AppointmentResponseAssemblerTest` | 普通对象测试 | 未显式指定 | 显式时间输入 | 只读上下文/对象每例新建 | 1 |
-| `BookingQueryServiceTest` | 普通对象测试 | 未显式指定 | 注入/固定Clock，见配置 | 只读上下文/对象每例新建 | 2 |
+| `AppointmentResponseAssemblerTest` | 普通对象测试 | 未显式指定 | 显式时间输入 | 只读上下文/对象每例新建 | 2 |
+| `BookingQueryServiceTest` | 普通对象测试 | 未显式指定 | 注入/固定Clock，见配置 | 只读上下文/对象每例新建 | 3 |
 | `BookingWorkflowProjectorTest` | 普通对象测试 | 未显式指定 | 无专用时钟 | 只读上下文/对象每例新建 | 4 |
 | `BookingSettingsHttpTest` | Spring/H2 | 未显式指定 | 无专用时钟 | 测试事务回滚；特殊提交显式清理 | 3 |
 | `CatalogManagementIntegrationTest` | Spring/H2 | 未显式指定 | 注入/固定Clock，见配置 | 测试事务回滚；特殊提交显式清理 | 11 |
@@ -58,5 +58,7 @@
 | `DeadLetterReplayContractTest` | 普通对象测试 | 未显式指定 | 无专用时钟 | 只读上下文/对象每例新建 | 4 |
 | `MessageConsumerContractTest` | 普通对象测试 | 未显式指定 | 显式时间输入 | 只读上下文/对象每例新建 | 4 |
 | `RefundRequestedListenerTest` | 普通对象测试 | 未显式指定 | 无专用时钟 | 只读上下文/对象每例新建 | 5 |
-| `VisitHttpTest` | Spring/H2 | test | 可变上海钟，每例重置 | 测试事务回滚；特殊提交显式清理 | 7 |
+| `VisitHttpTest` | Spring/H2 | test | 可变上海钟，每例重置 | 测试事务回滚；特殊提交显式清理 | 12 |
 | `VisitWorkflowMySqlIT` | MySQL容器 | test | 可变上海钟，每例重置 | 新增ID清理+目录快照；真实提交 | 1 |
+| `VisitRulesTest` | 普通对象测试 | 未显式指定 | 显式上海时间输入 | 对象每例新建 | 3 |
+| `VisitServiceTest` | 普通对象测试 | 未显式指定 | Clock替身 | 对象每例新建 | 2 |

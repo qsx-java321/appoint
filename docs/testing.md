@@ -8,7 +8,7 @@
 
 | 层次 | 主要责任 | 典型位置 |
 | --- | --- | --- |
-| 普通对象测试 | 时间边界、策略、投影、编解码和传输分支 | BookingTimeRulesTest、BookingLifecyclePolicyTest、MessageConsumerContractTest |
+| 普通对象测试 | 时间边界、策略、投影、编解码和传输分支 | VisitRulesTest、VisitServiceTest、BookingTimeRulesTest、BookingLifecyclePolicyTest、MessageConsumerContractTest |
 | Spring＋H2 | 实际装配、MyBatis读写、事务传播与回滚、MockMvc权限与接口 | PaymentOutboxTransactionTest、AppointmentLifecycleInterfaceTest、VisitHttpTest |
 | MySQL容器 | 实际迁移、唯一键、外键、行锁及竞争 | AppointmentLifecycleMySqlIT、PaymentParentLockMySqlIT |
 | MySQL＋RabbitMQ容器 | Broker故障、confirm、重试、DLQ、提交与ACK窗口 | OutboxPublisherReliabilityIT、PaymentConfirmationReliabilityIT |
@@ -104,3 +104,5 @@ MyBatis Mapper是接口代理，故障恢复应撤销stub并恢复其原委托�
 ## 文档维护检查
 
 在项目根目录运行 `python3 scripts/check_documentation.py`。检查覆盖REST/DTO、测试入口、链接和归档证据，不替代业务测试。
+
+签到窗口W01～W12见[场景覆盖](testing/scenario-coverage.md#签到窗口)。聚焦测试可执行`./mvnw -o -Dtest=VisitRulesTest,VisitServiceTest,VisitHttpTest,AppointmentResponseAssemblerTest,BookingQueryServiceTest,AppointmentLifecycleInterfaceTest,BookingLifecyclePolicyTest test`。文档工具以Git检查点`9c5878b`验证旧360文件摘要；本任务逐用例摘要、HTTP报告及源码清单独立核验，源码漂移会显示`sourceMatchesWorkingTree=false`，不将旧通过结果认作当前代码验证。

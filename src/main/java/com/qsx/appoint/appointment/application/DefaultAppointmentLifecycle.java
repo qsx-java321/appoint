@@ -143,7 +143,7 @@ class DefaultAppointmentLifecycle implements AppointmentLifecycle {
         if (order == null) return null;
         return new AppointmentLifecycleCase(order.getId(), order.getUserId(), order.getScheduleId(),
                 AppointmentStatus.fromStored(order.getStatus()), order.getPaymentExpiresAt(), order.getAppointmentDate(),
-                order.getStartTime(), order.getVisitNumber(), order.getDoctorId());
+                order.getStartTime(), order.getVisitNumber(), order.getDoctorId(), order.getEndTime());
     }
     /** 条件写入必须恰好命中一行；否则抛完整性错误，由外层事务统一回滚。 */
     private void requireOne(int count) { if (count != 1) throw new BusinessException(ErrorCode.INTERNAL_ERROR); }

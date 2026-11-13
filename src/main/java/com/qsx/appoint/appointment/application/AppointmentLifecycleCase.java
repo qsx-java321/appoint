@@ -17,6 +17,7 @@ import java.time.LocalTime;
  * @param startTime 凭证开诊时刻，用于协调层24小时取消判断
  * @param doctorId 预约快照的医生ID，用于就诊归属校验
  * @param visitNumber 已分配的就诊序号，未确认时为null
+ * @param endTime 凭证结束时刻，用于签到截止判断
  */
 public record AppointmentLifecycleCase(
         Long id,
@@ -27,5 +28,6 @@ public record AppointmentLifecycleCase(
         LocalDate appointmentDate,
         LocalTime startTime,
         Integer visitNumber,
-        Long doctorId) {
+        Long doctorId,
+        LocalTime endTime) {
 }

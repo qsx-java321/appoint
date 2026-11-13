@@ -36,7 +36,9 @@ public enum ErrorCode {
     PAYMENT_CHANNEL_UNAVAILABLE(4301, "支付渠道暂不可用", HttpStatus.SERVICE_UNAVAILABLE),
     PAYMENT_SIGNATURE_INVALID(4302, "支付通知签名无效", HttpStatus.BAD_REQUEST),
     DOCTOR_ACCOUNT_ALREADY_BOUND(4501, "医生档案或账号已绑定，不支持换绑", HttpStatus.CONFLICT),
-    VISIT_STATE_ERROR(4502, "当前日期或就诊进度不允许该操作", HttpStatus.CONFLICT);
+    VISIT_STATE_ERROR(4502, "当前日期或就诊进度不允许该操作", HttpStatus.CONFLICT),
+    CHECK_IN_NOT_OPEN(4503, "尚未到签到开放时间", HttpStatus.CONFLICT),
+    CHECK_IN_CLOSED(4504, "已超过预约场次签到截止时间", HttpStatus.CONFLICT);
 
     private final int code;
     private final String message;

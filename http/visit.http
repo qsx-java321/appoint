@@ -1,6 +1,6 @@
 # 使用 local 环境。先按 auth.http 注册/登录用户，并按 README 准备管理员。
 # 必填下方visitDate为用户已确认预约的就诊日期，并填写真实医生档案ID、预约ID。
-# 普通启动只接受就诊当天签到；完整跨日验收使用 scripts/compose_acceptance.py。
+# 普通启动按预约快照在[开始前30分钟,结束)接受签到；完整跨日验收使用 scripts/compose_acceptance.py。
 @doctorId = 1
 @appointmentId = 1
 @visitDate =
@@ -39,7 +39,8 @@ Authorization: Bearer {{userAccessToken}}
 GET {{baseUrl}}/api/v1/appointments/{{appointmentId}}
 Authorization: Bearer {{userAccessToken}}
 
-### 用户就诊当天签到，无请求体
+### 用户窗口内签到，无请求体；详情/列表visit返回checkInOpensAt/checkInClosesAt
+# 例如08:00–10:00：07:30开放、10:00整截止。过早4503，截止4504，重复4502。
 POST {{baseUrl}}/api/v1/appointments/{{appointmentId}}/check-in
 Authorization: Bearer {{userAccessToken}}
 

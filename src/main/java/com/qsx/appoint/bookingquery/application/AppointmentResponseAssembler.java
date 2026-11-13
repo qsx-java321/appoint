@@ -85,7 +85,10 @@ class AppointmentResponseAssembler {
         VisitStatus progress = record.getVisitRecordId() == null
                 ? VisitStatus.NOT_CHECKED_IN : VisitStatus.fromStored(record.getVisitStatus());
         return new AppointmentVisitResponse(progress.name(), record.getCheckedInAt(), record.getStartedAt(),
-                record.getCompletedAt(), VisitRules.canCheckIn(status, record.getAppointmentDate(), progress, now.toLocalDate()));
+                record.getCompletedAt(), VisitRules.canCheckIn(status, record.getAppointmentDate(),
+                record.getStartTime(), record.getEndTime(), progress, now),
+                VisitRules.checkInOpensAt(record.getAppointmentDate(), record.getStartTime()),
+                VisitRules.checkInClosesAt(record.getAppointmentDate(), record.getEndTime()));
     }
     /** 支付单必须存在且与预约账号相同；不能把LEFT JOIN缺失结果当作零金额未付单。 */
     private void ensurePaymentIntegrity(BookingQueryRecord record) {

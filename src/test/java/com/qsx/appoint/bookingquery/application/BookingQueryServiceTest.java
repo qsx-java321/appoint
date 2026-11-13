@@ -33,6 +33,25 @@ class BookingQueryServiceTest {
         verify(clock, times(1)).instant();
     }
 
+    @Test
+    void confirmedListUsesOneSampleEvenWhenClockWouldCrossCheckInDeadline() {
+        var first = validRecord();
+        var second = validRecord();
+        for (var row : List.of(first, second)) {
+            row.setStatus("CONFIRMED"); row.setPaymentStatus("PAID");
+            row.setAppointmentDate(java.time.LocalDate.of(2026, 11, 9));
+            row.setEndTime(java.time.LocalTime.of(10, 0));
+        }
+        when(mapper.selectByUserId(1L)).thenReturn(List.of(first, second));
+        when(clock.getZone()).thenReturn(ZoneId.of("Asia/Shanghai"));
+        when(clock.instant()).thenReturn(Instant.parse("2026-11-09T01:59:59.999Z"), Instant.parse("2026-11-09T02:00:00Z"));
+        assertThat(service.listMine(1L)).hasSize(2).allSatisfy(row -> {
+            assertThat(row.getVisit().canCheckIn()).isTrue();
+            assertThat(row.getServerTime()).isEqualTo(LocalDateTime.parse("2026-11-09T09:59:59"));
+        });
+        verify(clock, times(1)).instant();
+    }
+
     private BookingQueryRecord validRecord() {
         var record = new BookingQueryRecord();
         record.setAppointmentUserId(1L);

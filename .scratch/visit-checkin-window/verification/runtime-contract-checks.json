@@ -1,0 +1,10 @@
+{
+  "baselineCommit": "4bfc1d513bbe7a5649e1e073a5fe60d7efe809d4",
+  "sourceFiles": 368,
+  "sourceManifestSha256": "7a112306e7275a60293a6c16c990fef5b374fa720420a3461f61a808ce335f16",
+  "sourceStillMatches": true,
+  "jar": "target/appoint-0.0.1-SNAPSHOT.jar",
+  "testClockClassesInProductionJar": [],
+  "existingMigrationsChanged": false,
+  "productionAcceptanceTimeProperty": false
+}

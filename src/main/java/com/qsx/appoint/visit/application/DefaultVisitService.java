@@ -32,9 +32,15 @@ class DefaultVisitService implements VisitService {
         var appointment = requireAppointment(appointmentId);
         if (!appointment.userId().equals(userId)) throw new BusinessException(ErrorCode.FORBIDDEN);
         var progress = progress(appointmentId);
-        LocalDateTime now = now();
-        if (!VisitRules.canCheckIn(appointment.status(), appointment.appointmentDate(), progress, now.toLocalDate())) {
+        if (appointment.status() != AppointmentStatus.CONFIRMED || progress != VisitStatus.NOT_CHECKED_IN) {
             throw new BusinessException(ErrorCode.VISIT_STATE_ERROR);
+        }
+        LocalDateTime now = now();
+        if (now.isBefore(VisitRules.checkInOpensAt(appointment.appointmentDate(), appointment.startTime()))) {
+            throw new BusinessException(ErrorCode.CHECK_IN_NOT_OPEN);
+        }
+        if (!now.isBefore(VisitRules.checkInClosesAt(appointment.appointmentDate(), appointment.endTime()))) {
+            throw new BusinessException(ErrorCode.CHECK_IN_CLOSED);
         }
         VisitRecord record = new VisitRecord();
         record.setAppointmentOrderId(appointmentId);
