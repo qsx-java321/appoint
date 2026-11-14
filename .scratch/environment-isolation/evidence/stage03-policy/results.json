@@ -1,0 +1,49 @@
+{
+  "scope": "stage03 isolated source snapshot",
+  "suites": [
+    {
+      "class": "com.qsx.appoint.localenv.LocalEnvironmentPolicyTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        "rejectsShellConnectionOverrides",
+        "profileFilesResolveToTheirOwnTargetsAndCredentials",
+        "rejectsCrossEnvironmentDatabaseNamespaceVhostPortAndMixedProfilesBeforeAnyConnection",
+        "rejectsIndexedAndRelaxedConnectionOverrides",
+        "rejectsSharedJwtAndMissingCredentialsWithoutTouchingRealFiles",
+        "malformedUrlDoesNotExposeConnectionDetails",
+        "registeredPolicyRejectsWrongDemoDatabaseBeforeContextInitialization",
+        "rejectsDisablingProtectionAndMigration"
+      ]
+    },
+    {
+      "class": "com.qsx.appoint.support.RegressionIsolationTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        "usesOnlyRegressionConfiguration"
+      ]
+    }
+  ],
+  "servicesStarted": false,
+  "containersStarted": false,
+  "resources": [
+    "temporary credential fixtures",
+    "H2 in-memory database"
+  ],
+  "injectedHostOverrides": {
+    "SPRING_DATASOURCE_URL": "jdbc:forbidden:host-override",
+    "SPRING_FLYWAY_SCHEMAS_0": "forbidden"
+  },
+  "initialReproduction": {
+    "tests": 4,
+    "failures": 2,
+    "reason": "indexed and Shell connection overrides were not rejected"
+  },
+  "sandboxRetry": "Initial combined run: policy passed, RegressionIsolationTest failed on Mockito self-attach; explicit Mockito javaagent then passed. No business assertion failure in isolation test.",
+  "originalFinalLogSha256": "1c8de20330e6b2e649ecade9d8b8c2f51c35616bbbdcd71e70f3a216bca25c09"
+}

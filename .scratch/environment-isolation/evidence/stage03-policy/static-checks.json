@@ -1,0 +1,17 @@
+{
+  "documentationCommand": "python3 scripts/check_documentation.py",
+  "documentationPassed": true,
+  "markdownFiles": 114,
+  "localLinksAndAnchors": 771,
+  "currentTestClasses": 66,
+  "scope": "full working tree documentation; includes other in-progress implementations",
+  "whitespaceCommand": "git diff --check",
+  "whitespacePassed": true,
+  "stagedSnapshotDocumentationPassed": true,
+  "stagedSnapshotDocumentationSummary": {
+    "markdownFiles": 110,
+    "localLinksAndAnchors": 753,
+    "currentTestClasses": 62
+  },
+  "stagedImplementationMatchesTestedSnapshot": true
+}

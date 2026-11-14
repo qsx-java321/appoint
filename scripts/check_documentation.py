@@ -178,7 +178,7 @@ if (visit_evidence/'final-counts.json').exists():
 
 # Current test class inventory and explicit Class.method references.
 test_files = list(Path('src/test/java').rglob('*.java'))
-tests = {p.stem:p.read_text() for p in test_files if p.name.endswith(('Test.java','MySqlIT.java','ReliabilityIT.java','RedisIT.java'))}
+tests = {p.stem:p.read_text() for p in test_files if p.name.endswith(('Test.java','MySqlIT.java','ReliabilityIT.java','RedisIT.java')) and '@interface ' not in p.read_text()}
 inventory = Path('docs/testing/inventory.md').read_text()
 listed = re.findall(r'^\| `([A-Za-z0-9]+)` \|', inventory, re.M)
 assert set(listed) == set(tests), ('测试清单不匹配', sorted(set(tests)-set(listed)), sorted(set(listed)-set(tests)))

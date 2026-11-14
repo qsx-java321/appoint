@@ -15,3 +15,8 @@ frontend/test-results/
 .scratch/frontend-compose-live/runtime/
 scripts/__pycache__/
 
+.env.dev
+.env.test
+.env.demo
+.local-env/
+.scratch/environment-isolation/runtime/

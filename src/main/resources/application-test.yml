@@ -1,0 +1,28 @@
+server:
+  address: 127.0.0.1
+  port: 8081
+spring:
+  config:
+    import: file:./.env.test[.properties]
+  datasource:
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/appoint_test?serverTimezone=Asia/Shanghai}
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
+    virtual-host: /appoint-test
+appoint:
+  local-environment:
+    enabled: true
+    name: test
+    seed-password: ${LOCAL_SEED_PASSWORD:}
+  catalog-cache:
+    enabled: true
+    namespace: test
+  jwt:
+    secret: ${JWT_SECRET}
+  mock-pay:
+    signing-key: ${MOCK_PAY_SIGNING_KEY}
