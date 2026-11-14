@@ -41,79 +41,28 @@
 
 ## 本地运行
 
-开发、测试和验收环境的配置归属、端口、数据隔离及命令选择见[环境总览](docs/environments.md)。
+三套环境共用Docker Compose中的真实MySQL、Redis、RabbitMQ，前后端在宿主机启动。配置、账号、初始化、重置及IDE启动方式见[环境使用说明](docs/environments.md)。
 
-已确认、待实施的 dev/test/demo 拆分与独立自动化回归设计见[环境改造方案](docs/environment-isolation-plan.md)；当前运行方式仍以下文为准。
+| 环境 | 前端→后端 | 数据与用途 |
+| --- | --- | --- |
+| dev | 5173→8080 | 沿用appoint，保留日常体验数据 |
+| test | 5174→8081 | appoint_test，独立操作业务，默认保留，可显式重置和调时 |
+| demo | 5175→8082 | appoint_demo，每次后端启动恢复初始数据 |
 
-前端工程、Node环境、启动、测试与静态部署见[前端说明](frontend/README.md)，详细设计与实施顺序见[前端实施方案](docs/frontend-implementation-plan.md)。前端独立执行`npm ci`、`npm run dev`，开发入口默认http://127.0.0.1:5173，`/api`代理到下述Spring Boot服务；Maven构建不调用npm。
-
-首次使用时准备两份本地配置，按需修改凭据，并确保两份文件中的 MySQL 和 RabbitMQ 连接信息一致：
-
-```bash
-cp compose.env.example compose.env
-cp .env.example .env
-```
-
-`compose.env` 供 Docker Compose 初始化 MySQL、RabbitMQ；`.env` 供 Spring Boot 从项目根目录启动时加载，默认启用 `dev` profile 和 MockPay。两份实际配置均不提交 Git。已有 MySQL、RabbitMQ 数据卷时，修改初始化变量不会自动修改卷内已有账号密码。
-
-从项目根目录启动依赖和应用：
+已有compose.env保留原凭据；缺少时从compose.env.example复制。加载Node 24并在frontend目录执行npm ci后，从项目根目录执行：
 
 ```bash
-docker compose --env-file compose.env up -d --wait mysql redis rabbitmq
-./mvnw spring-boot:run
+python3 scripts/local_env.py init
+python3 scripts/local_env.py cutover-dev
+python3 scripts/local_env.py start dev
+# 切换时先 stop dev，再选择 start test 或 start demo
 ```
 
-其他 Compose 命令同样需要 `--env-file compose.env`。IDE 的工作目录应设为项目根目录；系统环境变量可覆盖应用 `.env`。Redis 用于医院、科室、医生目录缓存。本地 `.env` 启用缓存并使用 `local-dev` namespace；不同数据库必须配置不同 namespace。
+旧dev切换前先私密备份并停止原应用；预检发现未完成资金或消息时中止。保留原库及数据卷。私密配置分别为.env.dev/.env.test/.env.demo，Spring Boot不再全局导入旧根.env。IDE使用项目根目录作为工作目录，选择单个dev/test/demo profile，默认dev。
 
-使用 Compose 实际依赖执行隔离业务验收：
+电脑资源有限，操作时一次按需启动一套；同环境锁防止重复实例和重置冲突。test预置管理员，demo预置用户、医生和管理员，密码见对应私密环境文件的LOCAL_SEED_PASSWORD。MockPay为内存实现，重启后旧渠道支付查询和退款续接存在限制。
 
-```bash
-python3 scripts/compose_acceptance.py
-```
-
-使用 curl 发起所有业务 HTTP 请求并保存脱敏结果（含注册、预约、签到、医生看板与接诊）：
-
-```bash
-python3 scripts/compose_acceptance.py --http-client curl --http-report /tmp/appoint-curl-report.json
-```
-
-前端真实浏览器完整闭环使用相同Compose服务上的独立数据库、消息vhost和缓存namespace：
-
-```bash
-python3 scripts/frontend_compose_acceptance.py
-```
-
-先在当前终端加载已有Node/npm及安装Playwright浏览器；脚本从根目录启动18082隔离Spring Boot和5174前端，正常8080/5173不受影响。成功清理隔离资源，失败保留诊断标识。真实结果与限制见[前端Compose验收](.scratch/frontend-compose-live/verification.md)。
-
-验收入口会创建独立数据库、数据库账号和 RabbitMQ vhost，启动 dev profile，验证预约、支付、异步确认、取消退款、迟到支付释放退款及库存守恒及医生绑定、窗口内签到、四状态看板和接诊完成；成功后删除验收资源，失败时保留资源标识和日志。Redis 使用每轮独立 namespace，验证缓存读取和管理后失效；成功后定向清理本轮键。
-
-测试分层、夹具隔离及新增用例的编写方式见 [测试约定](docs/testing.md)。
-
-常规测试：
-
-```bash
-./mvnw test
-```
-
-真实 Redis 缓存、事务、故障和双实例测试：
-
-```bash
-./mvnw -Predis-it verify
-```
-
-包含真实 MySQL 迁移、唯一约束和并发竞争的测试：
-
-```bash
-./mvnw -Pmysql-it verify
-```
-
-消息确认、故障重试、DLQ 和提交/ACK 窗口的真实 MySQL + RabbitMQ 测试，单独执行：
-
-```bash
-./mvnw -Preliability-it verify
-```
-
-Maven 命令串行运行；两个集成 profile 均重复运行常规测试，不把报告数量重复相加。Docker 和依赖镜像须可用，不跳过容器测试。停止本地依赖可执行 `docker compose --env-file compose.env stop`，保留数据卷。
+本次环境改造按既有业务功能正确处理，只交付环境配置与入口，不执行测试或验收。原测试体系保留，维护约定见[测试文档](docs/testing.md)。
 
 ## HTTP 示例
 
@@ -184,7 +133,7 @@ WHERE u.email = 'student@example.com';
 
 ## 当前进度与阅读路线
 
-本阶段开发已交付，系统为模块化单体、数据库V10。完整能力、未实现范围和最新实测检查点由[项目状态](docs/project-status.md)维护。
+本阶段开发已交付，系统为模块化单体；三环境共用迁移，当前包含V11环境账号来源标记。完整能力、未实现范围和最新实测检查点由[项目状态](docs/project-status.md)维护。
 
 - 学习项目：[项目状态](docs/project-status.md) → [术语](GLOSSARY.md) → [业务流程](docs/business-flow.md) → [模块设计](docs/module-design.md) → [就诊设计](docs/visit/design.md) → [API](docs/api.md) → [测试覆盖](docs/testing/scenario-coverage.md)。
 - 运行维护：本页本地运行 → [API](docs/api.md)和HTTP示例 → [测试约定](docs/testing.md) → [恢复手册](docs/runbooks/payment-module-cutover.md) → [验收证据](docs/verification-report.md)。
@@ -195,5 +144,5 @@ WHERE u.email = 'student@example.com';
 - 已实现窗口签到与正常接诊主线；自动叫号、爽约、状态回退、病历处方、实时推送和精确到分钟的就诊安排不在当前范围内。
 - 签到按上海业务时间，使用预约日期和起止时间快照计算：开诊前30分钟开放（含），场次结束时截止（不含）。例如08:00–10:00允许在[07:30,10:00)首次签到，推荐07:30–08:00到院，08:00之后、10:00之前仍可签到。新旧尚未签到的已确认预约统一适用；已签到记录保留。超时未签到继续已确认且待签到，不自动取消、退款、释放库存、删除有效占用或标记爽约。医生开始/完成按归属和状态校验，没有额外的当天或场次时间限制，不自动结束就诊。
 - 已确认预约只能在开诊前严格超过 24 小时主动取消。
-- dev/test 使用 MockPay；真实支付渠道尚未接入。
+- dev/test/demo 使用 MockPay；真实支付渠道尚未接入。
 - 退款结果队列已声明，尚无对应监听器，未实现短信或邮件通知；Outbox 发布失败耗尽、消费进入 DLQ 等情况可能需要人工恢复，详见模块设计与切换手册。

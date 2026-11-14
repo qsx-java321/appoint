@@ -1,16 +1,16 @@
-# 环境改造任务地图
+# 三环境任务地图
 
-需求见[spec](spec.md)，文件级设计与验收编号见[正式方案](../../docs/environment-isolation-plan.md)。01–03已完成；本次只交付03配置校验，后续工作区实现尚未纳入此阶段。证据见[03阶段报告](evidence/stage03-policy/report.md)。
+最新范围见[需求](spec.md)，使用方式见[环境说明](../../docs/environments.md)，交付记录见[总结](../archive/environment-isolation/summary.md)。现有业务按正确处理，本轮只交付环境，不做测试或验收。
 
-| 编号 | 任务 | Blocked by | 状态 |
-| --- | --- | --- | --- |
-| 01 | [需求访谈、源码核查与方案](issues/01-plan.md) | 无 | resolved |
-| 02 | [自动化配置根与profile隔离](issues/02-regression-config.md) | 01 | resolved |
-| 03 | [常驻环境配置与启动校验](issues/03-runtime-config.md) | 02 | resolved |
-| 04 | [资源初始化、账号与重置生命周期](issues/04-provisioning-reset.md) | 03 | open |
-| 05 | [test运行中业务调时](issues/05-test-clock.md) | 04 | open |
-| 06 | [三前端入口与HTTP变量隔离](issues/06-frontend-http.md) | 04 | open |
-| 07 | [独占容器HTTP与浏览器回归](issues/07-container-acceptance.md) | 02、06 | open |
-| 08 | [完整验证、旧环境过渡与文档交付](issues/08-verification-delivery.md) | 05、06、07 | open |
+| 编号 | 任务 | Blocked by | 状态 | 当前结论 |
+| --- | --- | --- | --- | --- |
+| 01 | [需求与方案](issues/01-plan.md) | 无 | resolved | 原方案259e368；最新范围覆盖原测试要求 |
+| 02 | [早期回归配置](issues/02-regression-config.md) | 01 | resolved | 已提交748eca3，保留历史，不继续处理 |
+| 03 | [常驻配置与目标校验](issues/03-runtime-config.md) | 02 | resolved | 已提交0ec8470，保留历史结果 |
+| 04 | [初始化与生命周期](issues/04-provisioning-reset.md) | 03 | resolved | 环境实现交付，不补测试证据 |
+| 05 | [test业务时间](issues/05-test-clock.md) | 04 | resolved | 环境功能交付，不做业务验证 |
+| 06 | [前端入口](issues/06-frontend-http.md) | 04 | resolved | 交付三个mode；HTTP/Playwright移出范围 |
+| 07 | [自动化回归](issues/07-container-acceptance.md) | 02、06 | resolved | 用户撤销，wontfix；不继续实现或运行 |
+| 08 | [使用文档与提交](issues/08-verification-delivery.md) | 05、06、07 | resolved | 仅完成环境实现与文档交付 |
 
-02先消除现有自动化 `test`与未来常驻 `test`的配置碰撞，再引入真实连接；04完成demo重置后才能宣称支持demo启动。08才允许汇总改造交付结果，历史测试报告不计作本轮证据。
+保留旧issue正文用于追溯，各issue末尾的最新范围说明取代旧测试完成条件。原始文件保留，未删除或归档原文；自动化在途代码没有纳入本次环境提交。

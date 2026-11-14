@@ -1,10 +1,12 @@
 # 任务入口与历史交付档案
 
-## 待实施任务
+## 在途任务
 
-- [三环境与自动化回归隔离](environment-isolation/spec.md)：需求与方案已确认，方案任务已交付，代码改造尚未开始。[任务地图](environment-isolation/map.md) · [正式方案](../docs/environment-isolation-plan.md)。
+- 三环境环境实现已按最新范围交付，见下方档案；原自动化在途文件保留，本轮不继续处理。
 
 ## 最近交付
+
+- [dev/test/demo环境交付](archive/environment-isolation/summary.md)：真实Compose依赖、独立配置与数据生命周期、启动入口及使用说明；按用户要求不执行测试或验收。
 
 - [业务前端与真实Compose联调](archive/frontend/summary.md)：代码交付`e91d870`，14类页面、22项单元、10项浏览器回归及139次真实HTTP/SQL核对通过；原始任务保留，验收证据已归档，未推送。
 

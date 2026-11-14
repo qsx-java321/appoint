@@ -294,3 +294,7 @@ V9 保留旧 `MORNING`、`AFTERNOON`、空时段及历史关闭状态供读取�
 `GET /api/v1/appointments/my` 支持可选 `order=DESC|ASC`，按就诊日期、开始时间、ID 同向排序，默认 DESC，仍返回全部预约数组。原详情、列表及取消响应追加 `sessionType` 和 `visit`；创建响应不变。已确认且无记录时计算 NOT_CHECKED_IN，其他预约的 visit 为 null。
 
 新增管理员医生绑定、用户签到及五个医生接口的路径、字段和权限见 [就诊 API](visit/api.md#2-接口总览)。医生详情仅包含预约快照、脱敏证件及就诊进度。正常动作均返回 200 和最新详情，重复动作返回 409，不覆盖原时间。
+
+## test环境业务调时
+
+仅常驻test且具备ADMIN角色时注册：`GET /api/v1/test-control/clock`查询，`PUT /api/v1/test-control/clock`设置（JSON字段`instant`为带时区的ISO瞬时时间），`DELETE /api/v1/test-control/clock`恢复实时。返回`businessTime`与`mode`（realtime/adjusted）。设时后持续走秒，重启恢复真实时间，不调整JWT/系统时间，不回滚业务事实。dev/demo/prod无此路由。

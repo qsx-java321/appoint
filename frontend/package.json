@@ -14,7 +14,9 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "dev:test": "vite --host 127.0.0.1 --mode test",
+    "dev:demo": "vite --host 127.0.0.1 --mode demo"
   },
   "dependencies": {
     "axios": "1.21.1",

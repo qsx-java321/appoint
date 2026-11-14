@@ -19,58 +19,17 @@ npm --version
 ```bash
 cd frontend
 npm ci
-cp .env.example .env.local
-npm run dev
+npm run dev       # 5173 -> 8080，dev
+# 停止当前环境后，可改选 npm run dev:test 或 npm run dev:demo
 ```
 
-访问http://127.0.0.1:5173。开发时/api默认代理到http://127.0.0.1:8080；修改.env.local中的API_PROXY_TARGET可指定另一后端地址。浏览器代码统一使用相对/api/v1，无需放宽后端CORS。
+为节省本机资源，实际操作时选择一个入口，切换前停止上一套环境；不要求程序强制跨环境互斥。改造状态见[进度核对](../.scratch/environment-isolation/status.md)。使用`127.0.0.1`保持origin一致；`/api`代理固定到对应后端，旧`API_PROXY_TARGET`或命令行端口与mode冲突时失败。后端资源准备、账号与生命周期见[环境总览](../docs/environments.md)。前端启动不会创建数据库或重置demo；每次demo后端启动才恢复基线。
 
-正常本地后端使用根目录README和AGENTS规定的配置与启动命令。前端启动不会自动启动Docker、Spring Boot或创建账号；没有后端时显示连接失败与重试入口。
+三套本地模式均开启MockPay界面；默认生产构建关闭模拟按钮，真实支付尚未接入。MockPay状态保存在后端内存，重启后不能保证旧支付和退款续接。
 
-## 开发模拟支付
+## 本次环境交付范围
 
-默认关闭模拟支付。只有在后端dev/test且明确用于演示时，在.env.local设置VITE_ENABLE_MOCK_PAY=true并重启Vite。先发起支付尝试，再使用返回的模拟入口提交成功/失败通知，最后查询预约正式结果。
-
-不提供真实资金渠道。生产构建应关闭此开关；不能把模拟按钮当作真实支付能力。已有支付处理中尝试不会重复发起，刷新页面可以用最近尝试信息恢复模拟入口。
-
-## 校验
-
-```bash
-npm run format:check
-npm run typecheck
-npm test
-npm run build
-npx playwright install chromium
-npm run test:e2e
-```
-
-单元测试覆盖身份、客户端、时间与流程状态、创建幂等和异步查询。默认Playwright测试由Vite临时服务器及API拦截夹具运行，覆盖真实页面交互，不等于后端联调。可通过PLAYWRIGHT_CHROMIUM_EXECUTABLE指定已有Chrome，不需要再次下载浏览器。
-
-默认浏览器测试使用5175端口，真实Compose测试使用5174，正常开发页面继续使用5173，三者互不抢占端口。
-
-额外真实API测试仅允许指定隔离测试环境，不能指向生产或包含他人数据的服务：
-
-```bash
-REAL_API_TEST=1 REAL_API_TARGET=http://127.0.0.1:18081 npm run test:e2e
-```
-
-真实测试创建独立测试账号、就诊人和未支付订单，并取消该订单。调用方负责启动、隔离及清理后端；此项首版交付证据使用H2内存测试入口，应用关闭即清除数据，没有启动Docker或连接既有数据库。这项测试不验证异步支付消息链路。
-
-## 真实Compose完整业务验收
-
-在根目录启动正常Compose依赖及Spring Boot之后，可执行：
-
-```bash
-python3 scripts/frontend_compose_acceptance.py
-```
-
-此命令在仓库根目录运行，不是在frontend/目录。运行前在该终端加载Node/npm；需要Docker可访问、Maven依赖已缓存及Playwright浏览器可用。已有Chrome时可设置PLAYWRIGHT_CHROMIUM_EXECUTABLE。业务日期默认上海当天，也可通过--business-date指定验收日期。
-
-脚本自动创建独立MySQL数据库/账号、RabbitMQ vhost和Redis namespace，启动18082测试入口和5174真实前端；浏览器不拦截API。管理员、用户和医生通过真实页面执行目录维护、设置、首次绑定、就诊人、预约、支付失败重试、异步确认、取消退款、签到与开始/完成接诊，再以SQL核对库存、支付退款及Outbox/Inbox。
-
-隔离入口使用测试classpath和固定业务时间13:40，因此必须显式提供真实MySQL驱动、消息开关、RabbitMQ correlated发布确认及returns配置，不能沿用H2测试资源的缺省值。固定时间便于当天场次下单后立即签到，不修改系统时钟；本验收不覆盖推进时间后的发布退避重试。正常8080应用仍用真实时钟。
-
-成功后清理本轮资源，正常8080/5173及Compose保持运行；失败保留隔离资源标识和诊断证据。日志及临时测试凭据位于被Git忽略的任务runtime/中，成功后删除测试凭据。实际结果与问题修正见[真实Compose验收](../.scratch/frontend-compose-live/verification.md)。
+本次只配置dev/test/demo三个启动入口，并使用Compose中的真实后端依赖。现有业务功能按正确处理，不执行单元测试、HTTP验收、浏览器回归或Testcontainers。已有测试配置与脚本不属于本次环境交付。
 
 ## 会话与权限
 
@@ -93,4 +52,4 @@ location / {
 }
 ```
 
-实现与真实联调已本地提交为e91d870，任务及原始证据见[前端交付档案](../.scratch/archive/frontend/summary.md)，未推送或部署。前后端分别构建；前端上线/回退不需要修改数据库V10。
+实现与真实联调已本地提交为e91d870，任务及原始证据见[前端交付档案](../.scratch/archive/frontend/summary.md)，未推送或部署。前后端分别构建；历史首版证据仍对应V10，当前数据库版本以Flyway记录为准。
