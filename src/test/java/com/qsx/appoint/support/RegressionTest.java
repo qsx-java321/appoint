@@ -1,0 +1,29 @@
+package com.qsx.appoint.support;
+
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.annotation.AliasFor;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
+import java.lang.annotation.*;
+
+/** Maven 与 IDE 使用相同配置根；profile 专项测试也不导入常驻连接。 */
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Inherited
+@SpringBootTest
+@TestPropertySource(properties = {
+        "spring.config.location=classpath:/regression/",
+        "spring.config.import=",
+        "spring.config.additional-location=",
+        "spring.config.name=application",
+        "appoint.local-environment.enabled=false"
+})
+@ContextConfiguration(initializers = RegressionEnvironment.class)
+public @interface RegressionTest {
+    @AliasFor(annotation = SpringBootTest.class, attribute = "properties")
+    String[] properties() default {};
+    @AliasFor(annotation = SpringBootTest.class, attribute = "classes")
+    Class<?>[] classes() default {};
+    @AliasFor(annotation = SpringBootTest.class, attribute = "webEnvironment")
+    SpringBootTest.WebEnvironment webEnvironment() default SpringBootTest.WebEnvironment.MOCK;
+}

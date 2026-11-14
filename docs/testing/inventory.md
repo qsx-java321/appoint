@@ -65,3 +65,5 @@
 
 | `CatalogDirectoryCacheTest` | 普通对象测试 | 未显式指定 | 无业务时钟 | 对象每例新建 | 8 |
 | `CatalogDirectoryCacheRedisIT` | MySQL+Redis容器 | 未显式指定 | TTL使用真实经过时间 | 类独占容器，真实提交；双应用上下文 | 7 |
+
+| `RegressionIsolationTest` | 常规 | Maven/IDE独立回归配置根及宿主连接覆盖隔离 |

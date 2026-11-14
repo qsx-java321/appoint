@@ -8,7 +8,7 @@ import com.qsx.appoint.payment.mapper.PaymentAttemptMapper;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -33,8 +33,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** 类独占MySQL验证并发发起只产生一笔有效尝试；保留独立线程中的真实提交。 */
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
-@SpringBootTest(properties = "appoint.expiration.enabled=false")
-@ActiveProfiles("test")
+@RegressionTest(properties = "appoint.expiration.enabled=false")
+@ActiveProfiles("regression")
 class PaymentAttemptMySqlIT {
     private CommittedFixtureScope fixtureScope;
 

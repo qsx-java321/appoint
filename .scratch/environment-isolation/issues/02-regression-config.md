@@ -2,7 +2,7 @@
 
 Type: enhancement
 Triage: ready-for-agent
-Status: claimed
+Status: resolved
 Blocked by: 01
 
 ## 工作与文件
@@ -19,4 +19,6 @@ Blocked by: 01
 
 ## Comments
 
-- 尚未实施。此任务完成后才能引入主资源 `application-test.yml`。
+- 2026-11-14：已建立回归独立配置根与组合注解；普通profile改为regression，dev/test/prod专项保持原验证目的。
+- 验证：注入`SPRING_DATASOURCE_URL`和`SPRING_CONFIG_ADDITIONAL_LOCATION`后执行`./mvnw -o test`：390项通过，无跳过；日志`/tmp/appoint-regression-suite.log`。IDE使用相同组合注解与Initializer，无需Maven专属参数。
+- 首次受限沙箱执行因Mockito attach权限失败，沙箱外重跑通过；未访问共享Compose。容器套件由后续完整验证执行。

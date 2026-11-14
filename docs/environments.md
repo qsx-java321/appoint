@@ -1,6 +1,6 @@
 # 开发与测试环境总览
 
-核对日期：2026-11-14。本文依据当前仓库配置、测试源码、验收脚本及一次本机只读检查整理；命令清单不代表本轮重新执行了业务测试。未改动运行配置或业务数据，未输出凭据。
+核对日期：2026-11-14。任务02实施后，自动化配置已迁至`src/test/resources/regression/application.yml`，通过`@RegressionTest`独立加载；下文原同名测试配置的描述保留为改造前调查背景。本文依据当前仓库配置、测试源码、验收脚本及一次本机只读检查整理；命令清单不代表本轮重新执行了业务测试。未改动运行配置或业务数据，未输出凭据。
 
 后续改造需求已确认，详见[三环境与自动化隔离方案](environment-isolation-plan.md)和[任务地图](../.scratch/environment-isolation/map.md)。方案尚未实施；本文仍描述当前实际配置，不能将方案端口与新命令当成现有能力。
 
@@ -14,7 +14,7 @@
 
 特别容易误解：**H2 来自 `src/test/resources/application.yml`，不是来自 `test` 这个 profile 名称。** 单独设置 `SPRING_PROFILES_ACTIVE=test` 启动正常应用，仍使用主资源配置，默认连接 MySQL，不会自动变成隔离测试环境。仓库也没有 `application-dev.yml`、`application-test.yml` 或 `application-prod.yml`。
 
-依据：[主配置](../src/main/resources/application.yml)、[测试配置](../src/test/resources/application.yml)、[Maven 配置](../pom.xml)、[MockPay 条件装配](../src/main/java/com/qsx/appoint/payment/adapter/mock/MockPaymentGateway.java)。
+依据：[主配置](../src/main/resources/application.yml)、[测试配置](../src/test/resources/regression/application.yml)、[Maven 配置](../pom.xml)、[MockPay 条件装配](../src/main/java/com/qsx/appoint/payment/adapter/mock/MockPaymentGateway.java)。
 
 ## 2. 全部入口对照
 

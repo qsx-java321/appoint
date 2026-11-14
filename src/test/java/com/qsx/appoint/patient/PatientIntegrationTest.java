@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Spring/H2与MockMvc验证就诊人身份、所有权和启停；同步用例由测试事务回滚。 */
-@SpringBootTest
+@RegressionTest
 @org.springframework.transaction.annotation.Transactional
 @AutoConfigureMockMvc
 class PatientIntegrationTest {

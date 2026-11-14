@@ -12,7 +12,7 @@ import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ActiveProfiles;
@@ -34,9 +34,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Spring/H2验证幂等重放、同键冲突、账户隔离及不可变收据；真实提交后按本例账号清理。 */
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:appointment-idempotency-integration-test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
+@RegressionTest(properties = "spring.datasource.url=jdbc:h2:mem:appointment-idempotency-integration-test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
-@ActiveProfiles("test")
+@ActiveProfiles("regression")
 @org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class AppointmentIdempotencyIntegrationTest {
     @Autowired private JdbcTemplate fixtureJdbc;

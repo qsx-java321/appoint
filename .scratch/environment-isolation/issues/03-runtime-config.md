@@ -2,7 +2,7 @@
 
 Type: enhancement
 Triage: ready-for-agent
-Status: open
+Status: claimed
 Blocked by: 02
 
 ## 工作与文件

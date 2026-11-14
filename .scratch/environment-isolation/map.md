@@ -5,8 +5,8 @@
 | 编号 | 任务 | Blocked by | 状态 |
 | --- | --- | --- | --- |
 | 01 | [需求访谈、源码核查与方案](issues/01-plan.md) | 无 | resolved |
-| 02 | [自动化配置根与profile隔离](issues/02-regression-config.md) | 01 | claimed |
-| 03 | [常驻环境配置与启动校验](issues/03-runtime-config.md) | 02 | open |
+| 02 | [自动化配置根与profile隔离](issues/02-regression-config.md) | 01 | resolved |
+| 03 | [常驻环境配置与启动校验](issues/03-runtime-config.md) | 02 | claimed |
 | 04 | [资源初始化、账号与重置生命周期](issues/04-provisioning-reset.md) | 03 | open |
 | 05 | [test运行中业务调时](issues/05-test-clock.md) | 04 | open |
 | 06 | [三前端入口与HTTP变量隔离](issues/06-frontend-http.md) | 04 | open |

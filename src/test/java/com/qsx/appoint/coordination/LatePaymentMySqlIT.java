@@ -5,7 +5,7 @@ import com.qsx.appoint.coordination.application.PaymentSucceededEvent;
 import com.qsx.appoint.coordination.application.PaymentSucceededProcessor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** 类独占MySQL验证迟到事件、取消和过期竞争只释放一次并形成唯一退款；每例清理提交夹具。 */
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
-@SpringBootTest(properties = {"appoint.messaging.enabled=false", "appoint.expiration.enabled=false"})
+@RegressionTest(properties = {"appoint.messaging.enabled=false", "appoint.expiration.enabled=false"})
 class LatePaymentMySqlIT {
     private CommittedFixtureScope fixtureScope;
 

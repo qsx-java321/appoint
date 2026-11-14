@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -27,13 +28,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** 通过真实监听端口和隔离 MySQL 验证患者完整 HTTP 旅程。 */
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+@RegressionTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "appoint.expiration.enabled=true",
                 "appoint.appointment.payment-timeout=3s",
                 "appoint.expiration.scan-delay=100ms"
         })
-@ActiveProfiles("test")
+@ActiveProfiles("regression")
 class PatientJourneyHttpMySqlIT {
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")

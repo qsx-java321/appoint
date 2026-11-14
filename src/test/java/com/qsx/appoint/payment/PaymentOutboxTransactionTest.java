@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -21,8 +21,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import static org.assertj.core.api.Assertions.*;
 
 /** 从真实接口写数据库，再与改造前 fixture 比较；不把新 DTO 自比较当契约证明。 */
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:payment-outbox-transaction-test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
-@ActiveProfiles("test")
+@RegressionTest(properties = "spring.datasource.url=jdbc:h2:mem:payment-outbox-transaction-test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
+@ActiveProfiles("regression")
 class PaymentOutboxTransactionTest {
     private CommittedFixtureScope fixtureScope;
 

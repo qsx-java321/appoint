@@ -12,7 +12,7 @@ import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
 import com.qsx.appoint.payment.port.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -31,11 +31,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Spring/H2验证支付尝试的分段事务及渠道调用不占事务；每例清理已提交数据。 */
-@SpringBootTest(properties = {
+@RegressionTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:payment-attempt;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.expiration.enabled=false"
 })
-@ActiveProfiles("test")
+@ActiveProfiles("regression")
 @Import(PaymentAttemptIntegrationTest.GatewayConfiguration.class)
 class PaymentAttemptIntegrationTest {
     private CommittedFixtureScope fixtureScope;

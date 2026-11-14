@@ -14,7 +14,7 @@ import com.qsx.appoint.payment.port.RawPaymentNotification;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ActiveProfiles;
@@ -38,10 +38,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 用真实 Spring MVC、安全链、Flyway 和 H2 验证核心接口闭环。
  * 该测试不依赖外部 Docker 服务，因此可快速发现认证或事务配置错误。
  */
-@SpringBootTest(properties =
+@RegressionTest(properties =
         "spring.datasource.url=jdbc:h2:mem:api-flow;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
-@ActiveProfiles("test")
+@ActiveProfiles("regression")
 @org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class ApiFlowIntegrationTest {
     @Autowired private JdbcTemplate fixtureJdbc;

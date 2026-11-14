@@ -11,7 +11,7 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -36,8 +36,8 @@ import static org.awaitility.Awaitility.await;
 /** 类独占MySQL和RabbitMQ验证回滚、提交后丢ACK及真实渠道重试；每例停监听后清理数据与队列。 */
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
-@org.springframework.test.context.ActiveProfiles("test")
-@SpringBootTest(properties = {
+@org.springframework.test.context.ActiveProfiles("regression")
+@RegressionTest(properties = {
         "appoint.expiration.enabled=false",
         "appoint.messaging.enabled=true",
         "appoint.outbox.enabled=false",

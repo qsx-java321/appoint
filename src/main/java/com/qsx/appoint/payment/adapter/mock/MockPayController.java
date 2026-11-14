@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/mock-pay/attempts")
 @RequiredArgsConstructor
-@Profile({"dev", "test"})
+@Profile({"dev", "test", "demo", "regression"})
 public class MockPayController {
     private final MockPaymentGateway gateway;
     private final MockPaymentNotificationDispatcher dispatcher;

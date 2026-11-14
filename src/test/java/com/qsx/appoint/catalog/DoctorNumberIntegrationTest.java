@@ -5,7 +5,7 @@ import com.qsx.appoint.catalog.mapper.DoctorMapper;
 import com.qsx.appoint.catalog.service.DoctorNumberGenerator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Spring/H2验证医生编号迁移、分配和非空约束；每例回滚。 */
-@SpringBootTest
+@RegressionTest
 @Transactional
 class DoctorNumberIntegrationTest {
     @Autowired private DoctorMapper doctorMapper;

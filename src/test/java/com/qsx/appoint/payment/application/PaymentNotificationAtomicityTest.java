@@ -9,7 +9,7 @@ import com.qsx.appoint.payment.mapper.PaymentOutboxEventMapper;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -23,9 +23,9 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /** Spring/H2在审计或Outbox写入点注入故障，验证支付事实一起回滚且同一通知可重试。 */
-@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:notification-atomicity;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
+@RegressionTest(properties={"spring.datasource.url=jdbc:h2:mem:notification-atomicity;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.messaging.enabled=false", "appoint.expiration.enabled=false"})
-@ActiveProfiles("test")
+@ActiveProfiles("regression")
 class PaymentNotificationAtomicityTest {
     private CommittedFixtureScope fixtureScope;
 

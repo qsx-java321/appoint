@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
  * <p>HTTP202与回调执行可能交错，不保证回调一定发生在响应之后；业务仍需轮询最终状态。
  */
 @Component
-@Profile({"dev", "test"})
+@Profile({"dev", "test", "demo", "regression"})
 @RequiredArgsConstructor
 public class MockPaymentNotificationDispatcher {
     private final PaymentNotificationIngress ingress;

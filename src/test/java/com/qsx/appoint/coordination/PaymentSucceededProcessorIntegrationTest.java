@@ -9,7 +9,7 @@ import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Spring/H2验证Inbox与业务原子性；普通用例回滚，NOT_SUPPORTED故障窗口保留真实事务及显式清理。 */
-@SpringBootTest(properties = {
+@RegressionTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:paid-confirmation;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.messaging.enabled=false"
 })

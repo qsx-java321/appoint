@@ -3,7 +3,7 @@ package com.qsx.appoint.catalog;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Spring/H2与MockMvc验证预约设置的权限、校验和替换；每例由测试事务回滚。 */
-@SpringBootTest
+@RegressionTest
 @AutoConfigureMockMvc
 @Transactional
 class BookingSettingsHttpTest {

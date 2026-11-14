@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 内存渠道事实随进程重启丢失，不能当作生产支付存储或持久化恢复保证。
  */
 @Component
-@Profile({"dev", "test"})
+@Profile({"dev", "test", "demo", "regression"})
 public class MockPaymentGateway implements PaymentGateway {
     /** 仅模拟渠道使用的HMAC密钥字节，禁止写入日志、响应或审计记录。 */
     private final byte[] signingKey;

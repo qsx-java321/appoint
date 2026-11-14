@@ -16,7 +16,7 @@ import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -40,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** 类独占MySQL和RabbitMQ验证发布、重试、重放和提交失败重发；每例统一清理Outbox及队列。 */
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
-@SpringBootTest(properties = {
+@RegressionTest(properties = {
         "appoint.expiration.enabled=false",
         "appoint.outbox.enabled=false",
         "appoint.outbox.initial-backoff=10ms",

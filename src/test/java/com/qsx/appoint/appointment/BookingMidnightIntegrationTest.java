@@ -7,7 +7,7 @@ import com.qsx.appoint.coordination.application.BookingCoordinator;
 import com.qsx.appoint.support.MutableAppointmentClock;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -21,7 +21,7 @@ import org.junit.jupiter.api.AfterEach;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** 独立H2与可变上海时钟验证跨午夜后旧幂等键仍重放原订单；每例重置时间并清理已提交夹具。 */
-@SpringBootTest(properties = {
+@RegressionTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:midnight-booking;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.expiration.enabled=false", "appoint.messaging.enabled=false", "appoint.outbox.enabled=false"
 })

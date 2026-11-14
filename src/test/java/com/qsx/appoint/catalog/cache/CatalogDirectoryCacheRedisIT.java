@@ -7,7 +7,7 @@ import com.qsx.appoint.catalog.mapper.HospitalMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /** 类独占MySQL/Redis；无测试外层事务，真实验证提交/回滚与缓存回填边界。 */
-@SpringBootTest(properties={"appoint.catalog-cache.enabled=true", "appoint.catalog-cache.namespace=redis-it"})
+@RegressionTest(properties={"appoint.catalog-cache.enabled=true", "appoint.catalog-cache.namespace=redis-it"})
 @Testcontainers
 @DirtiesContext(classMode=DirtiesContext.ClassMode.AFTER_CLASS)
 class CatalogDirectoryCacheRedisIT {
@@ -152,7 +152,7 @@ class CatalogDirectoryCacheRedisIT {
         REDIS.getDockerClient().pauseContainerCmd(REDIS.getContainerId()).exec();
         boolean resumed=false;
         try (var peer = new org.springframework.boot.builder.SpringApplicationBuilder(com.qsx.appoint.AppointApplication.class)
-                .run("--server.port=0", "--spring.datasource.url="+MYSQL.getJdbcUrl(),
+                .run("--spring.config.location=classpath:/regression/", "--spring.profiles.active=regression", "--server.port=0", "--spring.datasource.url="+MYSQL.getJdbcUrl(),
                         "--spring.datasource.username="+MYSQL.getUsername(),
                         "--spring.datasource.password="+MYSQL.getPassword(),
                         "--spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver",

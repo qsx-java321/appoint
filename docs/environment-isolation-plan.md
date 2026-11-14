@@ -34,7 +34,7 @@ test 数据默认保留；时间偏移仅在进程内有效，重启恢复真实
 | 当前源码事实 | 对改造的影响 |
 | --- | --- |
 | [主配置](../src/main/resources/application.yml)统一导入根 `.env`，默认连接 `appoint` | 拆分 profile 配置及本地凭据来源；旧 `.env` 的 dev 值不能覆盖 test/demo |
-| [测试同名配置](../src/test/resources/application.yml)默认 H2，大量用例激活 `test` | 新增主资源 `application-test.yml` 前先隔离自动化配置；仅改 profile 名不够 |
+| [测试同名配置](../src/test/resources/regression/application.yml)默认 H2，大量用例激活 `test` | 新增主资源 `application-test.yml` 前先隔离自动化配置；仅改 profile 名不够 |
 | [Compose](../compose.yaml)只初始化一个数据库，没有多库/vhost初始化流程 | 新增幂等资源准备入口，兼容已有卷；不能只挂载首次初始化 SQL |
 | [MockPay](../src/main/java/com/qsx/appoint/payment/adapter/mock/MockPaymentGateway.java)等三个组件仅 `dev/test` 注册 | 增加 demo 和独立回归装配支持，保留 prod 无 MockPay 的保证 |
 | [JWT](../src/main/java/com/qsx/appoint/security/JwtTokenProvider.java)只按密钥验签，没有环境校验 | 三环境分开 JWT 密钥；重置时轮换对应环境密钥，使旧 Token 失效 |

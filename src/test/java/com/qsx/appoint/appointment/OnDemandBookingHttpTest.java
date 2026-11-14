@@ -17,7 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.TestingAuthenticationToken;
@@ -43,10 +43,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Spring/H2与MockMvc验证三天窗口、截止和支付时间快照；普通用例回滚，NOT_SUPPORTED用例单独清理。 */
-@SpringBootTest(properties =
+@RegressionTest(properties =
         "spring.datasource.url=jdbc:h2:mem:on-demand-booking;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
-@ActiveProfiles("test")
+@ActiveProfiles("regression")
 @Transactional
 @Import({AppointmentClockTestConfiguration.class, FormalPaymentTestSupport.class})
 class OnDemandBookingHttpTest {

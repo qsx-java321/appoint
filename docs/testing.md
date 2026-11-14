@@ -43,7 +43,7 @@ python3 scripts/compose_acceptance.py --http-client curl --http-report /tmp/appo
 
 ## 数据、事务与时钟
 
-- `src/test/resources/application.yml`默认使用H2内存数据库，并关闭后台扫描和消息业务监听。真实容器连接由`DynamicPropertySource`注入；数据库名字相同也不代表连接同一台服务。
+- `src/test/resources/regression/application.yml`由`@RegressionTest`显式加载，Maven和IDE使用相同配置根；默认使用H2内存数据库，并关闭后台扫描和消息业务监听。真实容器连接由`DynamicPropertySource`注入；数据库名字相同也不代表连接同一台服务。
 - 不要通过环境覆盖把测试数据源指向日常业务数据库。部分测试会真实提交和删除夹具，并非所有用例都依靠回滚。
 - 同步MockMvc普通写入测试可以使用测试事务回滚。跨线程、真实HTTP、事务传播或提交窗口测试必须保留被测事务边界，不能为了方便清理套一层外部事务。
 - `CommittedFixtureScope`仅供方法串行、类独占数据库且每例新建业务账号的测试使用。它按新增ID清理业务、事件和审计行，恢复医生、场次和设置快照；不重置序列，不是任意业务表的通用备份还原器。

@@ -31,3 +31,6 @@ appoint:
     enabled: false
   outbox:
     enabled: false
+
+  local-environment:
+    enabled: false

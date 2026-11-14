@@ -3,7 +3,7 @@ package com.qsx.appoint.catalog;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Propagation;
@@ -51,7 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Spring/H2验证目录管理和预约快照；普通用例回滚，并发用例真实提交后在finally清理随机科室。 */
-@SpringBootTest
+@RegressionTest
 @AutoConfigureMockMvc
 @Transactional
 class CatalogManagementIntegrationTest {

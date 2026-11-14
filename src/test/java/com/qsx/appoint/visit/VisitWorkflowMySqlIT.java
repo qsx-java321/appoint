@@ -13,7 +13,7 @@ import com.qsx.appoint.support.AppointmentClockTestConfiguration;
 import com.qsx.appoint.visit.application.VisitService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
@@ -36,8 +36,8 @@ import static org.assertj.core.api.Assertions.*;
 /** 类独占MySQL验证并发绑定、签到、接诊只形成唯一身份和记录；提交数据按例清理。 */
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
-@SpringBootTest
-@ActiveProfiles("test")
+@RegressionTest
+@ActiveProfiles("regression")
 @Import({FormalPaymentTestSupport.class, AppointmentClockTestConfiguration.class})
 class VisitWorkflowMySqlIT {
     private CommittedFixtureScope fixtureScope;

@@ -21,7 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
@@ -35,9 +35,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /** Spring/H2与MockMvc验证绑定、签到和接诊全流程及快照不变；每例重置时钟并回滚。 */
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:visit-http;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
+@RegressionTest(properties = "spring.datasource.url=jdbc:h2:mem:visit-http;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
-@ActiveProfiles("test")
+@ActiveProfiles("regression")
 @Import({FormalPaymentTestSupport.class, AppointmentClockTestConfiguration.class})
 @Transactional
 class VisitHttpTest {

@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -40,8 +40,8 @@ import static org.mockito.Mockito.*;
 /** 类独占MySQL验证父锁先于子锁和退款分段恢复；保留真实持锁连接及渠道不占事务断言。 */
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
-@SpringBootTest(properties={"appoint.messaging.enabled=false", "appoint.expiration.enabled=false"})
-@ActiveProfiles("test")
+@RegressionTest(properties={"appoint.messaging.enabled=false", "appoint.expiration.enabled=false"})
+@ActiveProfiles("regression")
 class PaymentParentLockMySqlIT {
     private CommittedFixtureScope fixtureScope;
 

@@ -32,7 +32,7 @@ import com.qsx.appoint.user.entity.User;
 import com.qsx.appoint.user.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.ActiveProfiles;
@@ -63,8 +63,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** 类独占MySQL验证防超卖、并发幂等及回调/取消/过期竞争；保留真实屏障、事务和库存断言。 */
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
-@SpringBootTest(properties = "appoint.expiration.enabled=false")
-@ActiveProfiles("test")
+@RegressionTest(properties = "appoint.expiration.enabled=false")
+@ActiveProfiles("regression")
 @org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class AppointmentLifecycleMySqlIT {
     private CommittedFixtureScope fixtureScope;

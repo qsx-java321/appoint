@@ -16,7 +16,7 @@ import com.qsx.appoint.payment.port.RawPaymentNotification;
 import com.qsx.appoint.payment.port.VerifiedPaymentNotification;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -46,8 +46,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** 类独占MySQL验证回调去重、验签、金额/币种及成功事实收敛；每例按新增账号清理。 */
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
-@SpringBootTest(properties = "appoint.expiration.enabled=false")
-@ActiveProfiles("test")
+@RegressionTest(properties = "appoint.expiration.enabled=false")
+@ActiveProfiles("regression")
 class PaymentNotificationMySqlIT {
     private CommittedFixtureScope fixtureScope;
 

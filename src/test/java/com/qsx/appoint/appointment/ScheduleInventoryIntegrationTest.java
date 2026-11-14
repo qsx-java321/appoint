@@ -25,7 +25,7 @@ import com.qsx.appoint.user.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.context.annotation.Import;
 
 import java.time.*;
@@ -42,13 +42,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Spring/H2验证库存守恒、有效占用、序号和费用快照；可变钟每例重置，提交数据按例清理。 */
-@SpringBootTest(properties = {
+@RegressionTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:schedule-inventory;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.expiration.enabled=false"
 })
 @AutoConfigureMockMvc
 @Import({AppointmentClockTestConfiguration.class, com.qsx.appoint.support.FormalPaymentTestSupport.class})
-@org.springframework.test.context.ActiveProfiles("test")
+@org.springframework.test.context.ActiveProfiles("regression")
 class ScheduleInventoryIntegrationTest {
     @Autowired private JdbcTemplate fixtureJdbc;
     private CommittedFixtureScope fixtureScope;

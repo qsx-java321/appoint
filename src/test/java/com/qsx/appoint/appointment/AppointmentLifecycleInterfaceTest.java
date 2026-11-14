@@ -7,7 +7,7 @@ import com.qsx.appoint.common.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.qsx.appoint.support.RegressionTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.TransactionDefinition;
@@ -18,7 +18,7 @@ import org.junit.jupiter.api.AfterEach;
 import static org.assertj.core.api.Assertions.*;
 
 /** 在独立H2中验证事务强制参与、锁上下文归属与外层回滚；不以测试外层事务代替被测事务。 */
-@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:lifecycle-interface;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
+@RegressionTest(properties={"spring.datasource.url=jdbc:h2:mem:lifecycle-interface;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
         "appoint.messaging.enabled=false", "appoint.expiration.enabled=false"})
 class AppointmentLifecycleInterfaceTest {
     @Autowired private AppointmentLifecycle appointments;
