@@ -17,7 +17,7 @@
 ## 配置和身份
 
 - 默认profile为dev；IDE/Maven选择单个profile，工作目录统一为项目根目录。
-- Spring Boot不全局导入旧根.env；首次准备dev配置时保留原数据库和必要密钥。
+- Spring Boot分别加载.env.dev/.env.test/.env.demo；首次生成dev配置时，数据库账号密码取自compose.env，已有环境文件保持原样。
 - 三环境数据库账号、RabbitMQ账号/权限、JWT密钥分别管理；test/demo账号不拥有其他环境数据库或vhost权限。
 - 启动时校验最终端口、数据库、缓存、消息目标，避免Shell/IDE覆盖串环境。
 - 前端每个mode对应固定端口和API代理，浏览器会话随origin隔离。

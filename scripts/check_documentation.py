@@ -172,7 +172,7 @@ if (visit_evidence/'final-counts.json').exists():
         recorded_names.add(name)
         matches = matches and Path(name).is_file() and hashlib.sha256(Path(name).read_bytes()).hexdigest() == digest
     current_names = {str(p) for root in ['src', 'scripts', '.mvn'] for p in Path(root).rglob('*')
-                     if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc' and p.name != 'timing.properties'} | {'pom.xml', 'mvnw', 'mvnw.cmd', 'compose.yaml', '.env.example', 'compose.env.example'}
+                     if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc' and p.name != 'timing.properties'} | {'pom.xml', 'mvnw', 'mvnw.cmd', 'compose.yaml', '.env.dev.example', '.env.test.example', '.env.demo.example', 'compose.env.example'}
     matches = matches and recorded_names == current_names
     visit_acceptance = {'counts': visit_counts, 'sourceMatchesWorkingTree': matches}
 

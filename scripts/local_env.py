@@ -51,7 +51,6 @@ def init():
     run(COMPOSE + ['up', '-d', '--wait'])
     config = json.loads(run(COMPOSE + ['config', '--format', 'json']))
     mysql_config = config['services']['mysql']['environment']
-    legacy = read_properties(ROOT / '.env') if (ROOT / '.env').exists() else {}
     for name in PORTS:
         path = ROOT / ('.env.' + name)
         if not path.exists():
@@ -60,12 +59,8 @@ def init():
                       'JWT_SECRET': secrets.token_urlsafe(48), 'MOCK_PAY_SIGNING_KEY': secrets.token_urlsafe(48),
                       'LOCAL_SEED_PASSWORD': secrets.token_urlsafe(18)}
             if name == 'dev':
-                values['MYSQL_USER'] = legacy.get('MYSQL_USER', mysql_config['MYSQL_USER'])
-                values['MYSQL_PASSWORD'] = legacy.get('MYSQL_PASSWORD', mysql_config['MYSQL_PASSWORD'])
-                for key in ('JWT_SECRET', 'MOCK_PAY_SIGNING_KEY'):
-                    if legacy.get(key): values[key] = legacy[key]
-                # 旧env中保留原始值，但不导入旧profile/cache/vhost覆盖。
-                if legacy.get('DB_URL'): values['DB_URL'] = legacy['DB_URL']
+                values['MYSQL_USER'] = mysql_config['MYSQL_USER']
+                values['MYSQL_PASSWORD'] = mysql_config['MYSQL_PASSWORD']
             private_write(path, ''.join(f'{key}={value}\n' for key, value in values.items()))
         values = read_properties(path)
         if name != 'dev' and values['MYSQL_USER'] != 'appoint_' + name:
@@ -101,7 +96,7 @@ def init():
         if any(line.split()[0] != vhost for line in grants.splitlines() if line.startswith('/')):
             raise RuntimeError('环境RabbitMQ账号还拥有其他vhost权限，请人工核对')
         print(f'{name}: 资源准备完成；未清理业务表、缓存或消息')
-    print('dev切换前必须执行维护预检；旧.env及数据卷保持原样。')
+    print('dev切换前必须执行维护预检；已有环境配置及数据卷保持原样。')
 
 
 def clean_env(name):

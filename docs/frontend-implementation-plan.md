@@ -40,7 +40,7 @@ frontend/
 - 浏览器统一请求同源`/api/v1`。不修改Spring Security来开放匿名目录，不设置通配CORS。
 - 正式构建输出frontend/dist，部署说明要求反向代理/api并为前端history路由提供index.html回退；本轮提供说明，不创建真实部署或改后端静态资源映射。
 - `VITE_ENABLE_MOCK_PAY=true`只供本地dev/test演示显式开启。默认关闭，即使开启仍须后端提供Mock接口；生产构建也能关闭。没有真实渠道时说明当前无法支付，不伪装扫码或资金服务已上线。
-- `.env.local`等本地覆盖文件、node_modules、dist、浏览器报告不提交；根目录现有.env与compose.env不读取到前端、不改写、不输出值。
+- `.env.local`等本地覆盖文件、node_modules、dist、浏览器报告不提交；根目录的compose.env及.env.dev/.env.test/.env.demo不读取到前端、不改写、不输出值。
 
 ## 4. 登录、权限与错误
 

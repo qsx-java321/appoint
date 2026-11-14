@@ -131,8 +131,8 @@ Redis 连接超时初值 500ms、命令超时 200ms，可配置；同一请求�
 | spring.data.redis.host / port | 本地 localhost / 6379 |
 | spring.data.redis.connect-timeout | 500ms |
 | spring.data.redis.timeout | 200ms |
-| appoint.catalog-cache.enabled | 基础配置 false；本地 .env 显式 true；常规测试 false；缓存测试显式 true |
-| appoint.catalog-cache.namespace | 开启时必填，本地 local-dev；验收 accept-本轮随机标识 |
+| appoint.catalog-cache.enabled | 基础配置 false；dev/test/demo profile为true；常规测试 false；缓存测试显式 true |
+| appoint.catalog-cache.namespace | 开启时必填；三环境分别为dev/test/demo；验收使用独立标识 |
 | appoint.catalog-cache.hospital-ttl | 5m |
 | appoint.catalog-cache.department-ttl | 5m |
 | appoint.catalog-cache.doctor-ttl | 2m |
@@ -142,7 +142,7 @@ Redis 连接超时初值 500ms、命令超时 200ms，可配置；同一请求�
 
 pom 新增 spring-boot-starter-data-redis，依赖版本由当前 Spring Boot 3.5.16 管理。指标使用 Micrometer core，依赖版本同样交给 Boot 管理；提供可注入、可测试的 MeterRegistry，不为本阶段暴露新的管理 HTTP 端点。将来已有 registry 时复用，避免重复注册。
 
-本地 .env 与 .env.example 增加对应 Redis 地址、开关及 namespace；compose.yaml 补内存限制与淘汰参数。保留现有 MySQL/RabbitMQ 配置和数据卷，不把实际凭据抄入方案。当前无 Redis 密码时不编造密码；未来启用认证再同步服务端与客户端配置。
+Redis地址由公共application配置提供，三个profile分别指定缓存开关和namespace；compose.yaml配置内存限制与淘汰参数。保留现有 MySQL/RabbitMQ 配置和数据卷，不把实际凭据抄入方案。当前无 Redis 密码时不编造密码；未来启用认证再同步服务端与客户端配置。
 
 ### 6.3 可观测结果
 

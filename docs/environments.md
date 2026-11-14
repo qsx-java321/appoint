@@ -27,7 +27,7 @@
 python3 scripts/local_env.py init
 ```
 
-init启动共享Compose并创建缺少的数据库、账号和vhost，以及被Git忽略的.env.dev/.env.test/.env.demo。重复执行保留已有密码和业务数据；卷内凭据或权限不匹配时停止，不擅自改密码或删除数据卷。旧根.env保留，只在首次生成dev配置时读取原配置，Spring Boot不再全局导入它。
+init启动共享Compose并创建缺少的数据库、账号和vhost，以及被Git忽略的.env.dev/.env.test/.env.demo。重复执行保留已有密码和业务数据；卷内凭据或权限不匹配时停止，不擅自改密码或删除数据卷。首次生成dev配置时，数据库账号密码取自compose.env；已有三份环境文件及密钥保持原样。
 
 现有dev切换前先私密备份原库、停止旧应用，再执行：
 

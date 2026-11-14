@@ -58,7 +58,7 @@ python3 scripts/local_env.py start dev
 # 切换时先 stop dev，再选择 start test 或 start demo
 ```
 
-旧dev切换前先私密备份并停止原应用；预检发现未完成资金或消息时中止。保留原库及数据卷。私密配置分别为.env.dev/.env.test/.env.demo，Spring Boot不再全局导入旧根.env。IDE使用项目根目录作为工作目录，选择单个dev/test/demo profile，默认dev。
+旧dev切换前先私密备份并停止原应用；预检发现未完成资金或消息时中止。保留原库及数据卷。私密配置分别为.env.dev/.env.test/.env.demo，由对应Spring profile加载。IDE使用项目根目录作为工作目录，选择单个dev/test/demo profile，默认dev。
 
 电脑资源有限，操作时一次按需启动一套；同环境锁防止重复实例和重置冲突。test预置管理员，demo预置用户、医生和管理员，密码见对应私密环境文件的LOCAL_SEED_PASSWORD。MockPay为内存实现，重启后旧渠道支付查询和退款续接存在限制。
 

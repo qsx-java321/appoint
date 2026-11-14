@@ -49,5 +49,5 @@
 - 三环境设计见`docs/environment-isolation-plan.md`，配置、初始化、启动、账号和重置命令见`docs/environments.md`。环境改造只涉及配置与使用入口，沿用现有业务功能，不安排业务测试或验收，也不扩展测试设施。
 - dev/test/demo共用Compose真实MySQL、Redis、RabbitMQ；数据库、缓存namespace、消息vhost及凭据独立。dev沿用appoint并保留数据，test默认保留、显式重置，demo每次后端启动恢复初始状态。
 - 电脑资源有限，操作时一次按需启动一套，切换前停止上一套。保留同环境重复实例与重置保护，不增加代码级跨环境互斥。
-- Compose始终显式使用`--env-file compose.env`。后端分别导入.env.dev/.env.test/.env.demo，私密文件已忽略，不输出凭据；旧根.env保留但不全局加载。保留原库、密码及数据卷，不通过删卷解决问题。
+- Compose始终显式使用`--env-file compose.env`。后端分别导入.env.dev/.env.test/.env.demo，私密文件已忽略，不输出凭据。保留原库、密码及数据卷，不通过删卷解决问题。
 - IDE/Maven选择单个Spring profile，工作目录为项目根目录，默认dev。test可在运行中调整业务Clock，dev/demo使用上海真实时间。MockPay状态存于内存，跨重启渠道查询和退款续接有限制；demo是演示环境。
