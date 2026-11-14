@@ -2,7 +2,7 @@
 
 核对日期：2026-11-13（Asia/Shanghai）。签到窗口改造实现已本地提交为`d75f73c`（基线`4bfc1d5`），代码、完整回归、正式文档与核验工具已完成；未推送。前次实现/测试交付为`71e4ec8`，测试源码检查点为`9c5878b`；其结果独立保留。
 
-2026-11-14补充：独立Vue业务前端已按认可设计实现，工作区未提交。前端证据与后端历史验收分别记录，不把浏览器接口拦截结果当成MySQL/RabbitMQ联调结果。
+2026-11-14补充：独立Vue业务前端与真实Compose联调已本地提交为`e91d870`，未推送。[前端交付档案](../.scratch/archive/frontend/summary.md)记录任务、证据和检查点。前端证据与后端历史验收分别记录，不把浏览器接口拦截结果当成MySQL/RabbitMQ联调结果。
 
 ## 当前已完成
 
@@ -40,7 +40,7 @@
 
 ## 交付档案与阅读
 
-业务和工程任务已交付；原14个阶段保存在[六组交付档案](../.scratch/README.md)，签到窗口增量已追加到[到院接诊档案](../.scratch/archive/visit-workflow/summary.md#2026-11-13-签到窗口增量)。历史任务全文可按[去向清单](../.scratch/archive-manifest.json)中的提交和原路径读取。档案里的“当前”“新增”和旧命令按历史检查点理解。
+业务和工程任务已交付；原14个阶段保存在[交付档案](../.scratch/README.md)，签到窗口增量已追加到[到院接诊档案](../.scratch/archive/visit-workflow/summary.md#2026-11-13-签到窗口增量)。历史任务全文可按[去向清单](../.scratch/archive-manifest.json)中的提交和原路径读取。档案里的“当前”“新增”和旧命令按历史检查点理解。
 
 当前就诊要求见[正式需求](visit/requirements.md)，测试类与职责见[清单](testing/inventory.md)和[场景覆盖](testing/scenario-coverage.md)。旧七天入口由ADR0007替代；历史测试结果分别保留。
 

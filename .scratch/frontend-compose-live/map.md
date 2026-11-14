@@ -1,5 +1,7 @@
 # 真实前端联调任务地图
 
+提交检查点：`e91d870`，详见[交付档案](../archive/frontend/summary.md)。下文未提交描述保留原验收时点含义。
+
 | 编号 | 任务 | Blocked by | 状态 |
 | --- | --- | --- | --- |
 | 01 | [环境与启动](issues/01-startup.md) | 无 | resolved |

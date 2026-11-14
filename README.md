@@ -184,7 +184,7 @@ WHERE u.email = 'student@example.com';
 
 - 学习项目：[项目状态](docs/project-status.md) → [术语](GLOSSARY.md) → [业务流程](docs/business-flow.md) → [模块设计](docs/module-design.md) → [就诊设计](docs/visit/design.md) → [API](docs/api.md) → [测试覆盖](docs/testing/scenario-coverage.md)。
 - 运行维护：本页本地运行 → [API](docs/api.md)和HTTP示例 → [测试约定](docs/testing.md) → [恢复手册](docs/runbooks/payment-module-cutover.md) → [验收证据](docs/verification-report.md)。
-- 演进追溯：[六组交付档案](.scratch/README.md)，原任务全文按[文件去向清单](.scratch/archive-manifest.json)从Git读取。
+- 演进追溯：[交付档案](.scratch/README.md)，原任务全文按[文件去向清单](.scratch/archive-manifest.json)从Git读取。
 
 ## 当前边界
 

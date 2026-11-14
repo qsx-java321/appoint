@@ -18,5 +18,7 @@ Status: resolved
 
 ## Comments
 
+- 提交记录：用户后续明确授权Git提交，代码和原始验收检查点为`e91d870`；[交付档案](../archive/frontend/summary.md)。原始任务和报告保留。
+
 - 2026-11-14：现有nvm Node 24.18.1、npm 11.16.0可用；非交互PATH未初始化nvm。Docker Desktop可连接，项目三个容器停止。工作区已有前端及设计文档未提交，保留。
 - 2026-11-14：正常服务已启动，真实Compose业务、SQL/消息/缓存核对及后续回归通过；[实际验收](verification.md)。隔离资源清理，正常入口保留运行，原任务及证据未提交并保留待归档。

@@ -2,6 +2,8 @@
 
 日期：2026-11-14。状态：实施基线。用户已认可[页面设计](research/frontend-page-scope-and-navigation.md)，授权在同仓库的独立`frontend/`工程中实现。本文先于业务前端代码建立，实际进度与证据见[任务地图](../.scratch/frontend-v1/map.md)。
 
+实施与真实Compose联调已交付，本地代码检查点为`e91d870`；[交付档案](../.scratch/archive/frontend/summary.md)保存阶段、原始证据和限制，未推送。
+
 ## 1. 目标与完成条件
 
 实现一个可独立开发、构建的Vue 3应用，覆盖已认可的14个页面模板，接入既有Spring Boot REST。用户预约、模拟支付、签到、医生接诊和管理员维护使用真实接口；测试夹具只存在于测试目录，业务页面不内置虚构账号或回退假数据。

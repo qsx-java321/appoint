@@ -14,5 +14,7 @@ Status: resolved
 
 ## Comments
 
+- 提交记录：用户随后明确授权Git提交，实现与验收检查点为`e91d870`；[交付档案](../archive/frontend/summary.md)。以下未提交说明保留原验收时点含义。
+
 - 2026-11-14：用户认可完整设计，指定frontend/独立工程并要求先完整设计再按方案改造。基线87ad984，工作区已有docs/research/及scripts/__pycache__/未跟踪内容，保留。
 - 2026-11-14：任务01–06已完成，实际验证及限制见[验收记录](verification.md)。前端交付未提交；保留原任务和证据，等待可追溯提交后归档原文。

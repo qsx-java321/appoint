@@ -1,6 +1,8 @@
 # 前端首版实际验收
 
-日期：2026-11-14（Asia/Shanghai）。基线：87ad984856dedfba64b449651979517ee41a699c；本轮全部改动未提交、未推送、未部署。最终前端源码摘要见[源码清单](evidence/source-manifest.sha256)，实际计数见[结果摘要](evidence/summary.json)。
+提交记录：用户后续授权Git提交，代码与原始验收证据已纳入`e91d870`，见[交付档案](../archive/frontend/summary.md)。下文“未提交”等描述按原验收时点理解；原始JSON与源码摘要不改写。
+
+日期：2026-11-14（Asia/Shanghai）。基线：87ad984856dedfba64b449651979517ee41a699c；本轮全部改动未提交、未推送、未部署。最终前端源码摘要见[源码清单](../archive/frontend/evidence/frontend-v1/source-manifest.sha256)，实际计数见[结果摘要](../archive/frontend/evidence/frontend-v1/summary.json)。
 
 ## 交付内容
 
@@ -16,12 +18,12 @@
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
 | 锁文件复现 | frontend/中npm ci --offline | 安装145个依赖包，通过 |
-| 格式 | npm run format:check | 通过；[记录](evidence/format-check.log) |
-| 类型和生产构建 | npm run build | vue-tsc严格检查及Vite构建通过；[记录](evidence/build.log) |
-| 单元 | npm test | 5个文件22项通过，零失败；[原始JSON](evidence/unit-results.json) |
-| 浏览器接口拦截 | npm run test:e2e | 10项通过，零失败/跳过；[JSON](evidence/browser-results.json) |
-| 真实隔离API | REAL_API_TEST=1 REAL_API_TARGET=http://127.0.0.1:18081 npm run test:e2e | 1项通过，未拦截API；[JSON](evidence/real-browser-results.json) |
-| 文档与空白 | python3 scripts/check_documentation.py；git diff --check | 通过，详见[文档检查](evidence/documentation-check.json) |
+| 格式 | npm run format:check | 通过；[记录](../archive/frontend/evidence/frontend-v1/format-check.log) |
+| 类型和生产构建 | npm run build | vue-tsc严格检查及Vite构建通过；[记录](../archive/frontend/evidence/frontend-v1/build.log) |
+| 单元 | npm test | 5个文件22项通过，零失败；[原始JSON](../archive/frontend/evidence/frontend-v1/unit-results.json) |
+| 浏览器接口拦截 | npm run test:e2e | 10项通过，零失败/跳过；[JSON](../archive/frontend/evidence/frontend-v1/browser-results.json) |
+| 真实隔离API | REAL_API_TEST=1 REAL_API_TARGET=http://127.0.0.1:18081 npm run test:e2e | 1项通过，未拦截API；[JSON](../archive/frontend/evidence/frontend-v1/real-browser-results.json) |
+| 文档与空白 | python3 scripts/check_documentation.py；git diff --check | 通过，详见[文档检查](../archive/frontend/evidence/frontend-v1/documentation-check.json) |
 
 ## 前端检查覆盖
 
@@ -31,7 +33,7 @@
 - 15种详情状态：待支付、支付中、待预约确认、签到前/可签到/截止、候诊/就诊中/已就诊、用户取消和过期、两类退款中/已完成。支付截止和严格24小时取消边界检查通过。
 - 有限轮询30次停止，离页后未完成查询不重启，旧查询不覆盖新选择。
 - 医生三按钮矩阵、其他人正在接诊时仍可按本行资格接诊、号码顺序、只读详情与返回名单；管理目录引用错误、统一设置核对、首次绑定回执。
-- 14个页面模板对应15条测试路径（登录/注册分开），各检查320、390、736、1024px；另实际选场次进入有内容的核对页、完整就诊人表单及医生详情，逐宽度检查，无整体横向溢出或页面脚本错误。手机核对页截图已人工查看，见[截图](evidence/confirmation-mobile.png)。
+- 14个页面模板对应15条测试路径（登录/注册分开），各检查320、390、736、1024px；另实际选场次进入有内容的核对页、完整就诊人表单及医生详情，逐宽度检查，无整体横向溢出或页面脚本错误。手机核对页截图已人工查看，见[截图](../archive/frontend/evidence/frontend-v1/confirmation-mobile.png)。
 
 首次浏览器检查发现表单辅助文字被合并为输入的可访问名称，随后为密码和证件输入补充稳定名称并复验通过；最终报告不包含首次失败。检查不能等同于完整无障碍或真实用户可用性验收。
 
