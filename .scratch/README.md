@@ -6,7 +6,7 @@
 
 ## 最近交付
 
-- [dev/test/demo环境交付](archive/environment-isolation/summary.md)：配置提交`0ec8470`、生命周期提交`19bc004`；真实Compose依赖、独立数据和身份、三个启动入口。
+- [dev/test/demo环境改造](archive/environment-isolation/summary.md)：三环境配置与数据隔离，已完成。
 
 - [业务前端与真实Compose联调](archive/frontend/summary.md)：代码交付`e91d870`，14类页面、22项单元、10项浏览器回归及139次真实HTTP/SQL核对通过；原始任务保留，验收证据已归档，未推送。
 
@@ -32,7 +32,7 @@
 
 ## 原文追溯
 
-[逐文件清单](archive-manifest.json)记录148份原文件的摘要、去向、章节及完整Git检查点。查询例子：
+[逐文件清单](archive-manifest.json)记录原文件的摘要、去向及Git检查点（后续合并记录位于additionalEntries）。查询例子：
 
 ```bash
 git show 1e83c0c6bb4ddfcdfe22196d1309e7e0c04c5bef:.scratch/three-day-booking-time/spec.md

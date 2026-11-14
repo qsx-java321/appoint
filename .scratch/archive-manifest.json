@@ -1206,5 +1206,103 @@
     "docs/verification-report.md": ".scratch/archive/delivery-quality/evidence/project-verification-history.md",
     "docs/visit/design.md": ".scratch/archive/visit-workflow/evidence/visit-design-history.md",
     "docs/visit/change-scope.md": ".scratch/archive/visit-workflow/evidence/visit-change-history.md"
-  }
+  },
+  "additionalEntries": [
+    {
+      "source": ".scratch/environment-isolation/evidence/stage03-policy/report.md",
+      "sourceSha256": "fe6a25b79f33ef96884a8e8d7462769b7680dc02d33fcf92aa54419eb3ef28b1",
+      "action": "merge",
+      "destination": ".scratch/archive/environment-isolation/summary.md",
+      "sourceCommit": "a22fdeb79e6956d2244e75f029381cf587937d02",
+      "reason": "任务说明合并为改造目标与完成状态，原文通过Git追溯"
+    },
+    {
+      "source": ".scratch/environment-isolation/issues/01-plan.md",
+      "sourceSha256": "85da496758f12ae934de27a43616d168e33d4117b4d20bf8985b57320b5dfefb",
+      "action": "merge",
+      "destination": ".scratch/archive/environment-isolation/summary.md",
+      "sourceCommit": "a22fdeb79e6956d2244e75f029381cf587937d02",
+      "reason": "任务说明合并为改造目标与完成状态，原文通过Git追溯"
+    },
+    {
+      "source": ".scratch/environment-isolation/issues/02-regression-config.md",
+      "sourceSha256": "dd547affe6e7976d7439482bcbfc8e3ca6996be156595acc9fe957855133e911",
+      "action": "merge",
+      "destination": ".scratch/archive/environment-isolation/summary.md",
+      "sourceCommit": "a22fdeb79e6956d2244e75f029381cf587937d02",
+      "reason": "任务说明合并为改造目标与完成状态，原文通过Git追溯"
+    },
+    {
+      "source": ".scratch/environment-isolation/issues/03-runtime-config.md",
+      "sourceSha256": "f68919cf63e5f2832bd5521e821850c7c63140e50d86499e952710f78d00b837",
+      "action": "merge",
+      "destination": ".scratch/archive/environment-isolation/summary.md",
+      "sourceCommit": "a22fdeb79e6956d2244e75f029381cf587937d02",
+      "reason": "任务说明合并为改造目标与完成状态，原文通过Git追溯"
+    },
+    {
+      "source": ".scratch/environment-isolation/issues/04-provisioning-reset.md",
+      "sourceSha256": "8005828b37444f63d55d7796367734b313b81e2ca3c60fdac7fc7edca792157a",
+      "action": "merge",
+      "destination": ".scratch/archive/environment-isolation/summary.md",
+      "sourceCommit": "a22fdeb79e6956d2244e75f029381cf587937d02",
+      "reason": "任务说明合并为改造目标与完成状态，原文通过Git追溯"
+    },
+    {
+      "source": ".scratch/environment-isolation/issues/05-test-clock.md",
+      "sourceSha256": "a188ce8bd4a0410d8cfe8997699d7e0f2e3628f9263600e3887f8d6c0046d563",
+      "action": "merge",
+      "destination": ".scratch/archive/environment-isolation/summary.md",
+      "sourceCommit": "a22fdeb79e6956d2244e75f029381cf587937d02",
+      "reason": "任务说明合并为改造目标与完成状态，原文通过Git追溯"
+    },
+    {
+      "source": ".scratch/environment-isolation/issues/06-frontend-http.md",
+      "sourceSha256": "89b440e4f7fb29442ee4a2271265ba7258b1f3c1cfb3753f9312fc9b1e200325",
+      "action": "merge",
+      "destination": ".scratch/archive/environment-isolation/summary.md",
+      "sourceCommit": "a22fdeb79e6956d2244e75f029381cf587937d02",
+      "reason": "任务说明合并为改造目标与完成状态，原文通过Git追溯"
+    },
+    {
+      "source": ".scratch/environment-isolation/issues/07-container-acceptance.md",
+      "sourceSha256": "27e81c50f65ae815ec5b1d91adbaf2d15bcb2a2bf6ecfdeb621bb58375475872",
+      "action": "merge",
+      "destination": ".scratch/archive/environment-isolation/summary.md",
+      "sourceCommit": "a22fdeb79e6956d2244e75f029381cf587937d02",
+      "reason": "任务说明合并为改造目标与完成状态，原文通过Git追溯"
+    },
+    {
+      "source": ".scratch/environment-isolation/issues/08-verification-delivery.md",
+      "sourceSha256": "80cd6a896676f05ef07664c4ee0338aaa53dd2e49c682ad8c0a0714858013504",
+      "action": "merge",
+      "destination": ".scratch/archive/environment-isolation/summary.md",
+      "sourceCommit": "a22fdeb79e6956d2244e75f029381cf587937d02",
+      "reason": "任务说明合并为改造目标与完成状态，原文通过Git追溯"
+    },
+    {
+      "source": ".scratch/environment-isolation/map.md",
+      "sourceSha256": "fc9a310c3c28748b6a6094cf510df30fbabcf8dec348ae95d35e806dc54749e1",
+      "action": "merge",
+      "destination": ".scratch/archive/environment-isolation/summary.md",
+      "sourceCommit": "a22fdeb79e6956d2244e75f029381cf587937d02",
+      "reason": "任务说明合并为改造目标与完成状态，原文通过Git追溯"
+    },
+    {
+      "source": ".scratch/environment-isolation/spec.md",
+      "sourceSha256": "ea5444e1816bb92fc920bd98fcefe64a27ce58051e8c0be5b380bdcd32e78f86",
+      "action": "merge",
+      "destination": ".scratch/archive/environment-isolation/summary.md",
+      "sourceCommit": "a22fdeb79e6956d2244e75f029381cf587937d02",
+      "reason": "任务说明合并为改造目标与完成状态，原文通过Git追溯"
+    },
+    {
+      "source": ".scratch/environment-isolation/status.md",
+      "sourceSha256": "c9bea81c1d36316e974a1129c9c1b82b5092709efb5e079c3177d2f7cfb17a9c",
+      "action": "merge",
+      "destination": ".scratch/archive/environment-isolation/summary.md",
+      "sourceCommit": "a22fdeb79e6956d2244e75f029381cf587937d02",
+      "reason": "任务说明合并为改造目标与完成状态，原文通过Git追溯"
+    }
+  ]
 }
