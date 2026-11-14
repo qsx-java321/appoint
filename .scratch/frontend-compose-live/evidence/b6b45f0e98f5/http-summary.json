@@ -1,0 +1,928 @@
+[
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/1/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/1/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/admin/hospitals",
+    "status": 201,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/1/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/1/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/admin/hospitals/2121487484041932802",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/1/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/1/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/2121487484041932802/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/admin/hospitals/2121487484041932802/departments",
+    "status": 201,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/2121487484041932802/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/2121487485769986049/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/2121487485769986049/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/admin/departments/2121487485769986049/doctors",
+    "status": 201,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/2121487484041932802/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/2121487485769986049/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/admin/hospitals/2121487484041932802",
+    "status": 409,
+    "code": 4402
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/admin/booking-settings",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/admin/booking-settings",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/1/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/1/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/2121487484041932802/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/2121487485769986049/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/admin/doctors/2121487486982139906/account",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/register",
+    "status": 201,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/patients",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/patients",
+    "status": 201,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/patients",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/patients/2121487494796128257",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/patients",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/patients/2121487494796128257/status",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/patients",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/patients/2121487494796128257/status",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/patients",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/2121487484041932802/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/2121487485769986049/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/2121487485769986049/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/2121487484041932802/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctors/2121487486982139906/schedules",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/patients",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctors/2121487486982139906/schedules",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/appointments",
+    "status": 201,
+    "code": 0,
+    "payment": "UNPAID"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487498919129090",
+    "status": 200,
+    "code": 0,
+    "workflow": "WAITING_FOR_PAYMENT",
+    "payment": "UNPAID"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/payments/2121487498944294913/attempts",
+    "status": 202,
+    "code": 0,
+    "payment": "PAYING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487498919129090",
+    "status": 200,
+    "code": 0,
+    "workflow": "PAYMENT_PROCESSING",
+    "payment": "PAYING"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mock-pay/attempts/42024ce2-c627-4e59-90bf-b20129e97569/fail",
+    "status": 202,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487498919129090",
+    "status": 200,
+    "code": 0,
+    "workflow": "PAYMENT_PROCESSING",
+    "payment": "PAYING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487498919129090",
+    "status": 200,
+    "code": 0,
+    "workflow": "WAITING_FOR_PAYMENT",
+    "payment": "UNPAID"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/payments/2121487498944294913/attempts",
+    "status": 202,
+    "code": 0,
+    "payment": "PAYING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487498919129090",
+    "status": 200,
+    "code": 0,
+    "workflow": "PAYMENT_PROCESSING",
+    "payment": "PAYING"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mock-pay/attempts/7511ca02-a842-4043-bca3-582cd51a1225/complete",
+    "status": 202,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487498919129090",
+    "status": 200,
+    "code": 0,
+    "workflow": "PAYMENT_PROCESSING",
+    "payment": "PAYING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487498919129090",
+    "status": 200,
+    "code": 0,
+    "workflow": "CONFIRMED",
+    "payment": "PAID",
+    "visit": "NOT_CHECKED_IN"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487498919129090",
+    "status": 200,
+    "code": 0,
+    "workflow": "CONFIRMED",
+    "payment": "PAID",
+    "visit": "NOT_CHECKED_IN"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/appointments/2121487498919129090/cancel",
+    "status": 202,
+    "code": 0,
+    "workflow": "CANCELLED_REFUNDING",
+    "payment": "REFUND_PENDING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487498919129090",
+    "status": 200,
+    "code": 0,
+    "workflow": "CANCELLED_REFUNDING",
+    "payment": "REFUND_PENDING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487498919129090",
+    "status": 200,
+    "code": 0,
+    "workflow": "CANCELLED_REFUNDING",
+    "payment": "REFUND_PENDING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487498919129090",
+    "status": 200,
+    "code": 0,
+    "workflow": "CANCELLED_REFUNDING",
+    "payment": "REFUND_PENDING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487498919129090",
+    "status": 200,
+    "code": 0,
+    "workflow": "CANCELLED_REFUNDED",
+    "payment": "REFUNDED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487498919129090",
+    "status": 200,
+    "code": 0,
+    "workflow": "CANCELLED_REFUNDED",
+    "payment": "REFUNDED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/2121487484041932802/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/2121487485769986049/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/2121487485769986049/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/2121487484041932802/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctors/2121487486982139906/schedules",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/patients",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctors/2121487486982139906/schedules",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/appointments",
+    "status": 201,
+    "code": 0,
+    "payment": "UNPAID"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487561225515010",
+    "status": 200,
+    "code": 0,
+    "workflow": "WAITING_FOR_PAYMENT",
+    "payment": "UNPAID"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/payments/2121487561238097921/attempts",
+    "status": 202,
+    "code": 0,
+    "payment": "PAYING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487561225515010",
+    "status": 200,
+    "code": 0,
+    "workflow": "PAYMENT_PROCESSING",
+    "payment": "PAYING"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mock-pay/attempts/c2a2671c-a814-46c9-8173-9e1f4fff31e2/complete",
+    "status": 202,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487561225515010",
+    "status": 200,
+    "code": 0,
+    "workflow": "PAYMENT_PROCESSING",
+    "payment": "PAYING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487561225515010",
+    "status": 200,
+    "code": 0,
+    "workflow": "PAYMENT_PROCESSING",
+    "payment": "PAYING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487561225515010",
+    "status": 200,
+    "code": 0,
+    "workflow": "CONFIRMED",
+    "payment": "PAID",
+    "visit": "NOT_CHECKED_IN"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/appointments/2121487561225515010/check-in",
+    "status": 200,
+    "code": 0,
+    "workflow": "CONFIRMED",
+    "payment": "PAID",
+    "visit": "WAITING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487561225515010",
+    "status": 200,
+    "code": 0,
+    "workflow": "CONFIRMED",
+    "payment": "PAID",
+    "visit": "WAITING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487561225515010",
+    "status": 200,
+    "code": 0,
+    "workflow": "CONFIRMED",
+    "payment": "PAID",
+    "visit": "WAITING"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/2121487484041932802/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/2121487485769986049/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals/2121487484041932802/departments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/departments/2121487485769986049/doctors",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctors/2121487486982139906/schedules",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/patients",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctors/2121487486982139906/schedules",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/appointments",
+    "status": 201,
+    "code": 0,
+    "payment": "UNPAID"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487583220445186",
+    "status": 200,
+    "code": 0,
+    "workflow": "WAITING_FOR_PAYMENT",
+    "payment": "UNPAID"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/appointments/2121487583220445186/cancel",
+    "status": 200,
+    "code": 0,
+    "workflow": null,
+    "payment": "CLOSED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487583220445186",
+    "status": 200,
+    "code": 0,
+    "workflow": null,
+    "payment": "CLOSED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/hospitals",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctor/appointments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctor/sessions",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctor/sessions",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctor/appointments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctor/appointments/2121487561225515010",
+    "status": 200,
+    "code": 0,
+    "visit": "WAITING"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/doctor/appointments/2121487561225515010/start-visit",
+    "status": 200,
+    "code": 0,
+    "visit": "IN_PROGRESS"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctor/appointments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctor/sessions",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487561225515010",
+    "status": 200,
+    "code": 0,
+    "workflow": "CONFIRMED",
+    "payment": "PAID",
+    "visit": "IN_PROGRESS"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/doctor/appointments/2121487561225515010/complete-visit",
+    "status": 200,
+    "code": 0,
+    "visit": "COMPLETED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctor/appointments",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctor/sessions",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487561225515010",
+    "status": 200,
+    "code": 0,
+    "workflow": "CONFIRMED",
+    "payment": "PAID",
+    "visit": "COMPLETED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/2121487561225515010",
+    "status": 200,
+    "code": 0,
+    "workflow": "CONFIRMED",
+    "payment": "PAID",
+    "visit": "COMPLETED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctor/appointments/2121487561225515010",
+    "status": 200,
+    "code": 0,
+    "visit": "COMPLETED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/admin/booking-settings",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/admin/booking-settings",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/doctors/2121487486982139906/schedules",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/my",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/appointments/my",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "status": 200,
+    "code": 0
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/admin/booking-settings",
+    "status": 403
+  }
+]

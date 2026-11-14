@@ -1,5 +1,11 @@
 # 任务入口与历史交付档案
 
+## 待归档交付
+
+- [前端真实Compose联调](frontend-compose-live/spec.md)：本机Node/npm、正常服务启动，真实MySQL/RabbitMQ/Redis下139次浏览器HTTP及SQL核对通过，正常服务保留运行。[任务地图](frontend-compose-live/map.md) · [真实结果、配置修正与限制](frontend-compose-live/verification.md)。原文及证据未提交，保留待归档。
+
+- [Vue首版业务前端](frontend-v1/spec.md)：完整方案及独立frontend/已实现，22项单元、10项夹具浏览器及1项真实H2联调通过。[任务地图](frontend-v1/map.md) · [实施方案](../docs/frontend-implementation-plan.md) · [实际验收与限制](frontend-v1/verification.md)。未提交原文和证据保留，待可追溯检查点后归档。
+
 ## 最近交付
 
 - [Redis目录缓存交付](archive/redis-catalog-cache/summary.md)：医院、科室、医生共享缓存、提交后失效、故障回源与隔离验收已完成；常规389、Redis7、MySQL38、可靠性16及HTTP97通过。

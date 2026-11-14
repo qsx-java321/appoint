@@ -1,0 +1,6 @@
+{
+  "normalApplicationStarted": true,
+  "mysqlPoolStarted": true,
+  "rabbitConnectionCreated": true,
+  "normalProfileDev": true
+}

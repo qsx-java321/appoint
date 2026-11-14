@@ -1,0 +1,15 @@
+{
+  "runId": "b6b45f0e98f5",
+  "database": "front_b6b45f0e98f5",
+  "databaseUser": "f_b6b45f0e98f5",
+  "rabbitVhost": "front-b6b45f0e98f5",
+  "redisNamespace": "front-b6b45f0e98f5",
+  "businessDate": "2026-11-14",
+  "businessTime": "13:40:00",
+  "backendPort": 18082,
+  "frontendPort": 5174,
+  "normalPorts": [
+    8080,
+    5173
+  ]
+}

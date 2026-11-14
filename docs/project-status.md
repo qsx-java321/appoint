@@ -2,6 +2,8 @@
 
 核对日期：2026-11-13（Asia/Shanghai）。签到窗口改造实现已本地提交为`d75f73c`（基线`4bfc1d5`），代码、完整回归、正式文档与核验工具已完成；未推送。前次实现/测试交付为`71e4ec8`，测试源码检查点为`9c5878b`；其结果独立保留。
 
+2026-11-14补充：独立Vue业务前端已按认可设计实现，工作区未提交。前端证据与后端历史验收分别记录，不把浏览器接口拦截结果当成MySQL/RabbitMQ联调结果。
+
 ## 当前已完成
 
 | 领域 | 当前实现 | 权威说明 |
@@ -19,12 +21,16 @@
 - Redis首期仅缓存目录；限流、场次缓存和JWT撤销未实施。范围及步骤见[方案](redis-catalog-cache-design.md)和[任务地图](../.scratch/redis-catalog-cache/map.md)。
 
 - 未接入真实支付资金渠道；MockPay只在dev/test注册，prod不注册Mock渠道/入口。
-- 没有业务前端。旧独立讲解页`docs/business-flow-demo.html`已在四场次改造中删除，不是当前交付物。
+- 业务前端已在同仓库独立`frontend/`工程实现，覆盖账号、预约、就诊人、医生接诊与管理维护；使用既有API，不改变后端业务规则。[实施方案](frontend-implementation-plan.md)、[运行说明](../frontend/README.md)和[实际验收](../.scratch/frontend-v1/verification.md)分别记录范围、启动与验证限制。旧独立讲解页`docs/business-flow-demo.html`已删除，不是当前前端。
 - 不提供医院关门、医生停诊、管理员手工维护场次的REST；历史旧场次及终态继续可读。
 - 尚无退款结果监听器、短信/邮件通知、运维重放HTTP、Outbox租约领取、病历处方、自动叫号、爽约、回退或实时推送。
 - Outbox FAILED和DLQ可能需要受控人工恢复；至少一次投递不等于物理恰好一次。就诊完成表示接诊状态完成，不表示已实现病历和处方系统。
 
 ## 最新实际验收
+
+2026-11-14前端真实Compose：直接使用本机nvm Node 24.18.1/npm 11.16.0，正常8080/5173与Compose启动。独立MySQL/RabbitMQ/Redis环境的真实浏览器完成管理、支付失败重试、异步确认/退款、签到接诊与双端核对，139次HTTP响应符合预期；SQL确认3条订单终态、库存守恒、4条Outbox已发布和2条支付成功Inbox。首次测试入口缺发布确认配置的问题已修正并复验；隔离资源已清理，正常服务保留运行。[真实Compose验收](../.scratch/frontend-compose-live/verification.md)。
+
+2026-11-14前端首版检查点（上述Compose联调之前）：独立工程锁文件离线安装、格式、严格类型与生产构建；22项单元测试、10项浏览器流程（含15种详情状态和320/390/736/1024px布局）通过。另在隔离H2内存后端完成真实浏览器注册、登录、目录、就诊人、新建及未支付取消联调1项；当时未启动Docker。[首版前端验收](../.scratch/frontend-v1/verification.md)保留原范围，不与后续真实Compose结果混计。
 
 2026-11-14 Redis目录缓存：干净常规389、Redis7、MySQL38、可靠性16及curl97请求通过；Redis启动前不可达补强复验通过，零失败/错误/跳过，profile重复常规不累计。[交付与证据](../.scratch/archive/redis-catalog-cache/summary.md)。数据库仍为V10。
 

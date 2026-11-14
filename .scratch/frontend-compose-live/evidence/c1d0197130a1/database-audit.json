@@ -1,0 +1,7 @@
+{
+  "orders": "2121488630319947778\tCANCELLED\tREFUNDED\t1\tNONE\n2121488664436416513\tCONFIRMED\tPAID\t1\tCOMPLETED\n2121488677853995009\tCANCELLED\tCLOSED\t0\tNONE",
+  "inventory": "1\tNULL\tNULL\tNULL\tNULL\tNULL\n2\tNULL\tNULL\tNULL\tNULL\tNULL\n3\tNULL\tNULL\tNULL\tNULL\tNULL\n4\t20\t20\t0\t0\t1\n5\t20\t20\t0\t0\t1\n6\t4\t4\t0\t0\t2\n7\t4\t3\t0\t1\t2",
+  "outbox": "RefundRequested\tPUBLISHED\t1\nPaymentSucceeded\tPUBLISHED\t2\nRefundSucceeded\tPUBLISHED\t1",
+  "inbox": "PaymentSucceeded\t2",
+  "refunds": "SUCCEEDED\t1"
+}

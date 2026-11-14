@@ -1,0 +1,6 @@
+{
+  "harnessSha256": "8f479578fcaa5035a4f3c14573bf9c1759a3379171aed8bcd89c494eddd206ad",
+  "symptom": "browser passed; 4 Outbox events remain PENDING at publish_attempts=1; next_attempt_at=fixedTime+1s",
+  "testClasspathConfig": "publisher-confirm-type absent in src/test/resources/application.yml",
+  "normalConfig": "src/main/resources/application.yml sets correlated and returns=true"
+}

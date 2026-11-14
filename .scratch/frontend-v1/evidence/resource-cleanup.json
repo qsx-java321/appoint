@@ -1,0 +1,8 @@
+{
+  "dockerStarted": false,
+  "portsOpen": {
+    "5173": false,
+    "18081": false
+  },
+  "h2Database": "in-memory; removed on JVM exit"
+}

@@ -1,0 +1,154 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { api } from "../api";
+import type { Patient } from "../api/types";
+import { message } from "../api/client";
+import { useBooking } from "../stores/booking";
+import { useRequest } from "../composables/useRequest";
+import { money, time, sessionNames } from "../lib/presentation";
+import RequestState from "../components/RequestState.vue";
+const route = useRoute(),
+  router = useRouter(),
+  booking = useBooking();
+const selected = computed(() => booking.selection);
+const { data, loading, error, run } = useRequest<Patient[]>([]);
+const patientId = ref(String(route.query.patientId || "")),
+  acknowledged = ref(false),
+  submitError = ref(""),
+  valid = ref(false);
+async function load() {
+  valid.value = false;
+  await run(async () => {
+    const patients = await api.patients(),
+      s = selected.value;
+    if (s) {
+      const schedules = await api.schedules(s.doctor.id);
+      const latest = schedules.find(
+        (v) =>
+          v.appointmentDate === s.schedule.appointmentDate &&
+          v.sessionType === s.schedule.sessionType,
+      );
+      if (latest) {
+        booking.selection = { ...s, schedule: latest };
+        valid.value = latest.bookable;
+      }
+    }
+    return patients.filter((p) => p.enabled);
+  });
+  if (!data.value.some((p) => p.id === patientId.value))
+    patientId.value = data.value[0]?.id || "";
+}
+async function submit() {
+  if (booking.busy) return;
+  submitError.value = "";
+  try {
+    const id = await booking.create(patientId.value);
+    await router.replace(`/appointments/${id}/payment`);
+  } catch (e) {
+    submitError.value = message(e);
+    if (!booking.pending) await load();
+  }
+}
+onMounted(load);
+</script>
+<template>
+  <h1>核对这次预约</h1>
+  <p class="lead">提交前核对就诊人、时间、费用与取消限制。</p>
+  <p v-if="submitError" class="notice error" role="alert">{{ submitError }}</p>
+  <section v-if="booking.pending" class="panel stack">
+    <h2>请先核实上一次提交</h2>
+    <p>上次预约结果尚未确定。将沿原请求身份重试，避免重复创建。</p>
+    <p>
+      {{ booking.pending.body.appointmentDate }} ·
+      {{ sessionNames[booking.pending.body.sessionType] }}
+    </p>
+    <button class="primary" :disabled="booking.busy" @click="submit">
+      {{ booking.busy ? "正在核实…" : "核实原提交结果" }}
+    </button>
+  </section>
+  <section v-else-if="!selected" class="panel feedback">
+    <p>尚未选择场次，或页面刷新后选择已失效。</p>
+    <RouterLink class="button primary" to="/booking">重新选择预约</RouterLink>
+  </section>
+  <RequestState v-else :loading="loading" :error="error" @retry="load"
+    ><div class="booking-layout">
+      <section class="stack">
+        <section class="panel">
+          <div class="section-heading">
+            <h2>为谁预约</h2>
+            <RouterLink
+              :to="{
+                path: '/patients',
+                query: { new: '1', returnTo: 'confirm' },
+              }"
+              >新增就诊人</RouterLink
+            >
+          </div>
+          <div class="card-grid">
+            <label v-for="p in data" :key="p.id" class="patient-choice"
+              ><input v-model="patientId" type="radio" :value="p.id" /><span
+                >{{ p.name
+                }}<small>身份证 {{ p.documentNoMasked }}</small></span
+              ></label
+            >
+          </div>
+          <p v-if="!data.length">请先新增或启用就诊人。</p>
+        </section>
+        <section class="panel">
+          <h2>就诊安排</h2>
+          <dl class="facts">
+            <dt>医院</dt>
+            <dd>{{ selected.hospital.name }}</dd>
+            <dt>科室与医生</dt>
+            <dd>
+              {{ selected.department.name }} · {{ selected.doctor.name }} ·
+              {{ selected.doctor.title }}
+            </dd>
+            <dt>日期与场次</dt>
+            <dd>
+              {{ selected.schedule.appointmentDate }}
+              {{ selected.schedule.startTime.slice(0, 5) }}–{{
+                selected.schedule.endTime.slice(0, 5)
+              }}
+            </dd>
+            <dt>停止新下单</dt>
+            <dd>{{ time(selected.schedule.bookingClosesAt) }}</dd>
+          </dl>
+          <p class="muted">
+            到院首次签到：开诊前30分钟起至场次结束前。订单支付截止在提交成功后显示。
+          </p>
+        </section>
+      </section>
+      <aside class="panel stack">
+        <h2>费用与规则</h2>
+        <p class="price">¥{{ money(selected.schedule.registrationFee) }}</p>
+        <p>已确认预约仅在距开诊<strong>严格超过24小时</strong>时可取消。</p>
+        <p>提交前尚未占号，最终名额与费用以创建结果为准。</p>
+        <p v-if="!valid" class="notice error">
+          当前场次不可新预约，请返回重新选择。
+        </p>
+        <label class="check-line"
+          ><input v-model="acknowledged" type="checkbox" /><span
+            >我已核对信息，并知晓已确认预约的取消限制。</span
+          ></label
+        ><button
+          class="primary"
+          :disabled="booking.busy || !valid || !patientId || !acknowledged"
+          @click="submit"
+        >
+          {{ booking.busy ? "正在提交…" : "提交预约，前往支付" }}</button
+        ><RouterLink
+          :to="{
+            path: `/booking/doctors/${selected.doctor.id}`,
+            query: {
+              hospitalId: selected.hospital.id,
+              departmentId: selected.department.id,
+            },
+          }"
+          >返回选择场次</RouterLink
+        >
+      </aside>
+    </div></RequestState
+  >
+</template>

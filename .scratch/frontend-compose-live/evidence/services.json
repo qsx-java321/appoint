@@ -1,0 +1,47 @@
+{
+  "node": "24.18.1",
+  "npm": "11.16.0",
+  "portsOpen": {
+    "8080": true,
+    "5173": true,
+    "18082": false,
+    "5174": false,
+    "5175": false
+  },
+  "containers": [
+    {
+      "Name": "appoint-mysql",
+      "Service": "mysql",
+      "State": "running",
+      "Health": "healthy"
+    },
+    {
+      "Name": "appoint-rabbitmq",
+      "Service": "rabbitmq",
+      "State": "running",
+      "Health": "healthy"
+    },
+    {
+      "Name": "appoint-redis",
+      "Service": "redis",
+      "State": "running",
+      "Health": "healthy"
+    }
+  ],
+  "isolatedResources": [
+    {
+      "runId": "b6b45f0e98f5",
+      "databaseRemoved": true,
+      "databaseUserRemoved": true,
+      "redisKeysRemoved": true
+    },
+    {
+      "runId": "c1d0197130a1",
+      "databaseRemoved": true,
+      "databaseUserRemoved": true,
+      "redisKeysRemoved": true
+    }
+  ],
+  "isolatedVhostsRemoved": true,
+  "normalServicesKeptRunning": true
+}
