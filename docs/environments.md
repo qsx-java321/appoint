@@ -1,6 +1,6 @@
 # dev、test、demo三环境使用说明
 
-三套环境共用Docker Compose中的真实MySQL、Redis、RabbitMQ，前后端在宿主机启动。dev用于日常业务体验，test用于独立操作业务，demo用于首次体验和演示。本次只交付环境配置和使用入口；按用户最新要求，不执行功能测试、HTTP验收、浏览器回归或Testcontainers。
+三套环境共用Docker Compose中的真实MySQL、Redis、RabbitMQ，前后端在宿主机启动。dev用于日常业务体验，test用于独立操作业务，demo用于首次体验和演示。三环境的业务代码和规则一致，通过独立配置、身份和数据生命周期区分用途。
 
 ## 环境对应关系
 

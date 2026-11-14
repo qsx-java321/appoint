@@ -2,11 +2,11 @@
 
 ## 在途任务
 
-- 三环境环境实现已按最新范围交付，见下方档案；原自动化在途文件保留，本轮不继续处理。
+暂无环境改造在途任务。
 
 ## 最近交付
 
-- [dev/test/demo环境交付](archive/environment-isolation/summary.md)：真实Compose依赖、独立配置与数据生命周期、启动入口及使用说明；按用户要求不执行测试或验收。
+- [dev/test/demo环境交付](archive/environment-isolation/summary.md)：配置提交`0ec8470`、生命周期提交`19bc004`；真实Compose依赖、独立数据和身份、三个启动入口。
 
 - [业务前端与真实Compose联调](archive/frontend/summary.md)：代码交付`e91d870`，14类页面、22项单元、10项浏览器回归及139次真实HTTP/SQL核对通过；原始任务保留，验收证据已归档，未推送。
 
@@ -20,6 +20,7 @@
 
 | 主题 | 交付档案 |
 | --- | --- |
+| dev/test/demo三环境 | [总结](archive/environment-isolation/summary.md) |
 | 业务前端与真实Compose联调 | [总结](archive/frontend/summary.md) |
 | Redis目录缓存交付 | [总结](archive/redis-catalog-cache/summary.md) |
 | 到院签到与门诊接诊交付 | [总结](archive/visit-workflow/summary.md) |

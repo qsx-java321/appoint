@@ -1,31 +1,16 @@
-# 04 资源初始化、账号与重置生命周期
+# 04 资源初始化与数据生命周期
 
 Type: enhancement
 Triage: ready-for-agent
 Status: resolved
 Blocked by: 03
 
-## 工作与文件
+init幂等准备数据库、专用账号和vhost，保留已有密码及卷。dev沿用原库；test普通重启保留，显式reset重建；demo每次后端启动清理自身资源并初始化账号和示例医生。
 
-新增 `scripts/local_env.py`及应用侧localenv生命周期支持，必要时调整compose.yaml但保留现有卷。实现幂等多库/账号/vhost准备、进程管理、test显式重置、demo所有启动方式的自动重置、实例锁和账号初始化。
+脚本、Maven和IDE共用Spring生命周期，同环境锁和端口检查先于清理。test重置及demo重建使旧Token失效。
 
-按照[正式方案](../../../docs/environment-isolation-plan.md)第4节执行顺序：demo校验/排他/清理先于Flyway与后台工作，初始化成功后再对外可用。每次demo启动及test显式重置使旧JWT失效；dev数据和账号原样保留。
-
-## 完成条件与验证
-
-- E02–E05与E09破坏性操作边界在独占容器中通过。
-- 测试首次与已有卷、重复init、配置错误、第二实例、端口占用、准备中途失败及清理失败。
-- 所有支持的demo启动方式满足同一行为，不只验证脚本分支；进程退出释放锁。
-- test重启不清数据；test重置只在停止状态执行并初始化联调管理员。
+入口：scripts/local_env.py、LocalEnvironmentConfig/Lifecycle/Files、V11迁移。
 
 ## Comments
 
-- 原“尚未实施”记录已过时；实际实现与验证范围以下方核对为准，不用真实dev测试重置。
-
-- 本轮核对：local_env.py、生命周期与V11账号来源标记已实现；本机重复init及dev切换已执行，原开发库18张含数据表的原业务行摘要一致，卷保留。临时容器生命周期4项批次通过（包含于MySQL42）。
-- 用户澄清：只因电脑配置低而要求Agent操作时一次启动一套，不要求新增跨环境互斥。当前`appoint.local.<环境>`锁用于同环境重复实例/重置保护，保留该用途；此前“先实现跨三环境互斥”的待办撤销。
-- 未确认：常驻test显式重置及文件密钥轮换后的旧Token失效；IDE/Maven独立实际入口未逐一操作。临时测试在regression配置根下跳过真实.env.test写入，不能据此宣称该文件轮换分支已验收。保持claimed；用户已授权恢复，后续用临时资源补证，不清理真实dev。
-
-## 最新范围与关闭说明（2026-11-14）
-
-环境初始化、生命周期、同环境锁、账号与test/demo重置实现已交付。旧独占容器测试和补测要求撤销，本轮不运行init/reset或任何测试，不修改真实业务数据。 以上最新说明取代正文中原测试/验收完成条件，旧记录仅供追溯。交付见[环境总结](../../archive/environment-isolation/summary.md)。
+- 交付提交：`19bc004`。

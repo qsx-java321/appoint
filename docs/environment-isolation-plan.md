@@ -1,6 +1,6 @@
 # 三环境设计
 
-状态：按2026-11-14最新范围交付环境实现。现有业务功能按正确处理，本次不进行功能测试、应用联调验收、HTTP验收、浏览器回归或Testcontainers改造。此前方案中的测试完成条件已撤销，不作为环境交付的前置条件。
+目标：让项目具有dev、test、demo三套可选择的环境，配置清楚、数据独立，保持现有业务规则。环境实现已交付，配置提交`0ec8470`，启动与数据生命周期提交`19bc004`。
 
 ## 结构
 
@@ -42,8 +42,8 @@ scripts/local_env.py提供init、cutover-dev、start/stop/status、reset test及
 
 MockPay保持内存实现，跨重启渠道查询和退款续接有限制。demo不代表生产环境，本次不建设生产部署。
 
-## 交付边界
+## 实施范围
 
-本次交付配置、资源准备、启动生命周期、前端入口和使用文档。已有业务规则、测试类、HTTP示例与回归设施不在本轮继续处理；其早期工作区改动保留，不纳入本次环境提交。不再补齐旧方案E01–E14的测试证据。
+环境配置、Compose资源初始化、Spring启动生命周期、test业务时间、前端入口和使用文档。现有业务功能沿用已有实现。
 
-使用命令见[环境说明](environments.md)，交付记录见[阶段总结](../.scratch/archive/environment-isolation/summary.md)。
+使用命令见[环境说明](environments.md)，实现入口见[交付总结](../.scratch/archive/environment-isolation/summary.md)。

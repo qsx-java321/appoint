@@ -62,7 +62,7 @@ python3 scripts/local_env.py start dev
 
 电脑资源有限，操作时一次按需启动一套；同环境锁防止重复实例和重置冲突。test预置管理员，demo预置用户、医生和管理员，密码见对应私密环境文件的LOCAL_SEED_PASSWORD。MockPay为内存实现，重启后旧渠道支付查询和退款续接存在限制。
 
-本次环境改造按既有业务功能正确处理，只交付环境配置与入口，不执行测试或验收。原测试体系保留，维护约定见[测试文档](docs/testing.md)。
+环境设计见[三环境方案](docs/environment-isolation-plan.md)，实现入口见[交付总结](.scratch/archive/environment-isolation/summary.md)。
 
 ## HTTP 示例
 

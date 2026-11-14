@@ -23,13 +23,9 @@ npm run dev       # 5173 -> 8080，dev
 # 停止当前环境后，可改选 npm run dev:test 或 npm run dev:demo
 ```
 
-为节省本机资源，实际操作时选择一个入口，切换前停止上一套环境；不要求程序强制跨环境互斥。改造状态见[进度核对](../.scratch/environment-isolation/status.md)。使用`127.0.0.1`保持origin一致；`/api`代理固定到对应后端，旧`API_PROXY_TARGET`或命令行端口与mode冲突时失败。后端资源准备、账号与生命周期见[环境总览](../docs/environments.md)。前端启动不会创建数据库或重置demo；每次demo后端启动才恢复基线。
+为节省本机资源，实际操作时选择一个入口，切换前停止上一套环境；不要求程序强制跨环境互斥。使用`127.0.0.1`保持origin一致；`/api`代理固定到对应后端，旧`API_PROXY_TARGET`或命令行端口与mode冲突时失败。后端资源准备、账号与生命周期见[环境总览](../docs/environments.md)。前端启动不会创建数据库或重置demo；每次demo后端启动才恢复基线。
 
 三套本地模式均开启MockPay界面；默认生产构建关闭模拟按钮，真实支付尚未接入。MockPay状态保存在后端内存，重启后不能保证旧支付和退款续接。
-
-## 本次环境交付范围
-
-本次只配置dev/test/demo三个启动入口，并使用Compose中的真实后端依赖。现有业务功能按正确处理，不执行单元测试、HTTP验收、浏览器回归或Testcontainers。已有测试配置与脚本不属于本次环境交付。
 
 ## 会话与权限
 

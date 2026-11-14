@@ -1,4 +1,6 @@
-# 03 常驻环境配置与启动校验交付
+# 历史执行记录：03配置校验
+
+本文件记录`0ec8470`当时的执行过程，不是环境设计或当前任务清单。现行设计见[三环境方案](../../../../docs/environment-isolation-plan.md)。
 
 日期：2026-11-14。任务：[03](../../issues/03-runtime-config.md)。基线：`748eca3`。本报告随阶段代码提交；交付提交可用 `git log -1 -- .scratch/environment-isolation/evidence/stage03-policy/report.md` 追溯。
 
@@ -26,7 +28,7 @@ SPRING_DATASOURCE_URL=jdbc:forbidden:host-override SPRING_FLYWAY_SCHEMAS_0=forbi
 
 文档检查及`git diff --check`通过，见[静态检查](static-checks.json)。分别核验整个在途工作区及仅含暂存内容的独立文档快照；两者均通过。不将其余功能计为业务验证通过。暂存的11个实现/配置文件摘要与被测快照一致。
 
-## 范围限制与后续
+## 当时的后续安排（历史）
 
 本阶段关闭03，不代表整个环境改造交付。demo启动重建、同环境锁、test重置及文件JWT轮换仍属于04；调时、HTTP变量和独占容器回归分别属于05–07。保留已有生命周期与MockPay装配历史证据，本轮不重跑这些业务测试，也不宣称IDE实际操作已经验证。不增加跨环境互斥。
 
