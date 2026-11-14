@@ -41,6 +41,10 @@
 
 ## 本地运行
 
+开发、测试和验收环境的配置归属、端口、数据隔离及命令选择见[环境总览](docs/environments.md)。
+
+已确认、待实施的 dev/test/demo 拆分与独立自动化回归设计见[环境改造方案](docs/environment-isolation-plan.md)；当前运行方式仍以下文为准。
+
 前端工程、Node环境、启动、测试与静态部署见[前端说明](frontend/README.md)，详细设计与实施顺序见[前端实施方案](docs/frontend-implementation-plan.md)。前端独立执行`npm ci`、`npm run dev`，开发入口默认http://127.0.0.1:5173，`/api`代理到下述Spring Boot服务；Maven构建不调用npm。
 
 首次使用时准备两份本地配置，按需修改凭据，并确保两份文件中的 MySQL 和 RabbitMQ 连接信息一致：
