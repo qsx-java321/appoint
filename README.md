@@ -235,11 +235,14 @@ tail -f .local-env/dev-backend.log
 | --- | --- |
 | 如何启动、切换和维护环境 | [环境说明](docs/environments.md) |
 | 如何预约、付款、签到和接诊 | [业务流程](docs/business-flow.md) |
+| 新增就诊人时如何填写、可复制的多位示例 | [就诊人信息填写示例](docs/patient-examples.md) |
 | 接口、权限、请求响应和错误码 | [REST API](docs/api.md) |
 | 模块、事务、消息、缓存与恢复 | [模块设计](docs/module-design.md) |
 | 如何运行测试及已完成的验收范围 | [测试说明](docs/testing.md) |
 | 前端开发与构建 | [前端说明](frontend/README.md) |
 | 业务术语与设计原因 | [术语表](GLOSSARY.md)、[ADR](docs/adr/) |
+
+首次体验新增就诊人时，可参考 [docs/patient-examples.md](docs/patient-examples.md)。文档提供8组可直接复制到页面的就诊人资料，包含姓名、身份证号码、联系电话和联系邮箱，并说明填写步骤、字段含义与常见错误处理；示例身份证号码已通过项目校验器检查，适用于本地演示和手动体验。
 
 文档以当前实现为准，历史开发过程与验收证据保存在Git提交`7b8a370`。文档调整后运行`python3 scripts/check_documentation.py`检查链接与API契约。
 
