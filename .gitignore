@@ -12,11 +12,13 @@ frontend/.env.local
 frontend/.env.*.local
 frontend/playwright-report/
 frontend/test-results/
-.scratch/frontend-compose-live/runtime/
 scripts/__pycache__/
 
 .env.dev
 .env.test
 .env.demo
 .local-env/
-.scratch/environment-isolation/runtime/
+
+# 临时任务与验收输出通过Git历史追溯，只保留目录说明。
+.scratch/*
+!.scratch/README.md

@@ -1,150 +1,58 @@
 # 医院预约系统
 
-这是一个医院预约系统，后端为模块化单体，同仓库的`frontend/`为独立Vue 3前端工程。医院、科室和医生默认每天正常工作；每位医生每天固定提供四个独立预约场次。管理员只维护统一的每时段容量和挂号费，用户首次下单时系统按需生成实际场次并暂占库存。
+同仓库的Spring Boot后端与Vue 3前端，提供预约挂号、模拟支付、到院签到及医生接诊。医院、科室和医生每天正常工作；场次由首次预约按需生成。
 
-## 当前能力
+## 主要功能
 
-- 账号注册、JWT 登录、当前用户查询及管理员角色访问控制。
-- 本人就诊人的新增、查询、资料修改与启停，以及证件校验和脱敏。
-- 医院、科室、医生目录管理和查询，以及 Redis 共享目录缓存、提交后失效和故障回源。
-- 每位医生今天、明天、后天的 12 个固定预约场次查询，返回下单截止与可预约状态。
-- 管理员统一预约设置，默认每时段 20 个号源、挂号费 10.00 CNY。
-- 预约幂等创建、库存暂占、跨账号同证件防重复、费用和就诊资料快照。
-- 支付尝试、MockPay 回调、Transactional Outbox、RabbitMQ/Inbox、迟到支付关闭释放与退款补偿、有界重试和受控 DLQ 重放。
-- 待支付 15 分钟超时、用户主动取消、已支付退款、就诊序号和库存守恒。
-- 管理员绑定医生账号；用户窗口内签到，医生四场看板、开始及完成接诊，双方共用就诊进度。
-- 我的全部预约按就诊日期、开始时间和 ID 排序，默认 DESC，可切换 ASC。
-
-新流程不提供医院关门、医生停诊、管理员手工创建/修改/调整/关闭场次。历史 `CLOSED`、`CANCELLED_BY_HOSPITAL`、旧 `MORNING`/`AFTERNOON` 数据继续可读。
-
-## 预约规则
-
-四个场次为：
-
-| 类型 | 时间 |
-| --- | --- |
-| `MORNING_FIRST` | 08:00–10:00 |
-| `MORNING_SECOND` | 10:30–12:00 |
-| `AFTERNOON_FIRST` | 14:00–16:00 |
-| `AFTERNOON_SECOND` | 16:30–18:00 |
-
-用户按 `Asia/Shanghai` 服务端日期可以创建今天、明天、后天的预约，必须严格早于场次开始前 15 分钟。四场下单截止依次为当天 07:45、10:15、13:45、16:15。查询未生成场次不会写库；首次下单在事务中生成场次并复制当时统一设置。设置更新不改变已生成场次和订单费用快照。
-
-订单创建时间在锁后实际占号前采样；支付截止取创建时间加 15 分钟与场次开始时间的较早者，允许跨零点。停止新下单后，原订单仍可在自己的截止前支付；历史预约及截止不随三天入口滚动重算。本系统确认收款的服务端时间 `paidAt` 必须严格早于支付截止；不使用渠道上报的发生时间判定资格。扫描延迟不会延长支付资格，截止后确认的收款进入退款补偿。
+- 用户注册、JWT登录、角色权限和本人就诊人管理。
+- 医院、科室、医生目录及管理员统一预约设置，Redis缓存目录查询。
+- 今天至后天十二个场次、幂等下单、库存暂占、费用与就诊资料快照。
+- MockPay支付、异步确认取号、取消、超时、原路退款及消息重试。
+- 用户签到，医生四场看板、开始和完成接诊，双方查看同一就诊进度。
 
 ## 技术栈
 
-- Java 21、Spring Boot、Spring Security、MyBatis-Plus
-- MySQL 8.4、Flyway、H2 测试数据库
-- RabbitMQ、Transactional Outbox / Inbox
-- Maven Wrapper、JUnit 5、Testcontainers、ArchUnit
+Java 21、Spring Boot、Spring Security、MyBatis-Plus、MySQL 8.4、Flyway、Redis、RabbitMQ；前端使用Node 24、Vue 3、TypeScript、Vite、Pinia和Axios。测试使用JUnit 5、MockMvc、Testcontainers、ArchUnit、Vitest和Playwright。
 
-## 本地运行
+## 快速启动
 
-三套环境共用Docker Compose中的真实MySQL、Redis、RabbitMQ，前后端在宿主机启动。配置、账号、初始化、重置及IDE启动方式见[环境使用说明](docs/environments.md)。
-
-| 环境 | 前端→后端 | 数据与用途 |
-| --- | --- | --- |
-| dev | 5173→8080 | 沿用appoint，保留日常体验数据 |
-| test | 5174→8081 | appoint_test，独立操作业务，默认保留，可显式重置和调时 |
-| demo | 5175→8082 | appoint_demo，每次后端启动恢复初始数据 |
-
-已有compose.env保留原凭据；缺少时从compose.env.example复制。加载Node 24并在frontend目录执行npm ci后，从项目根目录执行：
+准备Java 21、Node 24和Docker Compose。在根目录从`compose.env.example`建立私密的`compose.env`；已有配置保留原值。首次安装前端依赖：
 
 ```bash
+cd frontend
+npm ci
+cd ..
 python3 scripts/local_env.py init
 python3 scripts/local_env.py cutover-dev
 python3 scripts/local_env.py start dev
-# 切换时先 stop dev，再选择 start test 或 start demo
 ```
 
-旧dev切换前先私密备份并停止原应用；预检发现未完成资金或消息时中止。保留原库及数据卷。私密配置分别为.env.dev/.env.test/.env.demo，由对应Spring profile加载。IDE使用项目根目录作为工作目录，选择单个dev/test/demo profile，默认dev。
+旧dev切换前先备份原库并停止旧应用，`cutover-dev`检查未完成资金和消息工作。日常启动只需`start`。
 
-电脑资源有限，操作时一次按需启动一套；同环境锁防止重复实例和重置冲突。test预置管理员，demo预置用户、医生和管理员，密码见对应私密环境文件的LOCAL_SEED_PASSWORD。MockPay为内存实现，重启后旧渠道支付查询和退款续接存在限制。
+| 环境 | 前端 | 后端 | 数据生命周期 |
+| --- | --- | --- | --- |
+| dev | http://127.0.0.1:5173 | 8080 | 保留原appoint数据 |
+| test | http://127.0.0.1:5174 | 8081 | 默认保留，可显式重置、调整业务时间 |
+| demo | http://127.0.0.1:5175 | 8082 | 每次后端启动恢复初始状态 |
 
-环境设计见[三环境方案](docs/environment-isolation-plan.md)，实现入口见[交付总结](.scratch/archive/environment-isolation/summary.md)。
+操作时一次启动一套，切换前执行`python3 scripts/local_env.py stop dev`，再启动test或demo。初始化、账号、IDE和重置方式见[环境说明](docs/environments.md)。
 
-2026-11-15，dev/test/demo三环境改造及业务验收已完成：test覆盖注册到完成接诊和关键分支，dev/demo覆盖注册到付款、预约确认取号。真实页面与Compose数据库、库存、消息核对均通过。[test体验清单](docs/test-business-workflows.md)、[dev实测](docs/dev-booking-success.md)、[demo实测](docs/demo-booking-success.md)记录实际范围和证据。
+## 文档入口
 
-## HTTP 示例
+| 想了解什么 | 文档 |
+| --- | --- |
+| 如何启动、切换和维护环境 | [环境说明](docs/environments.md) |
+| 如何预约、付款、签到和接诊 | [业务流程](docs/business-flow.md) |
+| 接口、权限、请求响应和错误码 | [REST API](docs/api.md)、[HTTP示例](http/) |
+| 模块、事务、消息、缓存与恢复 | [模块设计](docs/module-design.md) |
+| 如何运行测试及已完成的验收范围 | [测试说明](docs/testing.md) |
+| 前端开发与构建 | [前端说明](frontend/README.md) |
+| 业务术语与设计原因 | [术语表](GLOSSARY.md)、[ADR](docs/adr/) |
 
-1. [http/auth.http](http/auth.http)：注册普通用户、登录并查询当前用户；管理员需先按下文授予角色后重新登录。
-2. [http/admin-catalog.http](http/admin-catalog.http)：维护医院、科室和医生目录。
-3. [http/admin-schedule.http](http/admin-schedule.http)：读取和更新统一预约设置。
-4. [http/appointment.http](http/appointment.http)：维护就诊人、查询三天 12 个场次并创建预约、正式 MockPay 支付、轮询确认和退款。
-5. [http/visit.http](http/visit.http)：绑定医生账号、用户签到和医生看板及接诊。签到须使用窗口内已确认预约，不能修改宿主系统时间。
-
-`.http` 文件适用于 IntelliJ IDEA HTTP Client，环境变量位于 `http/http-client.env.json`。日期变量运行前按目录返回的上海服务端日期填写；示例不预置会过期的固定预约日期。
-
-## 本地开发管理员初始化
-
-Flyway 创建 `USER`、`ADMIN`、`DOCTOR` 角色和演示医疗目录，不创建账号。注册接口只赋予 `USER`，也不提供自助授予管理员角色的 HTTP 接口。
-
-1. 先用 `http/auth.http` 注册目标账号。下例沿用 `student@example.com`；如需同时演示普通用户权限，另注册一个不授予 `ADMIN` 的账号。
-2. 在确认过的本地开发数据库中，由有权限的维护者通过数据库客户端执行以下 SQL。先核对目标邮箱对应的用户 ID 和现有角色；邮箱应与注册后保存的小写邮箱一致。
-
-```sql
-SELECT u.id, u.email, r.code AS role_code
-FROM users u
-LEFT JOIN user_roles ur ON ur.user_id = u.id
-LEFT JOIN roles r ON r.id = ur.role_id
-WHERE u.email = 'student@example.com';
-
-SELECT id, code FROM roles WHERE code = 'ADMIN';
-
-INSERT IGNORE INTO user_roles (user_id, role_id)
-SELECT u.id, r.id
-FROM users u
-JOIN roles r ON r.code = 'ADMIN'
-WHERE u.email = 'student@example.com';
-
-SELECT u.id, u.email, r.code AS role_code
-FROM users u
-JOIN user_roles ur ON ur.user_id = u.id
-JOIN roles r ON r.id = ur.role_id
-WHERE u.email = 'student@example.com';
-```
-
-目标用户和 `ADMIN` 角色都必须存在；否则 INSERT 不会插入记录，需回到前置步骤检查。`INSERT IGNORE` 借助 `(user_id, role_id)` 唯一约束跳过已有关系，使重复执行不重复授予；操作后必须查询确认实际角色。
-
-3. 确认结果包含 `ADMIN` 后重新执行登录请求，更新 HTTP Client 的 `accessToken`。旧 JWT 的角色不会随数据库授权即时改变；`GET /api/v1/users/me` 可核对数据库中的当前角色，管理员接口权限仍以本次请求 JWT 中的角色为准。
-
-以上 SQL 仅作为受控本地开发操作说明，不随应用启动或 HTTP 示例自动执行。
-
-## 文档
-
-- [前端实施方案](docs/frontend-implementation-plan.md)：14个页面模板的工程、权限、请求、预约状态与验收方案；[任务与实际证据](.scratch/frontend-v1/map.md)。
-
-- [Redis目录缓存方案](docs/redis-catalog-cache-design.md)：已确认的首期引入方案、事务与故障边界、隔离和验收标准；代码与完整回归已交付，实测结果见任务档案。
-- [docs/project-status.md](docs/project-status.md)：当前能力、交付进度、未实现边界及历史记录阅读规则。
-- [docs/testing.md](docs/testing.md)：测试分层、隔离、夹具和验收约定。
-- [GLOSSARY.md](GLOSSARY.md)：领域术语。
-- [docs/api.md](docs/api.md)：REST API 契约和边界。
-- [docs/business-flow.md](docs/business-flow.md)：端到端业务流程。
-- [docs/module-design.md](docs/module-design.md)：预约支付及就诊模块 interface、代码入口、MANDATORY、锁序与事件恢复。
-- [docs/verification-report.md](docs/verification-report.md)：带日期和代码检查点的历史验证基线，以及后续文档核对记录；不代表每次文档更新都重跑了业务验收。
-- [docs/adr/0005-four-session-on-demand-booking.md](docs/adr/0005-four-session-on-demand-booking.md)：四时段、按需生成和历史兼容决策。
-- [docs/adr/0007-three-day-booking-and-session-cutoffs.md](docs/adr/0007-three-day-booking-and-session-cutoffs.md)：三天窗口、锁后准入与下单/支付截止决策，替代 ADR 0005 的对应时间规则。
-
-到院签到与门诊接诊：
-
-- [就诊需求](docs/visit/requirements.md)：用户“我的预约”、医生看板、状态与按钮需求。
-- [docs/visit/design.md](docs/visit/design.md)：visit模块、数据表、Service和查询组合设计。
-- [docs/visit/api.md](docs/visit/api.md)：新增 7 个接口、扩展 2 个查询接口的现行契约。
-- [docs/visit/change-scope.md](docs/visit/change-scope.md)：实施前后行为对照、代码改动范围与验收说明。
-
-## 当前进度与阅读路线
-
-本阶段开发已交付，系统为模块化单体；三环境共用迁移，当前包含V11环境账号来源标记。完整能力、未实现范围和最新实测检查点由[项目状态](docs/project-status.md)维护。
-
-- 学习项目：[项目状态](docs/project-status.md) → [术语](GLOSSARY.md) → [业务流程](docs/business-flow.md) → [模块设计](docs/module-design.md) → [就诊设计](docs/visit/design.md) → [API](docs/api.md) → [测试覆盖](docs/testing/scenario-coverage.md)。
-- 运行维护：本页本地运行 → [API](docs/api.md)和HTTP示例 → [测试约定](docs/testing.md) → [恢复手册](docs/runbooks/payment-module-cutover.md) → [验收证据](docs/verification-report.md)。
-- 演进追溯：[交付档案](.scratch/README.md)，原任务全文按[文件去向清单](.scratch/archive-manifest.json)从Git读取。
+文档以当前实现为准，历史开发过程与验收证据保存在Git提交`7b8a370`。文档调整后运行`python3 scripts/check_documentation.py`检查链接与API契约。
 
 ## 当前边界
 
-- 已实现窗口签到与正常接诊主线；自动叫号、爽约、状态回退、病历处方、实时推送和精确到分钟的就诊安排不在当前范围内。
-- 签到按上海业务时间，使用预约日期和起止时间快照计算：开诊前30分钟开放（含），场次结束时截止（不含）。例如08:00–10:00允许在[07:30,10:00)首次签到，推荐07:30–08:00到院，08:00之后、10:00之前仍可签到。新旧尚未签到的已确认预约统一适用；已签到记录保留。超时未签到继续已确认且待签到，不自动取消、退款、释放库存、删除有效占用或标记爽约。医生开始/完成按归属和状态校验，没有额外的当天或场次时间限制，不自动结束就诊。
-- 已确认预约只能在开诊前严格超过 24 小时主动取消。
-- dev/test/demo 使用 MockPay；真实支付渠道尚未接入。
-- 退款结果队列已声明，尚无对应监听器，未实现短信或邮件通知；Outbox 发布失败耗尽、消费进入 DLQ 等情况可能需要人工恢复，详见模块设计与切换手册。
+三环境改造和约定范围的业务验收已完成。系统使用MockPay，尚未接入真实资金渠道；渠道状态仅保存在当前后端进程内，跨重启查询与退款续接有限制。
+
+未实现医院关门、医生停诊、管理员手工维护场次、自动叫号、爽约、病历处方、实时推送和短信邮件通知。退款结果队列已有拓扑但没有监听器，Outbox失败耗尽和死信可能需要人工恢复。

@@ -1,51 +1,30 @@
 # 医院预约前端
 
-独立Vue 3工程，与Spring Boot后端保存在同一仓库。使用TypeScript、Vite、Vue Router、Pinia和Axios；页面接真实REST，业务代码没有假数据回退。技术与业务取舍见[完整实施方案](../docs/frontend-implementation-plan.md)，实际检查见[验收记录](../.scratch/frontend-v1/verification.md)。
+独立Vue 3工程，使用TypeScript、Vite、Vue Router、Pinia和Axios，调用同仓库Spring Boot REST。业务规则见[业务流程](../docs/business-flow.md)，字段与权限见[API](../docs/api.md)。
 
-## 环境与启动
+## 开发与构建
 
-在运行前端的同一环境安装Node.js 24 LTS（至少24.12，随附npm）。WSL开发使用WSL中的Node/npm，避免混用Windows与Linux依赖目录。
-
-本机已核实通过nvm安装了Node 24.18.1和npm 11.16.0。非交互终端不一定加载.bashrc中的nvm；若命令暂时不可见，先加载已有安装，无需重新安装：
+使用Node 24（至少24.12）和npm。WSL开发使用WSL内的Node/npm，避免混用依赖目录。在frontend目录执行：
 
 ```bash
-source "$HOME/.nvm/nvm.sh"
-cd frontend
-nvm use
-node --version
-npm --version
-```
-
-```bash
-cd frontend
 npm ci
-npm run dev       # 5173 -> 8080，dev
-# 停止当前环境后，可改选 npm run dev:test 或 npm run dev:demo
+npm run dev
 ```
 
-为节省本机资源，实际操作时选择一个入口，切换前停止上一套环境；不要求程序强制跨环境互斥。使用`127.0.0.1`保持origin一致；`/api`代理固定到对应后端，旧`API_PROXY_TARGET`或命令行端口与mode冲突时失败。后端资源准备、账号与生命周期见[环境总览](../docs/environments.md)。前端启动不会创建数据库或重置demo；每次demo后端启动才恢复基线。
+`dev`为5173→8080，`dev:test`为5174→8081，`dev:demo`为5175→8082。浏览器使用127.0.0.1；每个mode的端口与`/api`代理固定，冲突覆盖会拒绝启动。整体初始化、账号及环境切换见[环境说明](../docs/environments.md)。前端刷新或重启不重置demo数据。
 
-三套本地模式均开启MockPay界面；默认生产构建关闭模拟按钮，真实支付尚未接入。MockPay状态保存在后端内存，重启后不能保证旧支付和退款续接。
-
-## 会话与权限
-
-会话保存在当前标签页sessionStorage。关闭标签页或退出后清除；过期与401返回登录。角色以登录响应快照为准，users/me中的新角色不会扩大旧JWT权限。管理员绑定医生后必须重新登录。退出只清除客户端会话，后端没有Token撤销和续签接口。
-
-就诊人原始证件、密码和支付签名不进入持久化草稿。未改证件时编辑请求省略documentNo。预约结果未知时保存同次请求的ID和幂等键供核实，不能改成另一人或另一场的新提交。
-
-## 生产静态文件
-
-npm run build输出dist/。用静态服务器提供该目录，以同一域名反向代理/api到Spring Boot，并为前端路由配置index.html回退。不要将Vite开发服务器用作生产服务，不把后端凭据放进VITE_变量。
-
-示例反向代理规则（需要按实际环境配置上游和TLS）：
-
-```nginx
-location /api/ {
-    proxy_pass http://127.0.0.1:8080;
-}
-location / {
-    try_files $uri $uri/ /index.html;
-}
+```bash
+npm run typecheck
+npm test
+npm run build
 ```
 
-实现与真实联调已本地提交为e91d870，任务及原始证据见[前端交付档案](../.scratch/archive/frontend/summary.md)，未推送或部署。前后端分别构建；历史首版证据仍对应V10，当前数据库版本以Flyway记录为准。
+构建输出dist，前后端分别构建。静态服务器需将`/api`反向代理到后端，并为history路由提供index.html回退；后端凭据不进入VITE变量。三套本地模式显示MockPay操作，生产构建关闭模拟按钮，真实支付尚未接入。
+
+## 代码与状态
+
+- `api/`保存HTTP客户端、接口封装与DTO；`views/`为账号、预约、医生和管理页面。
+- `stores/`管理会话、预约选择和同次提交身份，`composables/`管理请求与有限轮询，`lib/`处理展示和时间。
+- 会话保存在当前标签页sessionStorage；过期或认证401回登录，退出只清理客户端会话，后端没有Token撤销与续签。角色变更后重新登录。
+- 预约结果未知时保留原提交内容及幂等键用于核实；证件原文、密码和支付签名不进入持久化草稿。
+- ID按字符串传递，金额和操作资格以服务端为准。异步付款后查询正式结果；医生动作后刷新名单和概览，用户手动刷新同一预约查看进度。

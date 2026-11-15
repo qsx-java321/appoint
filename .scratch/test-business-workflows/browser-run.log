@@ -1,8 +1,0 @@
-
-Running 1 test using 1 worker
-
-(node:2855) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
-(Use `node --trace-warnings ...` to show where the warning was created)
-  ✓  1 .local-env/workflow-browser/workflow.spec.ts:105:1 › 真实Compose：管理目录与绑定、支付失败重试、退款、签到接诊、双端一致和权限 (22.9s)
-
-  1 passed (23.6s)

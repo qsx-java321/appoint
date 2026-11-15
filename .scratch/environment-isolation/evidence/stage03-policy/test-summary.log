@@ -1,6 +1,0 @@
-[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.452 s -- in com.qsx.appoint.localenv.LocalEnvironmentPolicyTest
-[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.605 s -- in com.qsx.appoint.support.RegressionIsolationTest
-[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0
-[INFO] BUILD SUCCESS
-[INFO] Total time:  12.454 s
-[INFO] Finished at: 2026-11-14T23:23:30+08:00

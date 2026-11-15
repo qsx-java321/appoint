@@ -1,53 +1,25 @@
 # Agent 协作说明
 
-本项目是一个医院预约系统，默认使用中文沟通、编写文档和描述业务概念；技术框架、类名、接口名和必要的英文专用名词保持原文。
+本项目是医院预约系统。默认使用中文沟通、编写文档和描述业务概念；技术框架、类名、接口名保持原文。
 
-## 工作原则
+## 工作方式
 
-以下原则强调审慎与简洁；对很小的任务按实际复杂度执行。
+- 实现前说明目标、关键假设和完成条件。会改变业务结果的歧义先澄清，常规实现细节沿用项目约定。
+- 采用满足本次需求的简单方案，控制改动范围，清理本次产生的无用代码；无关问题单独说明。
+- 按变更运行有意义的检查，报告实际结果与未验证范围；文档检查不代表业务测试已执行。
+- 多步骤任务给出简短计划。过程记录按需放在`.scratch/`，普通任务无需固定的spec/map/issues或归档清单。
 
-### 编码前明确问题
+## 文档维护
 
-- 开始实现前说明目标、关键假设和可验证的完成条件。
-- 存在会改变业务结果的不同解释时，讲清选择及取舍；无法从项目约定判断时，指出具体疑点并询问。
-- 发现更简单的实现方式或需求与现有设计冲突时，及时说明。常规实现细节可依据现有代码自行判断。
+- 业务术语查阅[GLOSSARY.md](GLOSSARY.md)，相关设计原因查阅[docs/adr/](docs/adr/)；规则冲突要明确说明。
+- 业务行为、API和实现边界分别维护在[业务流程](docs/business-flow.md)、[API](docs/api.md)、[模块设计](docs/module-design.md)，避免重复描述。
+- 运行配置维护在[环境说明](docs/environments.md)，测试命令维护在[测试说明](docs/testing.md)。
+- README作为阅读入口，文档结构或使用方式变化时同步更新。每项业务规则优先维护一个主要说明位置。
+- 完成的过程资料通过Git追溯，`.scratch/`临时内容默认不纳入Git。当前文档说明现行行为，整理后运行`python3 scripts/check_documentation.py`。
 
-### 优先简单实现
+## 本地环境
 
-- 只实现本次需求需要的行为，选择足以解决问题的最小方案。
-- 单次使用的逻辑保持直接；确有重复或明确扩展需求时再抽象、配置。
-- 错误处理覆盖实际可能发生的边界，避免为不可能的情况增加分支。
-- 完成后检查实现是否可以在保持行为的前提下进一步简化。
-
-### 控制改动范围
-
-- 每处改动都应能对应本次需求；沿用现有代码风格，仅整理本次改动影响到的部分。
-- 清理本次改动造成的未使用导入、变量和函数。发现无关的旧问题时记录或告知，不顺手重构。
-
-### 以验收结果推进
-
-- 将需求转为可检查的结果，例如无效输入被拒绝、缺陷有复现用例、重构前后行为一致。
-- 多步骤工作先列简短计划，并为每一步写出验证方式；完成后逐项核对。
-- 对适合自动化验证的变更运行有意义的测试；报告已验证的结果和仍未验证的部分。
-
-## Agent skills
-
-### Issue tracker
-
-创建、读取或归档任务时，按 `docs/agents/issue-tracker.md` 执行；新任务放在 `.scratch/<feature-slug>/`，已交付档案从 `.scratch/README.md` 查阅。
-
-### Triage labels
-
-使用默认的 `triage` 标签：`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human` 和 `wontfix`。详见 `docs/agents/triage-labels.md`。
-
-### Domain docs
-
-项目采用 single-context 布局，使用根目录下的 `GLOSSARY.md` 和 `docs/adr/` 保存领域术语与架构决策。详见 `docs/agents/domain.md`。
-
-## 本地环境与启动
-
-- 三环境设计见`docs/environment-isolation-plan.md`，配置、初始化、启动、账号和重置命令见`docs/environments.md`。环境改造只涉及配置与使用入口，沿用现有业务功能，不安排业务测试或验收，也不扩展测试设施。
-- dev/test/demo共用Compose真实MySQL、Redis、RabbitMQ；数据库、缓存namespace、消息vhost及凭据独立。dev沿用appoint并保留数据，test默认保留、显式重置，demo每次后端启动恢复初始状态。
-- 电脑资源有限，操作时一次按需启动一套，切换前停止上一套。保留同环境重复实例与重置保护，不增加代码级跨环境互斥。
-- Compose始终显式使用`--env-file compose.env`。后端分别导入.env.dev/.env.test/.env.demo，私密文件已忽略，不输出凭据。保留原库、密码及数据卷，不通过删卷解决问题。
-- IDE/Maven选择单个Spring profile，工作目录为项目根目录，默认dev。test可在运行中调整业务Clock，dev/demo使用上海真实时间。MockPay状态存于内存，跨重启渠道查询和退款续接有限制；demo是演示环境。
+- dev/test/demo共用Compose真实MySQL、Redis、RabbitMQ，数据库、Redis namespace、RabbitMQ vhost及凭据独立。一次按需启动一套，切换前停止上一套。
+- dev保留原appoint数据；test默认保留，显式重置；demo每次后端启动恢复初始状态。同环境锁与重置保护保留，不增加跨环境代码互斥。
+- Compose操作显式使用`--env-file compose.env`；对应profile加载`.env.dev/.env.test/.env.demo`。私密配置不提交、不输出；保留密码和数据卷。
+- IDE/Maven选择单个profile，工作目录为项目根目录，默认dev。test可调业务Clock，dev/demo使用上海真实时间；MockPay渠道状态仅存内存。

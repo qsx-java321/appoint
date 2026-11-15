@@ -15,7 +15,7 @@
 | 数据生命周期 | 一直保留 | 默认保留，显式重置 | 每次后端启动恢复初始状态 |
 | 业务时间 | 上海真实时间 | 默认实时，可运行中调时 | 上海真实时间 |
 
-三个数据库使用同一套Flyway迁移及基础目录初始化，不复制dev已有账号、预约和支付数据。数据库账号、RabbitMQ权限和JWT密钥按环境隔离。Redis共享实例按前缀隔离，不提供独立容量配额。
+三个数据库使用同一套Flyway迁移与基础目录，不复制dev业务数据。数据库账号、RabbitMQ权限和JWT密钥独立，Redis按前缀隔离。启动时校验最终连接目标；同环境锁和端口检查先于重置，脚本、Maven、IDE使用同一生命周期。
 
 电脑资源有限，使用时按需启动一套，切换前停止上一套；程序只保留同环境重复实例与重置保护，不增加跨环境互斥。
 
@@ -52,7 +52,7 @@ npm ci
 ```bash
 python3 scripts/local_env.py start dev
 python3 scripts/local_env.py stop dev
-# 停止后可选择 start test 或 start demo
+python3 scripts/local_env.py start test
 ```
 
 浏览器使用http://127.0.0.1:5173（dev）、5174（test）、5175（demo）。`status <环境>`查看脚本托管的进程；日志及进程记录位于被忽略的.local-env目录。脚本会同时启动对应前后端，stop只停止该环境的托管进程，保持Compose运行。
@@ -84,6 +84,21 @@ python3 scripts/local_env.py reset test
 ```
 
 reset和正常启动共用同环境锁，重置后重新初始化管理员，原子轮换.env.test中的JWT密钥；旧Token失效，普通重启继续使用轮换后的密钥。IDE启动的实例也持有锁，不能只凭脚本无PID就认为可以重置。
+
+## dev管理员授权
+
+注册只授予USER。dev可由有权限的本地维护者核对目标库及账号后执行以下SQL，再重新登录取得ADMIN角色；已有账号和角色不被自动改写。替换示例邮箱，不在共享环境随意授权：
+
+```sql
+SELECT u.id, u.email, r.code FROM users u
+LEFT JOIN user_roles ur ON ur.user_id=u.id
+LEFT JOIN roles r ON r.id=ur.role_id WHERE u.email='student@example.com';
+INSERT IGNORE INTO user_roles(user_id,role_id)
+SELECT u.id,r.id FROM users u JOIN roles r ON r.code='ADMIN'
+WHERE u.email='student@example.com';
+```
+
+操作后重查确认ADMIN已存在。JWT角色不会随数据库变更即时更新，医生账号首次绑定后也需要重新登录。
 
 ## test业务调时
 

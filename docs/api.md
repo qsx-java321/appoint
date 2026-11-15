@@ -1,10 +1,6 @@
 # REST API
 
-签到窗口于2026-11-13按新规则更新，实现交付为`d75f73c`（基于`4bfc1d5`）；决策见[ADR0008](adr/0008-visit-checkin-window.md)。
-
-本文为现行HTTP契约，2026-11-12已对照Controller/DTO复核。进度见[当前项目状态](project-status.md)。固定年月日的JSON仅说明字段和时间关系，不承诺在阅读当天可直接下单；实际日期以服务端目录和截止为准。
-
-本文记录当前已实现的接口。到院签到、医生看板及接诊的 7 个新增接口与原预约查询扩展见 [就诊 API 契约](visit/api.md)。
+本文定义当前接口。业务规则见[业务流程](business-flow.md)，可执行请求见[HTTP示例](../http/)。
 
 所有响应使用统一结构：
 
@@ -16,7 +12,7 @@
 
 响应中的 Java `Long` 类型 ID 统一序列化为 JSON 字符串，例如 `"id":"201"`，避免浏览器整数精度丢失。客户端应按不透明标识保存；容量、就诊序号及 `expiresIn` 等数值字段仍为数字。金额的字符串形式以对应 DTO 为准，例如创建预约的 `amount` 和设置中的 `registrationFee` 为字符串，退款摘要中的 `amount` 为 JSON 数值。
 
-日期使用 `yyyy-MM-dd`；业务时间按 `Asia/Shanghai` 解释，`LocalDateTime` 响应不带时区偏移。以下响应字段均指统一包装内的 `data`；错误时 `data=null`，`code` 和 HTTP 状态见“主要错误”。
+日期使用 `yyyy-MM-dd`，时间使用 `HH:mm:ss`；业务时间按 `Asia/Shanghai` 解释，`LocalDateTime` 响应不带时区偏移。以下响应字段均指统一包装内的 `data`；错误时 `data=null`，`code` 和 HTTP 状态见“主要错误”。
 
 ## 账号注册、登录与当前用户
 
@@ -37,7 +33,7 @@
 
 邮箱必须非空并符合邮箱格式，保存和登录查找前会去除首尾空白、转为小写。注册密码必须为 8–64 个字符；登录密码要求非空。
 
-用户对象为 `id`、`email`、`roles`，不含密码。注册只赋予 `USER`；本地开发的管理员授权见 [README](../README.md#本地开发管理员初始化)。重复邮箱返回 `409 / 3001`，账号或密码错误返回 `401 / 2003`。
+用户对象为 `id`、`email`、`roles`，不含密码。注册只赋予 `USER`；本地开发的管理员授权见 [README](environments.md#dev管理员授权)。重复邮箱返回 `409 / 3001`，账号或密码错误返回 `401 / 2003`。
 
 登录响应为 `accessToken`、`tokenType`（`Bearer`）、`expiresIn`（秒，当前配置 7200）和 `user`。后续请求携带 `Authorization: Bearer <accessToken>`；未提供或无效/过期 Token 访问受保护接口返回 `401 / 2001`。`users/me` 查询当前数据库角色，但请求权限来自 JWT 中的角色，授权后应重新登录。当前用户记录不存在返回 `404 / 3002`。
 
@@ -193,9 +189,7 @@
 
 ## 支付时间边界
 
-`paymentExpiresAt = min(orderCreatedAt + paymentTimeout, sessionStartsAt)`，其中配置`paymentTimeout`默认15分钟；以下时间示例采用该默认值。预约与支付单保存相同的创建时间和支付截止，后续不重算。订单在 23:59:59 创建次日场次时可跨零点支付，截止为次日 00:14:59，须严格早于截止。停止创建新订单不禁止原单支付：10:14 创建的 10:30 场订单可在 10:29 前支付，即使该场 10:15 已停止接新单。支付入口只检查本单持久化截止和状态，不再检查新下单窗口或截止。已经发生的渠道成功回调仍记录收款事实并按既有规则处理。
-
-截止前本系统已经确认收款的支付，即使消息稍后消费，预约仍待支付时可继续确认。若预约仍待支付，截止时刻或之后本系统才确认的收款会使预约 EXPIRED、释放暂占、删除有效占用并进入原路全额退款；已关闭预约保持终态，只确保退款。paidAt 使用本系统处理可信通知时确认收款的服务端时间，不使用渠道上报的 occurredAt 判断截止资格。过期扫描延迟只影响状态落库时间，不延长支付资格。
+支付截止保存为`paymentExpiresAt`，等于截止即拒绝新支付；它与目录的`bookingClosesAt`分别表示支付和下单资格。收款时间判断、迟到退款及跨零点示例见[业务流程](business-flow.md#支付截止与异步确认)。
 
 ## 预约查询和生命周期
 
@@ -239,14 +233,14 @@
 
 `POST /api/v1/payments/{id}/attempts` 需要本人 Token，body 为 `{"channel":"MOCK"}`，成功返回 **202**。data 为 `paymentOrderId`、`paymentAttemptId`、`channel`、`paymentStatus`、`attemptStatus`、`providerOrderNo`、`checkoutUrl`、`expiresAt`。此时一般为 PAYING/PROCESSING；调用 checkoutUrl 并不等于预约已经确认。
 
-仅 dev/test 注册以下 MockPay 接口，均需要登录，无请求体：
+dev/test/demo 注册以下 MockPay 接口，均需要登录，无请求体：
 
 | 方法与路径 | 用途 | 成功响应 |
 | --- | --- | --- |
 | `POST /api/v1/mock-pay/attempts/{attemptNo}/complete` | 模拟渠道成功 | 202，签名通知对象 |
 | `POST /api/v1/mock-pay/attempts/{attemptNo}/fail` | 模拟渠道失败 | 202，签名通知对象 |
 
-响应对象字段与下文渠道通知 body 一致，通知通过异步分发器进入正式验签链路；202 不代表通知处理或预约确认已经完成。使用尝试响应中的 checkoutUrl 加 `/complete` 或 `/fail`；不直接构造同步成功请求。旧 `/api/v1/payments/{id}/simulate-success` 已删除，dev/test/prod 均无该请求映射。
+响应对象字段与下文渠道通知 body 一致，通知通过异步分发器进入正式验签链路；202 不代表通知处理或预约确认已经完成。使用尝试响应中的 checkoutUrl 加 `/complete` 或 `/fail`；不直接构造同步成功请求。
 
 渠道通知 `POST /api/v1/payment-notifications/{channel}` 不要求 Bearer Token，依靠渠道验签；body 为 `notificationId`、`providerOrderNo`、`providerTransactionNo`、`status`、`amount`、`currency`、`occurredAt`、`signature`。现有 MockPay 签名由 Adapter 生成，真实支付渠道尚未接入。响应 **200** 的 data 为 `notificationId`、`processingResult`、`paymentOrderId`、`paymentStatus`、`duplicate`、`eventId`；重复通知部分字段可为 null。未知订单、金额币种或状态拒绝会记录审计并通过 processingResult 表达，不能仅凭HTTP200认为已收款。
 
@@ -285,15 +279,44 @@
 | 已超过预约场次签到截止时间 | `409 / 4504` |
 | 查询状态组合或关联完整性异常 | `500 / 1002` |
 
-## 历史兼容
-
-V9 保留旧 `MORNING`、`AFTERNOON`、空时段及历史关闭状态供读取。旧半日场次不会拆分，也不接受新预约；旧活跃订单继续按自身费用和时间快照完成支付、过期或取消。V10 只扩展医生账号关联、角色、就诊记录和查询索引，不重写历史预约或回填就诊事实。
-
 ## 到院签到与门诊接诊
 
-`GET /api/v1/appointments/my` 支持可选 `order=DESC|ASC`，按就诊日期、开始时间、ID 同向排序，默认 DESC，仍返回全部预约数组。原详情、列表及取消响应追加 `sessionType` 和 `visit`；创建响应不变。已确认且无记录时计算 NOT_CHECKED_IN，其他预约的 visit 为 null。
+所有成功响应为200。用户动作限定本人预约，医生动作限定本人已确认预约；写入口重新校验状态，成功后查询并返回最新详情。
 
-新增管理员医生绑定、用户签到及五个医生接口的路径、字段和权限见 [就诊 API](visit/api.md#2-接口总览)。医生详情仅包含预约快照、脱敏证件及就诊进度。正常动作均返回 200 和最新详情，重复动作返回 409，不覆盖原时间。
+| 方法与路径 | 权限及输入 | 返回data |
+| --- | --- | --- |
+| `PUT /api/v1/admin/doctors/{doctorId}/account` | ADMIN；`{"userId":"12"}` | doctorId、userId |
+| `POST /api/v1/appointments/{appointmentId}/check-in` | 本人；无body | 完整用户预约详情 |
+| `GET /api/v1/doctor/sessions` | DOCTOR；可选date，默认业务今天 | 四场概览数组 |
+| `GET /api/v1/doctor/appointments` | DOCTOR；必填date、sessionType | 场次名单数组 |
+| `GET /api/v1/doctor/appointments/{appointmentId}` | DOCTOR | 医生只读详情 |
+| `POST /api/v1/doctor/appointments/{appointmentId}/start-visit` | DOCTOR；无body | 更新后的医生详情 |
+| `POST /api/v1/doctor/appointments/{appointmentId}/complete-visit` | DOCTOR；无body | 更新后的医生详情 |
+
+日期、场次和ID格式沿用通用约定。医生或账号已绑定返回4501，不提供重复绑定成功、解绑或换绑；绑定并授权后须重新登录。
+
+| 响应对象 | 字段 |
+| --- | --- |
+| 用户就诊进度 | `status`、`checkedInAt`、`startedAt`、`completedAt`、`canCheckIn`、`checkInOpensAt`、`checkInClosesAt` |
+| 医生场次概览 | `appointmentDate`、`sessionType`、`startTime`、`endTime`、`confirmedCount`、`notCheckedInCount`、`waitingCount`、`inProgressCount`、`completedCount` |
+| 医生人员名单项 | `appointmentId`、`visitNumber`、`patientName`、`visitStatus`、`checkedInAt`、`canStartVisit`、`canCompleteVisit` |
+| 医生只读详情 | `appointmentId`、`appointmentNo`、`visitNumber`、`appointmentDate`、`sessionType`、`startTime`、`endTime`、`patient`、`doctor`、`visit` |
+| 医生详情就诊人 | `id`、`name`、`documentType`、`documentNoMasked` |
+| 医生详情就诊进度 | `status`、`checkedInAt`、`startedAt`、`completedAt` |
+
+用户详情的`visit`仅已确认预约非null；无记录时推导NOT_CHECKED_IN，签到后WAITING，开始后IN_PROGRESS，完成后COMPLETED。未发生的时间为null。
+
+`visit.canCheckIn`为当前查询时的展示资格；`visit.checkInOpensAt`和`visit.checkInClosesAt`由预约快照计算，已签到或完成仍返回窗口，首次签到要求开放时间<=当前时间<截止。具体时间规则见[签到与接诊](business-flow.md#到院签到与接诊)。
+
+签到先检查不存在/归属，再检查预约与进度，最后检查开放和截止。重复动作4502优先于时间错误4503/4504，保留首次成功时间。开始仅允许WAITING，完成仅允许IN_PROGRESS，医生动作无额外日期限制。
+
+医生四场概览始终按开始时间返回四项，无预约时补零；confirmedCount为四种就诊进度人数之和。名单按visitNumber升序，查看始终可用，另外两个操作由对应can字段提示。医生详情只含脱敏凭证和就诊进度；doctor结构沿用预约快照，不提供支付渠道信息。
+
+普通用户调用医生接口返回403；其他医生的详情查询返回404，写操作归属不符返回403。非法日期、场次、排序或缺必填参数返回400/1001。页面在医生操作成功后重查名单与概览，用户刷新同一预约查看结果。
+
+## 历史兼容
+
+旧半日场次、历史关闭终态及空场次类型继续可读，不用于新预约。历史订单按自身快照和持久化截止处理，不补写就诊事实。
 
 ## test环境业务调时
 
