@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""管理常驻dev/test/demo；此入口不用于自动化回归。凭据只存私密文件。"""
+"""从模板初始化并管理常驻dev/test/demo；此入口不用于自动化回归。"""
 import argparse
 import json
 import os
-import secrets
 import signal
 import socket
 import subprocess
@@ -29,6 +28,20 @@ def private_write(path, text):
         stream.write(text)
 
 
+def ensure_config(name):
+    path = ROOT / name
+    if path.exists():
+        return
+    template = ROOT / (name + '.example')
+    if not template.is_file():
+        raise RuntimeError(f'缺少配置模板{template.name}；未启动共享服务')
+    try:
+        private_write(path, template.read_text())
+    except FileExistsError:
+        # 并行初始化时保留另一进程刚创建的配置。
+        pass
+
+
 def run(args, data=None):
     result = subprocess.run(args, cwd=ROOT, input=data, text=True, capture_output=True)
     if result.returncode:
@@ -46,22 +59,11 @@ def rabbit(*args):
 
 
 def init():
-    if not (ROOT / 'compose.env').exists():
-        raise RuntimeError('请先从compose.env.example建立compose.env')
+    for name in ('compose.env', '.env.dev', '.env.test', '.env.demo'):
+        ensure_config(name)
     run(COMPOSE + ['up', '-d', '--wait'])
-    config = json.loads(run(COMPOSE + ['config', '--format', 'json']))
-    mysql_config = config['services']['mysql']['environment']
     for name in PORTS:
         path = ROOT / ('.env.' + name)
-        if not path.exists():
-            values = {'MYSQL_USER': 'appoint_' + name, 'MYSQL_PASSWORD': secrets.token_hex(24),
-                      'RABBITMQ_USER': 'appoint_' + name, 'RABBITMQ_PASSWORD': secrets.token_hex(24),
-                      'JWT_SECRET': secrets.token_urlsafe(48), 'MOCK_PAY_SIGNING_KEY': secrets.token_urlsafe(48),
-                      'LOCAL_SEED_PASSWORD': secrets.token_urlsafe(18)}
-            if name == 'dev':
-                values['MYSQL_USER'] = mysql_config['MYSQL_USER']
-                values['MYSQL_PASSWORD'] = mysql_config['MYSQL_PASSWORD']
-            private_write(path, ''.join(f'{key}={value}\n' for key, value in values.items()))
         values = read_properties(path)
         if name != 'dev' and values['MYSQL_USER'] != 'appoint_' + name:
             raise RuntimeError('test/demo必须使用各自专用数据库账号')
@@ -107,7 +109,7 @@ def clean_env(name):
 
 
 def command_for(name, reset=False):
-    args = ['./mvnw', '-o', 'spring-boot:run']
+    args = ['./mvnw', 'spring-boot:run']
     options = [f'--spring.profiles.active={name}']
     if reset: options += ['--appoint.local-environment.reset-only=true', '--spring.main.web-application-type=none', '--appoint.messaging.enabled=false', '--appoint.outbox.enabled=false', '--appoint.expiration.enabled=false', '--appoint.reconciliation.enabled=false']
     args += ['-Dspring-boot.run.arguments=' + ' '.join(options)]
@@ -145,7 +147,8 @@ def start(name):
             app = subprocess.Popen(command_for(name), cwd=ROOT, env=clean_env(name), stdout=log,
                                    stderr=subprocess.STDOUT, start_new_session=True)
         processes['backend'] = app.pid
-        deadline = time.monotonic() + 120
+        # 首次克隆后Maven需要联网下载依赖，给下载和应用初始化留出时间。
+        deadline = time.monotonic() + 600
         while True:
             if app.poll() is not None: raise RuntimeError('后端启动失败，请查看该环境日志')
             with socket.socket() as sock:
@@ -188,16 +191,22 @@ def stop(name):
 def cutover():
     with socket.socket() as sock:
         if sock.connect_ex(('127.0.0.1',8080)) == 0: raise RuntimeError('先停止旧dev；未执行切换')
-    pending = mysql("USE appoint; SELECT (SELECT COUNT(*) FROM payment_outbox_events WHERE status<>'PUBLISHED') + (SELECT COUNT(*) FROM payment_orders WHERE status IN ('PAYING','REFUND_PENDING')) + (SELECT COUNT(*) FROM payment_refunds WHERE status<>'SUCCEEDED') + (SELECT COUNT(*) FROM payment_attempts WHERE status IN ('CREATING','PROCESSING')) + (SELECT COUNT(*) FROM payment_orders p JOIN appointment_orders a ON a.id=p.appointment_order_id WHERE p.status='PAID' AND a.status<>'CONFIRMED');")
-    if pending != '0': raise RuntimeError('存在未完成资金/Outbox工作，请先定位收敛；未执行切换')
+    tables = set(mysql("SELECT table_name FROM information_schema.tables WHERE table_schema='appoint';").splitlines())
+    if tables:
+        required = {'payment_outbox_events', 'payment_orders', 'payment_refunds',
+                    'payment_attempts', 'appointment_orders'}
+        if not required.issubset(tables):
+            raise RuntimeError('dev库非空且业务表不完整，请先核对结构及迁移历史；未执行切换')
+        pending = mysql("USE appoint; SELECT (SELECT COUNT(*) FROM payment_outbox_events WHERE status<>'PUBLISHED') + (SELECT COUNT(*) FROM payment_orders WHERE status IN ('PAYING','REFUND_PENDING')) + (SELECT COUNT(*) FROM payment_refunds WHERE status<>'SUCCEEDED') + (SELECT COUNT(*) FROM payment_attempts WHERE status IN ('CREATED','PROCESSING')) + (SELECT COUNT(*) FROM payment_orders p JOIN appointment_orders a ON a.id=p.appointment_order_id WHERE p.status='PAID' AND a.status<>'CONFIRMED');")
+        if pending != '0': raise RuntimeError('存在未完成资金/Outbox工作，请先定位收敛；未执行切换')
     queues = rabbit('list_queues','-p','/','name','messages_ready','messages_unacknowledged')
     for line in queues.splitlines():
         columns = line.split()
         if len(columns) == 3 and columns[1].isdigit() and (columns[1] != '0' or columns[2] != '0'):
             raise RuntimeError('旧vhost仍有消息，请先定位收敛；未执行切换')
     STATE.mkdir(exist_ok=True)
-    (STATE/'dev-cutover-ready').write_text('旧应用停止且资金/消息预检通过；保留旧vhost/cache与数据卷\n')
-    print('dev切换预检通过；未修改业务数据或清理旧资源')
+    (STATE/'dev-cutover-ready').write_text('dev首次启动或切换预检通过；保留旧vhost/cache与数据卷\n')
+    print('dev' + ('切换' if tables else '空库首次启动') + '预检通过；未修改业务数据或清理旧资源')
 
 
 def clock(action, instant):

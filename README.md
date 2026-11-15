@@ -16,18 +16,20 @@ Java 21、Spring Boot、Spring Security、MyBatis-Plus、MySQL 8.4、Flyway、Re
 
 ## 快速启动
 
-准备Java 21、Node 24和Docker Compose。在根目录从`compose.env.example`建立私密的`compose.env`；已有配置保留原值。首次安装前端依赖：
+数据库已整理为单一Flyway V1，适用于空库重新部署；旧迁移链数据库的使用限制见[初始化基线](docs/environments.md#flyway初始化基线)。
+
+在Linux或WSL2中准备Git、JDK 21、Python 3、Node 24（至少24.12）和Docker Compose v2，确保当前终端能访问Docker。首次安装需要联网下载镜像、Maven和npm依赖。在克隆后的项目根目录执行：
 
 ```bash
+python3 scripts/local_env.py init
 cd frontend
 npm ci
 cd ..
-python3 scripts/local_env.py init
 python3 scripts/local_env.py cutover-dev
 python3 scripts/local_env.py start dev
 ```
 
-旧dev切换前先备份原库并停止旧应用，`cutover-dev`检查未完成资金和消息工作。日常启动只需`start`。
+`init`从四份`.example`模板创建缺失配置并初始化共享资源，已有配置保留原值；`cutover-dev`支持空库首次启动，也会拦截未完成的旧资金和消息工作。后端首次启动通过Flyway建表，Maven允许联网下载依赖。共享服务运行时，日常启动只需`start`。只启动Spring Boot或使用IDE的步骤见[环境说明](docs/environments.md#启动和切换)。
 
 | 环境 | 前端 | 后端 | 数据生命周期 |
 | --- | --- | --- | --- |

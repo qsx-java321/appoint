@@ -1,6 +1,6 @@
 # 模块设计与维护
 
-项目为单Spring Boot应用、单Maven工程的模块化单体，前端独立构建。MySQL保存业务事实，Flyway当前为V11；Redis只缓存目录，RabbitMQ用于支付后的可靠协调。业务规则见[业务流程](business-flow.md)，请求响应见[API](api.md)，设计原因见[ADR](adr/)。
+项目为单Spring Boot应用、单Maven工程的模块化单体，前端独立构建。MySQL保存业务事实，Flyway以单一V1初始化完整结构；Redis只缓存目录，RabbitMQ用于支付后的可靠协调。业务规则见[业务流程](business-flow.md)，请求响应见[API](api.md)，设计原因见[ADR](adr/)。
 
 ## 模块职责与依赖
 
@@ -40,7 +40,7 @@ flowchart LR
 - `payment_orders`与预约一对一，关联支付尝试、通知审计、退款和Outbox；Inbox用于支付成功事件消费去重。
 - `visit_records`与预约一对一，签到时创建，仅保存进度与时间。没有记录时查询推导待签到，查询不补写数据。
 
-历史半日场次及终态继续读取，迁移不回填真实就诊结果。保留既有Flyway文件，新增结构由后续迁移演进。
+历史半日场次及终态继续读取，不回填真实就诊结果。当前[V1脚本](../src/main/resources/db/migration/V1__init_schema.sql)直接定义原V1至V11迁移后的完整结构、索引、约束及基础数据，包括原Java迁移中的统一预约设置和四场时间约束；旧SQL和Java迁移已移除。ADR中的旧版本号描述历史演进，现行基线及旧库使用限制见[环境说明](environments.md#flyway初始化基线)。后续结构变更从V2开始追加迁移，已使用的新V1保持不变。
 
 ## 创建与生命周期接口
 
