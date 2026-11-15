@@ -6,6 +6,8 @@
 
 2026-11-14三环境配置已交付：`0ec8470`、`19bc004`。dev保留日常数据，test独立操作业务，demo启动恢复初始状态；共用Compose真实依赖。[环境说明](environments.md)记录启动与维护方式，[设计方案](environment-isolation-plan.md)记录隔离与生命周期。
 
+2026-11-15三环境改造及业务验收完成：正式test完成注册至接诊结束及支付重试、退款、超时、并发等分支；正式dev、demo均完成真实页面注册至付款、预约确认取号，按验收范围停止于待签到。三环境均使用真实Compose依赖，库存、支付与消息处理经只读核对；demo测试前后dev/test关键业务记录投影指纹一致。该轮结束保留demo运行，dev/test停止。[三环境交付结论](../.scratch/archive/environment-isolation/summary.md)汇总本次验收。
+
 ## 当前已完成
 
 | 领域 | 当前实现 | 权威说明 |
@@ -29,6 +31,8 @@
 - Outbox FAILED和DLQ可能需要受控人工恢复；至少一次投递不等于物理恰好一次。就诊完成表示接诊状态完成，不表示已实现病历和处方系统。
 
 ## 最新实际验收
+
+2026-11-15正式三环境：test通过20组接口检查、253次接口请求（含3次并发）及1项真实浏览器完整流程（143次页面响应）；dev通过6组页面检查、36次HTTP；demo预置账号与医生绑定检查通过，另通过6组页面检查、35次HTTP。最终页面异常均为0；各环境均核对预约、支付、库存和消息事实。test与dev首次脚本适配失败已保留证据并完整复验，demo一次通过。本轮使用MockPay，未重跑Maven全套回归，也不扩展为真实资金、故障注入或移动端全覆盖的验收结论。详见[test体验与报告](test-business-workflows.md)、[dev实测](dev-booking-success.md)、[demo实测](demo-booking-success.md)。
 
 2026-11-14前端真实Compose：直接使用本机nvm Node 24.18.1/npm 11.16.0，正常8080/5173与Compose启动。独立MySQL/RabbitMQ/Redis环境的真实浏览器完成管理、支付失败重试、异步确认/退款、签到接诊与双端核对，139次HTTP响应符合预期；SQL确认3条订单终态、库存守恒、4条Outbox已发布和2条支付成功Inbox。首次测试入口缺发布确认配置的问题已修正并复验；隔离资源已清理，正常服务保留运行。[真实Compose验收](../.scratch/frontend-compose-live/verification.md)。
 

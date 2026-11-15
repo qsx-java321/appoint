@@ -2,6 +2,8 @@
 
 ## 最新业务验收
 
+2026-11-15正式dev/test/demo三环境业务验收通过。test完成注册至接诊结束及关键分支：20组接口检查、253次接口请求（含3次并发）、1项真实浏览器完整流程及143次页面响应；dev、demo按约定止于预约成功，各通过6组页面检查，分别记录36和35次HTTP。数据库、支付、库存、消息与环境隔离投影核对通过，最终页面异常均为0。[三环境总结](../.scratch/archive/environment-isolation/summary.md)及[test](test-business-workflows.md)、[dev](dev-booking-success.md)、[demo](demo-booking-success.md)分别保存证据。本轮使用MockPay，未执行真实资金、故障注入、移动端全覆盖或Maven全套回归。
+
 2026-11-13签到窗口改造，实现交付`d75f73c`（基线`4bfc1d5`，验收摘要与该提交一致）：聚焦106、干净常规381、MySQL38、可靠性16通过，零失败/错误/跳过；隔离curl92请求状态全部符合预期。聚焦属于常规子集，集成profile重复常规不累计。
 
 [本任务验收](../.scratch/visit-checkin-window/verification/report.md)保存命令、源码摘要、逐用例、HTTP和资源复核。服务已恢复停止、原卷保留；实现已本地提交为`d75f73c`，未推送。前次测试源码9c5878b的340/38/16/92结果独立保留在[历史验收](../.scratch/archive/delivery-quality/evidence/test-suite-refactor/final-acceptance.md)。归档见[签到窗口验收档案](../.scratch/archive/visit-workflow/evidence/visit-checkin-window/report.md)。当前边界见[项目状态](project-status.md)。

@@ -64,6 +64,8 @@ python3 scripts/local_env.py start dev
 
 环境设计见[三环境方案](docs/environment-isolation-plan.md)，实现入口见[交付总结](.scratch/archive/environment-isolation/summary.md)。
 
+2026-11-15，dev/test/demo三环境改造及业务验收已完成：test覆盖注册到完成接诊和关键分支，dev/demo覆盖注册到付款、预约确认取号。真实页面与Compose数据库、库存、消息核对均通过。[test体验清单](docs/test-business-workflows.md)、[dev实测](docs/dev-booking-success.md)、[demo实测](docs/demo-booking-success.md)记录实际范围和证据。
+
 ## HTTP 示例
 
 1. [http/auth.http](http/auth.http)：注册普通用户、登录并查询当前用户；管理员需先按下文授予角色后重新登录。

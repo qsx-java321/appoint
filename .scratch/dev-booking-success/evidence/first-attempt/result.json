@@ -1,0 +1,6 @@
+{
+  "run": "dev-booking-20261115053453-e46831",
+  "passed": false,
+  "userId": "2121839335941664769",
+  "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: '新增就诊人' })\u001b[22m\n"
+}

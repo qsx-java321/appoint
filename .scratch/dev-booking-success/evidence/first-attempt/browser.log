@@ -1,0 +1,4 @@
+PASS 真实页面注册与登录成功
+locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: '新增就诊人' })[22m
