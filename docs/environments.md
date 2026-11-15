@@ -55,29 +55,9 @@ Compose操作始终使用`docker compose --env-file compose.env ...`。停止共
 
 ## 启动和切换
 
-先加载Node 24，在frontend目录安装依赖：
+脚本托管前后端的完整命令统一维护在README：[首次克隆并启动](../README.md#首次克隆并启动)、[日常启动](../README.md#日常启动)、[完整停止](../README.md#停止前后端和docker容器)、[环境切换](../README.md#切换环境)及[状态和日志](../README.md#状态和日志)。初始化与安装前端依赖只需按首次流程完成；日常按需运行一套前后端，共享容器停止后先启动容器。使用`start dev/test/demo`会显式选择对应profile，无需修改application.yml。
 
-```bash
-npm ci
-```
-
-回到项目根目录，选择需要的环境：
-
-```bash
-python3 scripts/local_env.py start dev
-python3 scripts/local_env.py stop dev
-python3 scripts/local_env.py start test
-```
-
-浏览器使用http://127.0.0.1:5173（dev）、5174（test）、5175（demo）。`status <环境>`查看脚本托管的进程；日志及进程记录位于被忽略的.local-env目录。脚本会同时启动对应前后端，stop只停止该环境的托管进程，保持Compose运行。
-
-start和reset的Maven命令允许联网下载依赖。start为后端下载与启动预留10分钟；等待期间可查看`.local-env/<环境>-backend.log`。首次执行前必须完成npm ci，避免后端启动后因缺少前端依赖而退出。
-
-电脑重启或共享容器已停止时，先在项目根目录启动共享依赖：
-
-```bash
-docker compose --env-file compose.env up -d --wait
-```
+下列方式适用于只启动后端或在IDE中调试。基础资源仍需先通过上述首次准备完成；脚本的`stop`和`status`只管理脚本托管的进程，不管理IDE或手动启动的实例。
 
 IDE启动时，可在src/main/resources/application.yml中将`spring.profiles.default`从`dev`改为`test`或`demo`，然后运行`AppointApplication.main`；工作目录设为项目根目录，并留空IDE的Active profiles、`--spring.profiles.active`参数和`SPRING_PROFILES_ACTIVE`环境变量，让文件中的默认值生效。Spring自动叠加对应application-dev/test/demo.yml并导入对应私密配置。
 
