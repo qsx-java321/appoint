@@ -98,7 +98,7 @@ def init():
         if any(line.split()[0] != vhost for line in grants.splitlines() if line.startswith('/')):
             raise RuntimeError('环境RabbitMQ账号还拥有其他vhost权限，请人工核对')
         print(f'{name}: 资源准备完成；未清理业务表、缓存或消息')
-    print('dev切换前必须执行维护预检；已有环境配置及数据卷保持原样。')
+    print('dev首次启动前必须执行cutover-dev启动预检；已有环境配置及数据卷保持原样。')
 
 
 def clean_env(name):
@@ -136,7 +136,7 @@ def status(name):
 def start(name):
     if status(name): raise RuntimeError('脚本已记录运行实例')
     if name == 'dev' and not (STATE / 'dev-cutover-ready').exists():
-        raise RuntimeError('请先停止旧dev并执行cutover-dev维护预检')
+        raise RuntimeError('请先执行cutover-dev启动预检')
     for port in PORTS[name]:
         with socket.socket() as sock:
             if sock.connect_ex(('127.0.0.1', port)) == 0: raise RuntimeError(f'端口{port}已占用')
@@ -190,23 +190,16 @@ def stop(name):
 
 def cutover():
     with socket.socket() as sock:
-        if sock.connect_ex(('127.0.0.1',8080)) == 0: raise RuntimeError('先停止旧dev；未执行切换')
+        if sock.connect_ex(('127.0.0.1',8080)) == 0: raise RuntimeError('后端端口8080已占用，请先停止dev；预检未通过')
     tables = set(mysql("SELECT table_name FROM information_schema.tables WHERE table_schema='appoint';").splitlines())
     if tables:
         required = {'payment_outbox_events', 'payment_orders', 'payment_refunds',
                     'payment_attempts', 'appointment_orders'}
         if not required.issubset(tables):
-            raise RuntimeError('dev库非空且业务表不完整，请先核对结构及迁移历史；未执行切换')
-        pending = mysql("USE appoint; SELECT (SELECT COUNT(*) FROM payment_outbox_events WHERE status<>'PUBLISHED') + (SELECT COUNT(*) FROM payment_orders WHERE status IN ('PAYING','REFUND_PENDING')) + (SELECT COUNT(*) FROM payment_refunds WHERE status<>'SUCCEEDED') + (SELECT COUNT(*) FROM payment_attempts WHERE status IN ('CREATED','PROCESSING')) + (SELECT COUNT(*) FROM payment_orders p JOIN appointment_orders a ON a.id=p.appointment_order_id WHERE p.status='PAID' AND a.status<>'CONFIRMED');")
-        if pending != '0': raise RuntimeError('存在未完成资金/Outbox工作，请先定位收敛；未执行切换')
-    queues = rabbit('list_queues','-p','/','name','messages_ready','messages_unacknowledged')
-    for line in queues.splitlines():
-        columns = line.split()
-        if len(columns) == 3 and columns[1].isdigit() and (columns[1] != '0' or columns[2] != '0'):
-            raise RuntimeError('旧vhost仍有消息，请先定位收敛；未执行切换')
+            raise RuntimeError('dev库非空且业务表不完整，请先核对结构及迁移历史；预检未通过')
     STATE.mkdir(exist_ok=True)
-    (STATE/'dev-cutover-ready').write_text('dev首次启动或切换预检通过；保留旧vhost/cache与数据卷\n')
-    print('dev' + ('切换' if tables else '空库首次启动') + '预检通过；未修改业务数据或清理旧资源')
+    (STATE/'dev-cutover-ready').write_text('dev启动预检通过；端口未占用，数据库为空或必要业务表齐全\n')
+    print('dev启动预检通过；未修改业务数据或清理资源')
 
 
 def clock(action, instant):

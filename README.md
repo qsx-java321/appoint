@@ -29,7 +29,7 @@ python3 scripts/local_env.py cutover-dev
 python3 scripts/local_env.py start dev
 ```
 
-`init`从四份`.example`模板创建缺失配置并初始化共享资源，已有配置保留原值；`cutover-dev`支持空库首次启动，也会拦截未完成的旧资金和消息工作。后端首次启动通过Flyway建表，Maven允许联网下载依赖。共享服务运行时，日常启动只需`start`。只启动Spring Boot或使用IDE的步骤见[环境说明](docs/environments.md#启动和切换)。
+`init`从四份`.example`模板创建缺失配置并初始化共享资源，已有配置保留原值；`cutover-dev`检查后端端口是否占用，以及非空dev库的必要业务表是否齐全。后端首次启动通过Flyway建表，Maven允许联网下载依赖。共享服务运行时，日常启动只需`start`。只启动Spring Boot或使用IDE的步骤见[环境说明](docs/environments.md#启动和切换)。
 
 | 环境 | 前端 | 后端 | 数据生命周期 |
 | --- | --- | --- | --- |

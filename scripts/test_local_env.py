@@ -57,11 +57,11 @@ class LocalEnvironmentScriptTest(unittest.TestCase):
         self.mock('rabbit', side_effect=rabbit)
         return run
 
-    def cutover_mocks(self, tables='', pending='0', queues=''):
+    def cutover_mocks(self, tables=''):
         socket = self.mock('socket').socket.return_value.__enter__.return_value
         socket.connect_ex.return_value = 1
-        mysql = self.mock('mysql', side_effect=[tables, pending] if tables else [''])
-        rabbit = self.mock('rabbit', return_value=queues)
+        mysql = self.mock('mysql', side_effect=[tables])
+        rabbit = self.mock('rabbit')
         return socket, mysql, rabbit
 
     def test_init_restores_all_configurations_from_templates_with_private_permissions(self):
@@ -141,19 +141,22 @@ class LocalEnvironmentScriptTest(unittest.TestCase):
         self.assertIn('--appoint.local-environment.reset-only=true', reset[-1])
         self.assertIn('--appoint.messaging.enabled=false', reset[-1])
 
-    def test_empty_database_preflight_checks_old_messages_without_querying_business_tables(self):
+    def test_empty_database_preflight_only_queries_schema_without_accessing_rabbitmq(self):
         _, mysql, rabbit = self.cutover_mocks()
         local_env.cutover()
         self.assertEqual(mysql.call_count, 1)
-        rabbit.assert_called_once_with('list_queues', '-p', '/', 'name', 'messages_ready', 'messages_unacknowledged')
+        self.assertIn('information_schema.tables', mysql.call_args.args[0])
+        rabbit.assert_not_called()
         self.assertTrue((self.state / 'dev-cutover-ready').is_file())
 
-    def test_settled_existing_database_checks_created_payment_attempts(self):
+    def test_existing_database_preflight_does_not_query_business_state_or_rabbitmq(self):
         tables = '\n'.join(('payment_outbox_events', 'payment_orders', 'payment_refunds',
                             'payment_attempts', 'appointment_orders', 'users'))
-        _, mysql, _ = self.cutover_mocks(tables=tables)
+        _, mysql, rabbit = self.cutover_mocks(tables=tables)
         local_env.cutover()
-        self.assertIn("status IN ('CREATED','PROCESSING')", mysql.call_args_list[1].args[0])
+        self.assertEqual(mysql.call_count, 1)
+        self.assertIn('information_schema.tables', mysql.call_args.args[0])
+        rabbit.assert_not_called()
         self.assertTrue((self.state / 'dev-cutover-ready').is_file())
 
     def test_partial_schema_does_not_receive_a_preflight_marker(self):
@@ -163,30 +166,14 @@ class LocalEnvironmentScriptTest(unittest.TestCase):
         rabbit.assert_not_called()
         self.assertFalse(self.state.exists())
 
-    def test_pending_financial_work_blocks_preflight(self):
-        tables = '\n'.join(('payment_outbox_events', 'payment_orders', 'payment_refunds',
-                            'payment_attempts', 'appointment_orders'))
-        _, _, rabbit = self.cutover_mocks(tables=tables, pending='1')
-        with self.assertRaisesRegex(RuntimeError, '未完成资金'):
-            local_env.cutover()
-        rabbit.assert_not_called()
-        self.assertFalse(self.state.exists())
-
-    def test_ready_or_unacknowledged_old_messages_block_even_an_empty_database(self):
-        for queues in ('old-queue\t1\t0', 'old-queue\t0\t1'):
-            with self.subTest(queues=queues):
-                self.cutover_mocks(queues=queues)
-                with self.assertRaisesRegex(RuntimeError, '旧vhost仍有消息'):
-                    local_env.cutover()
-                self.assertFalse(self.state.exists())
-
     def test_occupied_backend_port_blocks_preflight_before_database_access(self):
         socket, mysql, rabbit = self.cutover_mocks()
         socket.connect_ex.return_value = 0
-        with self.assertRaisesRegex(RuntimeError, '先停止旧dev'):
+        with self.assertRaisesRegex(RuntimeError, '后端端口8080已占用'):
             local_env.cutover()
         mysql.assert_not_called()
         rabbit.assert_not_called()
+        self.assertFalse(self.state.exists())
 
     def test_failed_database_query_does_not_mark_a_database_as_empty(self):
         _, mysql, rabbit = self.cutover_mocks()

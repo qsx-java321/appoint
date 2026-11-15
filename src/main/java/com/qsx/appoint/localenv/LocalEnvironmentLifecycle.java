@@ -34,7 +34,7 @@ public class LocalEnvironmentLifecycle implements BeanFactoryPostProcessor, Disp
             LocalEnvironmentPolicy.validate(environment, name);
             if ("dev".equals(name) && !"classpath:/regression/".equals(environment.getProperty("spring.config.location"))
                     && !java.nio.file.Files.exists(java.nio.file.Path.of(".local-env/dev-cutover-ready")))
-                throw new IllegalStateException("dev旧环境切换预检尚未完成");
+                throw new IllegalStateException("dev启动预检尚未完成");
             int port = environment.getRequiredProperty("server.port", Integer.class);
             try (var probe = new ServerSocket(port, 0, InetAddress.getByName("127.0.0.1"))) { /* 清理前检查端口 */ }
             lock = DriverManager.getConnection(environment.getRequiredProperty("spring.datasource.url"),

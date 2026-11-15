@@ -43,13 +43,13 @@ init先从`compose.env.example`、`.env.dev.example`、`.env.test.example`和`.e
 
 随后启动共享Compose并创建缺少的数据库、账号和vhost。重复执行保留已有密码和业务数据；卷内凭据或权限不匹配时停止，不擅自改密码或删除数据卷。init不创建业务表，业务结构在后端启动时由Flyway初始化。
 
-首次使用dev需要执行启动预检；切换已有dev时，先备份原库并停止旧应用：
+首次使用dev需要执行启动预检，执行时确保dev后端已停止：
 
 ```bash
 python3 scripts/local_env.py cutover-dev
 ```
 
-空库预检只检查后端端口和旧默认vhost中的消息，不查询尚未建立的业务表；非空库还检查未完成资金和Outbox工作，缺少必要业务表时中止。两种情况均在旧vhost仍有待处理或未确认消息时中止。通过后保存本机启动标记；保留原appoint库、旧默认vhost、旧缓存及数据卷。该标记不代替Flyway历史校验，旧迁移链数据库的限制仍按上述初始化基线执行。
+`cutover-dev`保留命令名，仅执行dev启动预检：检查后端8080端口是否占用；查询数据库表清单，空库直接通过，非空库必须包含`payment_outbox_events`、`payment_orders`、`payment_refunds`、`payment_attempts`和`appointment_orders`。端口占用、查询失败或必要业务表缺失时中止，通过后保存本机启动标记。预检不查询支付、退款或Outbox业务状态，也不访问RabbitMQ；未完成业务和队列消息不作为阻断条件。预检不修改业务数据、清理资源或转换旧数据库历史，完整结构与迁移版本由后端启动时的Flyway继续校验。
 
 Compose操作始终使用`docker compose --env-file compose.env ...`。停止共享依赖用`docker compose --env-file compose.env stop`，保留卷。
 
