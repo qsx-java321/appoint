@@ -16,7 +16,7 @@ Java 21、Spring Boot、Spring Security、MyBatis-Plus、MySQL 8.4、Flyway、Re
 
 ## 快速启动
 
-数据库已整理为单一Flyway V1，适用于空库重新部署；旧迁移链数据库的使用限制见[初始化基线](docs/environments.md#flyway初始化基线)。
+数据库以Flyway V1初始化完整结构，V2扩充预置医疗目录；空库自动依次执行，已使用现行V1的库追加V2。旧迁移链数据库的使用限制见[初始化基线](docs/environments.md#flyway初始化基线)。
 
 在Linux或WSL2 Ubuntu中准备Git、JDK 21、Python 3、Node 24（至少24.12且低于25）、npm和Docker Compose v2。先启动Docker服务；Windows使用Docker Desktop时，确保已启用当前WSL发行版的集成。Java、Python、Node/npm均使用WSL内的版本，当前终端应能访问Docker。
 
@@ -61,7 +61,7 @@ python3 scripts/local_env.py start dev
 | `cutover-dev` | 检查8080端口，以及非空dev库的必要业务表；空库允许通过，通过后写入本机预检标记，不填充业务数据 |
 | `start dev` | 用Maven Wrapper启动dev后端，等待后端端口可连接后启动对应Vue前端，保存日志及进程记录 |
 
-后端首次启动通过Flyway创建当前环境的22张应用表和迁移记录表，写入基础目录等数据，并声明当前RabbitMQ vhost中的交换机、队列和绑定。Redis目录缓存由后续查询按需生成。只启动dev不会初始化test/demo的业务表，也不会运行它们的前后端。
+后端首次启动通过Flyway创建当前环境的22张应用表和迁移记录表，预置2家医院、每院3个科室、每科室3名医生；随后创建1个管理员和18个医生账号并完成医生绑定，demo另有普通演示用户。账号命名、密码位置和样例对应关系见[账号及重置](docs/environments.md#账号及重置)。后端还会声明当前RabbitMQ vhost中的交换机、队列和绑定，Redis目录缓存由后续查询按需生成。只启动dev不会初始化test/demo的业务表，也不会运行它们的前后端。
 
 首次就要使用test或demo时，同样先完成`init`和`npm ci`，随后执行下列启动命令之一即可；它们不需要`cutover-dev`：
 
@@ -79,7 +79,7 @@ python3 scripts/local_env.py start demo
 
 | 环境 | 前端 | 后端 | 数据生命周期 |
 | --- | --- | --- | --- |
-| dev | [5173](http://127.0.0.1:5173) | 8080 | 保留appoint数据，用户从页面注册 |
+| dev | [5173](http://127.0.0.1:5173) | 8080 | 保留appoint数据，预置管理员和医生账号，普通用户从页面注册 |
 | test | [5174](http://127.0.0.1:5174) | 8081 | 默认保留，可显式重置、调整业务时间；不会因启动而运行自动化测试 |
 | demo | [5175](http://127.0.0.1:5175) | 8082 | 每次后端启动恢复自身数据库、目录缓存和应用消息队列的初始状态，旧Token失效 |
 
@@ -245,7 +245,7 @@ tail -f .local-env/dev-backend.log
 
 ## 当前状态与边界
 
-核心业务开发、三环境改造和约定范围的业务验收已完成。自动化测试已精简为单元/Mock与MockMvc，并完成验证，结果见[测试说明](docs/testing.md#最近验证)。
+核心业务开发、三环境改造和约定范围的业务验收已完成。自动化测试仅维护单元/Mock与MockMvc；三环境预置目录、账号登录及权限已完成真实环境核验，最新验证结果与范围见[测试说明](docs/testing.md#预置目录与账号验证)。
 
 系统使用MockPay，尚未接入真实资金渠道；渠道状态仅保存在当前后端进程内，跨重启查询与退款续接有限制。
 

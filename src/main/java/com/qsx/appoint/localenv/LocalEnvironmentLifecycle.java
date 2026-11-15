@@ -7,7 +7,6 @@ import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.sql.Connection;
@@ -61,26 +60,9 @@ public class LocalEnvironmentLifecycle implements BeanFactoryPostProcessor, Disp
     }
 
     public void seed(JdbcTemplate jdbc) {
-        if (name == null || name.equals("dev")) return;
+        if (name == null) return;
         String password = environment.getRequiredProperty("appoint.local-environment.seed-password");
-        seedAccount(jdbc, name + "-admin@example.local", password, "ADMIN");
-        if (name.equals("demo")) {
-            seedAccount(jdbc, "demo-user@example.local", password, "USER");
-            seedAccount(jdbc, "demo-doctor@example.local", password, "DOCTOR");
-            jdbc.update("UPDATE doctors SET user_id=(SELECT id FROM users WHERE email=?) WHERE id=1", "demo-doctor@example.local");
-        }
-    }
-    private void seedAccount(JdbcTemplate jdbc, String email, String password, String role) {
-        var encoder = new BCryptPasswordEncoder();
-        var existing = jdbc.queryForList("SELECT password_hash FROM users WHERE email=?", String.class, email);
-        if (!existing.isEmpty()) {
-            if (jdbc.queryForObject("SELECT COUNT(*) FROM local_environment_seed_accounts s JOIN users u ON u.id=s.user_id WHERE s.email=? AND u.email=? AND s.role_code=?", Integer.class, email, email, role) != 1)
-                throw new IllegalStateException("初始化账号冲突；已有账号保持原样");
-            return;
-        }
-        jdbc.update("INSERT INTO users(email,password_hash) VALUES (?,?)", email, encoder.encode(password));
-        jdbc.update("INSERT INTO local_environment_seed_accounts(email,user_id,role_code) SELECT email,id,? FROM users WHERE email=?", role, email);
-        jdbc.update("INSERT INTO user_roles(user_id,role_id) SELECT u.id,r.id FROM users u CROSS JOIN roles r WHERE u.email=? AND r.code IN ('USER',?)", email, role);
+        new LocalEnvironmentAccounts(jdbc).seed(name, password);
     }
     @Override public void destroy() {
         if (lock != null) {

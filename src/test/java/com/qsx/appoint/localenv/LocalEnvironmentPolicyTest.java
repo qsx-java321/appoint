@@ -102,6 +102,16 @@ class LocalEnvironmentPolicyTest {
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("常驻环境不能关闭初始化生命周期");
     }
 
+    @Test void everyEnvironmentRequiresAnInitializationPasswordBeforeConnecting() {
+        for (String name : java.util.List.of("dev", "test", "demo")) {
+            for (String password : java.util.List.of("", "short")) {
+                var env = valid(name).withProperty("appoint.local-environment.seed-password", password);
+                assertThatThrownBy(() -> LocalEnvironmentPolicy.validate(env, name, directory))
+                        .isInstanceOf(IllegalArgumentException.class).hasMessage("初始化账号密码至少12位");
+            }
+        }
+    }
+
     @Test void registeredPolicyRejectsWrongDemoDatabaseBeforeContextInitialization() {
         var env = valid("demo")
                 .withProperty("appoint.local-environment.enabled", "true")

@@ -21,11 +21,11 @@
 
 ## Flyway初始化基线
 
-当前仅保留[src/main/resources/db/migration/V1__init_schema.sql](../src/main/resources/db/migration/V1__init_schema.sql)，供全新空库初始化。它合并原V1至V11的SQL和Java迁移结果，一次创建22张业务表、索引、约束和原有基础数据；环境账号仍由应用启动生命周期创建。历史示例场次保留，当前四场预约继续按首次下单生成。
+当前以[src/main/resources/db/migration/V1__init_schema.sql](../src/main/resources/db/migration/V1__init_schema.sql)初始化完整结构。它合并原V1至V11的SQL和Java迁移结果，一次创建22张业务表、索引、约束和原有基础数据；V1保持不变。随后由[V2迁移](../src/main/java/db/migration/V2__expand_sample_catalog.java)追加医疗目录，使全新环境具有2家医院、6个科室和18名医生。环境账号由应用启动生命周期创建。历史示例场次保留，当前四场预约继续按首次下单生成。
 
 这是面向重新部署的首版整理，不提供旧库原地升级。已经执行旧迁移链的数据库，其Flyway历史和V1校验和与当前代码不兼容；重复运行init、执行cutover-dev或复制配置均不会转换这些历史。需要保留旧数据时应继续使用整理前的代码，并另行制定数据迁移方案；确认放弃旧数据后，使用空库重新初始化，不通过repair、删除历史记录或baseline跳过校验。
 
-应用启动时由Flyway执行此脚本，不需要手工导入SQL。成功后数据库版本为1；再次启动由Flyway验证并跳过已执行的V1。后续结构变更新增V2及后续版本。历史迁移可从Git提交`eb84890`追溯。
+应用启动时由Flyway执行迁移，不需要手工导入SQL。空库依次执行V1和V2，现行V1数据库只追加V2，成功后版本为2；普通重启跳过已成功执行的迁移。V2保留原医院、科室、两名医生的ID、资料、绑定和预约引用；新增医生编号沿用分配表，避免与人工新增医生冲突。已有人工目录数据不会清理，升级后的总数可以超过样例规模；迁移后管理员增删改目录的结果也不会在普通启动时被还原。后续变更从V3继续追加。历史迁移可从Git提交`eb84890`追溯。
 
 ## 首次准备
 
@@ -73,25 +73,59 @@ IDE启动时，可在src/main/resources/application.yml中将`spring.profiles.de
 
 ## 账号及重置
 
-- dev不自动新增或修改已有账号。
-- test补充管理员test-admin@example.local，普通重启保留业务数据和用户已修改的密码。
-- demo启动后补充demo-user@example.local、demo-doctor@example.local、demo-admin@example.local，并将示例医生1绑定到医生账号。
+### 预置目录和账号
 
-初始化密码读取对应环境文件的LOCAL_SEED_PASSWORD；从模板首次创建配置时沿用模板值。密码具体值不在本文重复展示，已有用户修改的密码不会因重复init而恢复为模板值。
+三套环境使用相同的样例目录：示例市第一人民医院、示例市第二人民医院，每院设内科、骨科、皮肤科，每科室3名医生，共18名。它是首次初始化的数据规模，管理员仍可增删改目录，不是业务数量限制。
+
+每套环境有1个管理员、18个独立医生账号，医生档案与账号一一绑定；demo另有1个普通演示用户。新建环境的初始用户总数分别为19、19、20。
+
+| 环境 | 管理员邮箱 | 医生邮箱范围 | 普通演示用户 |
+| --- | --- | --- | --- |
+| dev | dev-admin@example.local | dev-doctor-001@example.local至dev-doctor-018@example.local | 无，从页面注册 |
+| test | test-admin@example.local | test-doctor-001@example.local至test-doctor-018@example.local | 无，从页面注册 |
+| demo | demo-admin@example.local | demo-doctor-001@example.local至demo-doctor-018@example.local | demo-user@example.local |
+
+医生邮箱中的三位序号是稳定的样例序号，三环境对应关系相同：
+
+| 医院 | 科室 | 医生姓名及邮箱序号 |
+| --- | --- | --- |
+| 示例市第一人民医院 | 内科 | 张医生001、王医生003、赵医生004 |
+| 示例市第一人民医院 | 骨科 | 李医生002、刘医生005、陈医生006 |
+| 示例市第一人民医院 | 皮肤科 | 杨医生007、周医生008、吴医生009 |
+| 示例市第二人民医院 | 内科 | 徐医生010、孙医生011、胡医生012 |
+| 示例市第二人民医院 | 骨科 | 朱医生013、高医生014、林医生015 |
+| 示例市第二人民医院 | 皮肤科 | 何医生016、郭医生017、马医生018 |
+
+例如dev第二医院皮肤科马医生使用`dev-doctor-018@example.local`登录。样例序号通过编号分配记录关联医生，不假定数据库自增ID或医生编号的数值恰好等于序号；已有人工新增目录时，这些数值可能不同。
+
+### 初始密码与重复启动
+
+对应环境`.env.dev`、`.env.test`或`.env.demo`中的`LOCAL_SEED_PASSWORD`，用于该环境管理员、全部预置医生及普通演示用户的首次创建。三环境均要求至少12位；配置由模板首次复制时沿用模板值，不在文档中展示密码。
+
+dev/test启动时只补充缺失的预置账号及空医生绑定，保留已有账号密码、角色和业务数据。修改`LOCAL_SEED_PASSWORD`不会直接更新已创建账号的密码，重复`init`也不会恢复旧密码。遇到同邮箱非预置账号，或样例医生已绑定其他账号时，初始化事务回滚并停止启动，不覆盖账号或抢占绑定；管理员已删除的样例医生不会在普通启动时重新创建。医生账号自带USER和DOCTOR角色，管理员自带USER和ADMIN角色。
+
+这些行为由Java后端执行，脚本、Maven和IDE启动方式一致；只需选择对应profile。跨环境账号和密码保存在各自数据库中，不会因为切换profile而同步。
+
+### demo自动重置与test显式重置
 
 demo清理仅针对自身数据库、缓存和消息；脚本、Maven、IDE入口共用Spring启动生命周期。同环境第二实例或后端端口占用时，在清理前拒绝。刷新页面或重启前端不会重置数据。每次后端启动使用新的JWT密钥，旧Token失效。
 
-test只有显式重置才清数据。停止test后执行：
+demo每次后端启动重新执行V1和V2，再按当前`.env.demo`的`LOCAL_SEED_PASSWORD`创建上述20个用户及医生绑定。
+
+test普通重启保留数据，只有显式重置才清空自己的业务数据（包括自行注册的用户和预约），重建表和样例目录、清理目录缓存及应用消息队列。确保共享容器运行，先停止test，再重置并重新启动：
 
 ```bash
+docker compose --env-file compose.env up -d --wait
+python3 scripts/local_env.py stop test
 python3 scripts/local_env.py reset test
+python3 scripts/local_env.py start test
 ```
 
-reset和正常启动共用同环境锁，重置后重新初始化管理员，原子轮换.env.test中的JWT密钥；旧Token失效，普通重启继续使用轮换后的密钥。IDE启动的实例也持有锁，不能只凭脚本无PID就认为可以重置。
+reset和正常启动共用同环境锁，重置后按当前`.env.test`的`LOCAL_SEED_PASSWORD`重新初始化管理员和18名医生账号，原子轮换.env.test中的JWT密钥；旧Token失效，普通重启继续使用轮换后的密钥。reset完成后退出，最后的start才会持续运行前后端。IDE启动的实例也持有锁，需在IDE中先停止，不能只凭脚本无PID就认为可以重置。dev没有自动重置入口，保留其数据。
 
 ## dev管理员授权
 
-注册只授予USER。dev可由有权限的本地维护者核对目标库及账号后执行以下SQL，再重新登录取得ADMIN角色；已有账号和角色不被自动改写。替换示例邮箱，不在共享环境随意授权：
+dev已预置`dev-admin@example.local`。注册只授予USER；如果还需要给其他已注册用户授予管理员权限，可由有权限的本地维护者核对目标库及账号后执行以下SQL，再重新登录取得ADMIN角色。替换示例邮箱，不在共享环境随意授权：
 
 ```sql
 SELECT u.id, u.email, r.code FROM users u

@@ -1,6 +1,6 @@
 # 模块设计与维护
 
-项目为单Spring Boot应用、单Maven工程的模块化单体，前端独立构建。MySQL保存业务事实，Flyway以单一V1初始化完整结构；Redis只缓存目录，RabbitMQ用于支付后的可靠协调。业务规则见[业务流程](business-flow.md)，请求响应见[API](api.md)，设计原因见[ADR](adr/)。
+项目为单Spring Boot应用、单Maven工程的模块化单体，前端独立构建。MySQL保存业务事实，Flyway以V1初始化完整结构、V2扩充样例目录；Redis只缓存目录，RabbitMQ用于支付后的可靠协调。业务规则见[业务流程](business-flow.md)，请求响应见[API](api.md)，设计原因见[ADR](adr/)。
 
 ## 模块职责与依赖
 
@@ -40,7 +40,9 @@ flowchart LR
 - `payment_orders`与预约一对一，关联支付尝试、通知审计、退款和Outbox；Inbox用于支付成功事件消费去重。
 - `visit_records`与预约一对一，签到时创建，仅保存进度与时间。没有记录时查询推导待签到，查询不补写数据。
 
-历史半日场次及终态继续读取，不回填真实就诊结果。当前[V1脚本](../src/main/resources/db/migration/V1__init_schema.sql)直接定义原V1至V11迁移后的完整结构、索引、约束及基础数据，包括原Java迁移中的统一预约设置和四场时间约束；旧SQL和Java迁移已移除。ADR中的旧版本号描述历史演进，现行基线及旧库使用限制见[环境说明](environments.md#flyway初始化基线)。后续结构变更从V2开始追加迁移，已使用的新V1保持不变。
+历史半日场次及终态继续读取，不回填真实就诊结果。[V1脚本](../src/main/resources/db/migration/V1__init_schema.sql)保持不变，定义原V1至V11迁移后的完整结构、索引、约束及基础数据；[V2迁移](../src/main/java/db/migration/V2__expand_sample_catalog.java)只追加样例目录，通过医生编号分配表生成新编号，保留旧ID和业务引用。ADR中的旧版本号描述历史演进，现行基线及旧库使用限制见[环境说明](environments.md#flyway初始化基线)，后续变更从V3追加。
+
+[LocalEnvironmentAccounts](../src/main/java/com/qsx/appoint/localenv/LocalEnvironmentAccounts.java)由启动生命周期在迁移完成后的同一账号初始化事务中调用；所有环境使用相同的账号创建与绑定逻辑。`local_environment_seed_accounts`记录账号归属，防止对同邮箱人工账号自动提权；医生绑定用条件UPDATE保留已有绑定。冲突时账号初始化事务回滚，迁移已提交的目录数据保留。已有账号密码、角色及管理员维护的目录不在普通重启时覆盖，具体样例和数据生命周期见[账号及重置](environments.md#账号及重置)。
 
 ## 创建与生命周期接口
 

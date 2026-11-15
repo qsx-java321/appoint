@@ -92,7 +92,7 @@ public class LocalEnvironmentPolicy implements EnvironmentPostProcessor, Ordered
             if (value.isBlank() || value.startsWith("replace-")) throw new IllegalArgumentException("缺少本地配置");
         }
         if (env.getRequiredProperty("appoint.jwt.secret").length() < 32) throw new IllegalArgumentException("JWT密钥过短");
-        if (!name.equals("dev") && env.getProperty("appoint.local-environment.seed-password", "").length() < 12)
+        if (env.getProperty("appoint.local-environment.seed-password", "").length() < 12)
             throw new IllegalArgumentException("初始化账号密码至少12位");
         if (!isolated) verifyDistinctJwt(name, env.getRequiredProperty("appoint.jwt.secret"), directory);
     }
