@@ -6,7 +6,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import java.lang.annotation.*;
 
-/** Maven 与 IDE 使用相同配置根；profile 专项测试也不导入常驻连接。 */
+/** MockMvc回归使用独立配置根，Maven与IDE均不导入常驻连接。 */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Inherited

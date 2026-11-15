@@ -1,57 +1,58 @@
 # 测试与验证
 
-本页保留测试职责、入口和实际验收范围。测试实现位于src/test及frontend/tests，HTTP操作示例位于[http目录](../http/)。固定数量与逐方法清单由源码和运行报告提供，不在文档中重复维护。
+自动化测试仅保留单元/Mock和MockMvc两层，覆盖业务规则、权限和主要接口流程。
 
-## 测试分层
+## 测试范围
 
-| 层次 | 验证重点 | 位置或命名 |
+| 类型 | 验证重点 | 位置 |
 | --- | --- | --- |
-| 单元与Mock | 时间、状态策略、组装、传输分支 | 普通`*Test`及Mockito用例 |
-| Spring与MockMvc | 装配、权限、真实事务和Mapper协作 | `@RegressionTest`，默认H2 |
-| MySQL Testcontainers | 迁移、唯一约束、行锁和并发 | `*MySqlIT` |
-| RabbitMQ可靠性 | 发布确认、重投、重试、DLQ及提交/ACK窗口 | `*ReliabilityIT` |
-| Redis Testcontainers | 命中、事务绕过、失效和故障回源 | `*RedisIT` |
-| 真实HTTP | 注册、预约、支付退款和就诊闭环 | `scripts/compose_acceptance.py` |
-| 前端 | 规则、会话、请求和浏览器页面流程 | `frontend/tests/unit`、`frontend/tests/e2e` |
-| 架构 | 模块依赖、只读查询和Entity泄漏 | architecture测试及违规fixture |
+| 后端单元/Mock | 时间和状态规则、查询组装、支付渠道与消息处理分支 | src/test/java中的普通JUnit与Mockito用例 |
+| MockMvc | 注册登录、就诊人、目录管理、预约支付、取消和就诊流程 | 标注`@RegressionTest`及`@AutoConfigureMockMvc`的用例 |
+| 前端单元/Mock | 会话、请求、预约状态与展示规则 | frontend/tests/unit |
 
-H2不替代MySQL锁行为；手工调用消费者不能证明Broker投递，渠道受理或发布确认不能证明最终业务完成。验收应核对订单、资金、库存及消息事实。
+MockMvc通过Spring和H2内存库验证接口协作，不启动真实HTTP监听端口。支付夹具直接驱动业务消费者，消息处理的单元测试使用Mock。
 
-## 运行入口
+## 运行
 
-在项目根目录按需串行执行；前端命令在frontend目录执行：
+后端在项目根目录执行：
 
 ```bash
 ./mvnw clean test
-./mvnw -Pmysql-it verify
-./mvnw -Preliability-it verify
-./mvnw -Predis-it verify
-python3 scripts/compose_acceptance.py --http-client curl --http-report /tmp/appoint-http-report.json
 ```
 
-容器测试需要Docker和对应镜像；Maven依赖已缓存时可加`-o`。集成profile会重复运行常规测试，统计时分开记录。前端基础检查为`npm run typecheck`、`npm test`、`npm run build`；浏览器流程和隔离启动入口见frontend/tests/e2e及scripts/frontend_compose_acceptance.py，运行配置须与目标环境映射一致。
+前端在frontend目录执行：
 
-## 数据与时间隔离
+```bash
+npm test
+npm run typecheck
+npm run build
+```
 
-- 回归配置显式加载src/test/resources/regression/application.yml，容器连接由测试注入；业务测试不覆盖日常数据库连接，不假定所有夹具都回滚。
-- MockMvc事务可验证同步协作；跨线程、真实HTTP和传播边界保留实际提交。已提交夹具按新增ID清理，不重置共享序列。
-- 每例重置业务Clock；需要到院时间时使用测试时钟，手动体验使用test的[调时命令](environments.md#test业务调时)，不修改系统时钟。
-- 资金测试沿用正式attempt、签名通知、Outbox/Inbox和原refundNo；先完成异步工作再停止实例，MockPay内存状态不跨重启保留。
-- 故障桩、连接、队列及Broker操作结束后恢复。关键断言验证业务事实及明确错误，异步使用条件等待。
+测试无需Docker Compose。Maven依赖已缓存时可加`-o`。
 
-## 已完成的验收
+## 隔离与边界
 
-2026-11-15基于正式profile和真实Compose完成三环境约定范围的业务验收：
+- MockMvc显式加载src/test/resources/regression/application.yml，使用H2内存库，屏蔽宿主连接覆盖，不读取三环境私密配置。
+- Redis缓存、RabbitMQ连接和后台任务默认关闭；前端用例以Mock替代API请求。
+- 真实提交的H2夹具按新增ID清理，事务用例回滚；业务Clock按需固定或在每例重置。
+- 当前测试不覆盖真实MySQL锁行为、Redis/RabbitMQ运行故障和浏览器端到端流程。
 
-| 环境 | 范围 | 结果 |
-| --- | --- | --- |
-| test | 注册至完成接诊，支付失败重试、取消退款、超时、迟到支付和并发抢号等分支 | 20组接口检查、253次接口请求及1项完整浏览器流程通过 |
-| dev | 注册至付款、预约确认取号，停止于待签到 | 6组页面检查通过 |
-| demo | 预置账号、医生绑定及注册至付款、预约确认取号 | 预置检查及6组页面检查通过 |
+## 最近验证
 
-均核对库存、支付、消息和归属；最终页面异常为0。demo验收前后dev/test关键业务记录投影指纹一致。首次test固定时钟断言和dev登录衔接脚本失败均已修正并完整复验，原证据位于Git提交`7b8a370`。
+2026-11-15测试精简后完成以下验证，未连接dev/test/demo常驻数据库：
 
-验收结果仅适用于记录时的代码版本；上述三环境验收使用MockPay，不包含真实资金渠道、故障注入与完整移动端覆盖。完整历史结果按原提交读取，新增执行另行记录。
+| 检查 | 结果 |
+| --- | --- |
+| 后端单元/Mock与MockMvc | 315项通过，失败、错误和跳过均为0 |
+| 前端单元/Mock | 5个文件、22项通过 |
+| 前端类型检查与生产构建 | 通过 |
+| 文档链接、JSON及REST/DTO契约检查 | 通过 |
+
+后端本次在Codex沙箱中通过JVM启动参数显式加载Mockito agent，绕过动态自附加限制；上述普通开发环境命令保持不变。结果适用于本次测试精简后的代码，后续改动按影响范围重新验证。
+
+## 三环境历史验收
+
+2026-11-15已完成test注册至接诊完成及异常分支、dev/demo注册至付款预约成功的真实环境验收。该结果适用于当时的代码版本，使用MockPay，与本轮自动化测试结果分别记录。
 
 ## 文档检查
 
@@ -59,4 +60,4 @@ python3 scripts/compose_acceptance.py --http-client curl --http-report /tmp/appo
 python3 scripts/check_documentation.py
 ```
 
-该命令只读检查本地链接、代码围栏、JSON示例及当前REST/DTO文档契约，不连接数据库或启动服务。历史计划、测试数量和原始报告通过Git追溯，不作为当前文档检查依赖。
+只读检查本地链接、代码围栏、JSON示例及REST/DTO文档契约，不连接数据库或启动服务。

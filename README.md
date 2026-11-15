@@ -12,7 +12,7 @@
 
 ## 技术栈
 
-Java 21、Spring Boot、Spring Security、MyBatis-Plus、MySQL 8.4、Flyway、Redis、RabbitMQ；前端使用Node 24、Vue 3、TypeScript、Vite、Pinia和Axios。测试使用JUnit 5、MockMvc、Testcontainers、ArchUnit、Vitest和Playwright。
+Java 21、Spring Boot、Spring Security、MyBatis-Plus、MySQL 8.4、Flyway、Redis、RabbitMQ；前端使用Node 24、Vue 3、TypeScript、Vite、Pinia和Axios。测试仅保留单元/Mock与MockMvc，使用JUnit 5、Mockito和Vitest；MockMvc使用H2内存库。
 
 ## 快速启动
 
@@ -43,7 +43,7 @@ python3 scripts/local_env.py start dev
 | --- | --- |
 | 如何启动、切换和维护环境 | [环境说明](docs/environments.md) |
 | 如何预约、付款、签到和接诊 | [业务流程](docs/business-flow.md) |
-| 接口、权限、请求响应和错误码 | [REST API](docs/api.md)、[HTTP示例](http/) |
+| 接口、权限、请求响应和错误码 | [REST API](docs/api.md) |
 | 模块、事务、消息、缓存与恢复 | [模块设计](docs/module-design.md) |
 | 如何运行测试及已完成的验收范围 | [测试说明](docs/testing.md) |
 | 前端开发与构建 | [前端说明](frontend/README.md) |
@@ -51,8 +51,10 @@ python3 scripts/local_env.py start dev
 
 文档以当前实现为准，历史开发过程与验收证据保存在Git提交`7b8a370`。文档调整后运行`python3 scripts/check_documentation.py`检查链接与API契约。
 
-## 当前边界
+## 当前状态与边界
 
-三环境改造和约定范围的业务验收已完成。系统使用MockPay，尚未接入真实资金渠道；渠道状态仅保存在当前后端进程内，跨重启查询与退款续接有限制。
+核心业务开发、三环境改造和约定范围的业务验收已完成。自动化测试已精简为单元/Mock与MockMvc，并完成验证，结果见[测试说明](docs/testing.md#最近验证)。
+
+系统使用MockPay，尚未接入真实资金渠道；渠道状态仅保存在当前后端进程内，跨重启查询与退款续接有限制。
 
 未实现医院关门、医生停诊、管理员手工维护场次、自动叫号、爽约、病历处方、实时推送和短信邮件通知。退款结果队列已有拓扑但没有监听器，Outbox失败耗尽和死信可能需要人工恢复。

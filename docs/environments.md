@@ -57,13 +57,21 @@ python3 scripts/local_env.py start test
 
 浏览器使用http://127.0.0.1:5173（dev）、5174（test）、5175（demo）。`status <环境>`查看脚本托管的进程；日志及进程记录位于被忽略的.local-env目录。脚本会同时启动对应前后端，stop只停止该环境的托管进程，保持Compose运行。
 
-也可分别启动。后端从项目根目录执行：
+也可分别启动。先在项目根目录启动共享依赖：
+
+```bash
+docker compose --env-file compose.env up -d --wait
+```
+
+IDE启动时，可在src/main/resources/application.yml中将`spring.profiles.default`从`dev`改为`test`或`demo`，然后运行`AppointApplication.main`；工作目录设为项目根目录，并留空IDE的Active profiles、`--spring.profiles.active`参数和`SPRING_PROFILES_ACTIVE`环境变量，让文件中的默认值生效。Spring自动叠加对应application-dev/test/demo.yml并导入对应私密配置。
+
+也可用Maven显式选择环境：
 
 ```bash
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=test
 ```
 
-将test替换为dev或demo即可。IDE的工作目录设为项目根目录，选择一个Spring profile；默认dev。前端在frontend目录分别使用`npm run dev`、`npm run dev:test`、`npm run dev:demo`。
+将test替换为dev或demo即可；显式选择的profile优先于文件中的默认值。两种启动方式使用同一套环境配置，每次只选一个profile。前端在frontend目录分别使用`npm run dev`、`npm run dev:test`、`npm run dev:demo`。
 
 前端代理固定到同环境后端；API_PROXY_TARGET或命令行端口与环境冲突时拒绝启动。后端在连接和重置前校验最终数据库、消息、缓存与端口目标，拒绝独立Flyway/Hikari连接覆盖等会绕开目标配置的方式。
 

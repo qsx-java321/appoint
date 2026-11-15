@@ -25,7 +25,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-/** 快速测试通过真实尝试/验签/Outbox驱动业务消费者；RabbitMQ传输由容器及Compose验收。 */
+/** MockMvc夹具通过支付尝试、验签和Outbox驱动业务消费者，不连接RabbitMQ。 */
 @TestComponent
 @RequiredArgsConstructor
 public class FormalPaymentTestSupport {

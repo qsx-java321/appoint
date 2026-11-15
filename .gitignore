@@ -4,14 +4,11 @@ target/
 .mvn/timing.properties
 .env
 compose.env
-http/http-client.private.env.json
 *.iml
 frontend/node_modules/
 frontend/dist/
 frontend/.env.local
 frontend/.env.*.local
-frontend/playwright-report/
-frontend/test-results/
 scripts/__pycache__/
 
 .env.dev

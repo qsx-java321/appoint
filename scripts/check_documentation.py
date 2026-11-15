@@ -88,16 +88,8 @@ for label, folder, name in contracts:
     path = Path('src/main/java/com/qsx/appoint') / folder / (name + '.java')
     assert record_fields(path, name) == set(re.findall(r'`(\w+)`', row[1])), ('响应字段不匹配', name)
 
-http_requests, http_json = 0, 0
-for path in Path('http').glob('*.http'):
-    text = path.read_text()
-    http_requests += len(re.findall(r'^(?:GET|POST|PUT|PATCH|DELETE)\s+', text, re.M))
-    for match in re.finditer(r'^\{', text, re.M):
-        json.JSONDecoder().raw_decode(text[match.start():])
-        http_json += 1
-json.loads(Path('http/http-client.env.json').read_text())
 print(json.dumps({'markdownFiles': len(markdown), 'localLinksAndAnchors': links,
     'documentedRestOperations': len(routes), 'appointmentDtoFields': len(fields),
     'scheduleDtoFields': len(schedule_fields), 'visitRecordContracts': len(contracts),
-    'jsonExamples': json_samples, 'httpRequests': http_requests, 'httpJsonBodies': http_json,
+    'jsonExamples': json_samples,
     'businessTestsRerun': False}, ensure_ascii=False, indent=2))

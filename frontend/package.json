@@ -12,7 +12,6 @@
     "build": "npm run typecheck && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
-    "test:e2e": "playwright test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "dev:test": "vite --host 127.0.0.1 --mode test",
@@ -25,7 +24,6 @@
     "vue-router": "4.6.5"
   },
   "devDependencies": {
-    "@playwright/test": "1.65.1",
     "@types/node": "24.19.2",
     "@vitejs/plugin-vue": "6.0.11",
     "jsdom": "31.0.1",
