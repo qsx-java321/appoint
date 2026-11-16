@@ -231,17 +231,21 @@ tail -f .local-env/dev-backend.log
 
 ## 自动化测试
 
-在项目根目录运行后端测试：
+在项目根目录执行后端测试：
 
 ```bash
 # 单元/Mock与H2/MockMvc，无需Docker
 ./mvnw clean test
 
-# 上述测试加真实MySQL集成测试，需要Docker
+# 上述测试加MySQL集成测试，需要Docker
 ./mvnw -Pmysql-it clean verify
 ```
 
-MySQL测试自行创建临时容器，无需运行三环境初始化、启动或重置脚本。`mysql-it`是Maven测试分组，与常驻`test`环境不同。单类执行、IDE配置、Mockito agent、报告位置和测试边界见[测试说明](docs/testing.md#mysql集成测试)。
+MySQL测试自行创建临时容器，不连接dev/test/demo常驻资源，无需启动项目Compose。前端测试命令见[前端说明](frontend/README.md)。
+
+测试结果见[测试报告](docs/testing/latest-report.md)与[JSON报告](docs/testing/latest-report.json)。重新测试后直接覆盖对应结果，保留实际测试日期和未验证范围；旧结果通过Git历史追溯。
+
+常驻test环境的真实HTTP主流程实测见[API主流程测试报告](docs/testing/api-flow-report.md)，记录注册到就诊完成的实际请求和响应。该实测与上述独立自动化测试分别统计。
 
 ## 文档入口
 
@@ -252,7 +256,8 @@ MySQL测试自行创建临时容器，无需运行三环境初始化、启动或
 | 新增就诊人时如何填写、可复制的多位示例 | [就诊人信息填写示例](docs/patient-examples.md) |
 | 接口、权限、请求响应和错误码 | [REST API](docs/api.md) |
 | 模块、事务、消息、缓存与恢复 | [模块设计](docs/module-design.md) |
-| 如何运行测试及已完成的验收范围 | [测试说明](docs/testing.md) |
+| 测试结果及验证范围 | [测试报告](docs/testing/latest-report.md) |
+| 用户注册到就诊完成的API实测 | [API主流程测试报告](docs/testing/api-flow-report.md) |
 | 前端开发与构建 | [前端说明](frontend/README.md) |
 | 业务术语与设计原因 | [术语表](GLOSSARY.md)、[ADR](docs/adr/) |
 
@@ -262,7 +267,7 @@ MySQL测试自行创建临时容器，无需运行三环境初始化、启动或
 
 ## 当前状态与边界
 
-核心业务开发、三环境改造和约定范围的业务验收已完成。自动化测试包含单元/Mock、H2/MockMvc和按需执行的MySQL集成测试；最新后端验收为324项默认测试及12项MySQL测试通过，详见[测试说明](docs/testing.md#mysql集成接入验收)。三环境预置目录、账号登录及权限的历史核验范围另见[预置目录与账号验证](docs/testing.md#预置目录与账号验证)。
+核心业务开发、三环境改造和约定范围的业务验收已完成。自动化测试包含单元/Mock、H2/MockMvc和按需执行的MySQL集成测试；已执行的测试数量、日期及适用范围见[最新测试报告](docs/testing/latest-report.md)。三环境预置目录、账号登录及权限的历史核验范围另见[三环境人工验收](docs/testing/latest-report.md#三环境人工验收)。
 
 系统使用MockPay，尚未接入真实资金渠道；渠道状态仅保存在当前后端进程内，跨重启查询与退款续接有限制。
 

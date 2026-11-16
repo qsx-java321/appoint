@@ -19,7 +19,7 @@ npm test
 npm run build
 ```
 
-测试仅保留Vitest单元/Mock用例，API由Mock提供，不连接后端。
+测试使用Vitest单元/Mock用例，API由Mock提供，不连接后端。已有结果见[测试报告](../docs/testing/latest-report.md)。
 
 构建输出dist，前后端分别构建。静态服务器需将`/api`反向代理到后端，并为history路由提供index.html回退；后端凭据不进入VITE变量。三套本地模式显示MockPay操作，生产构建关闭模拟按钮，真实支付尚未接入。
 

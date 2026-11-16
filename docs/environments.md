@@ -156,4 +156,4 @@ MockPay继续保存在内存，应用重启后旧渠道支付查询和退款续�
 
 ## 自动化测试与常驻环境
 
-常驻`test`是可手动体验和调整业务时间的运行环境；Maven的`mysql-it`用于启动Testcontainers临时MySQL执行自动化测试，二者互不依赖。自动化测试不读取三环境私密配置，不要求运行Compose初始化或环境重置。默认H2回归和MySQL容器测试的执行条件、隔离机制与排查步骤统一见[测试说明](testing.md#mysql集成测试)。
+常驻`test`是可手动体验和调整业务时间的运行环境；Maven的`mysql-it`用于启动Testcontainers临时MySQL执行自动化测试，二者互不依赖。自动化测试不读取三环境私密配置，不要求运行Compose初始化或环境重置。测试运行命令见[README](../README.md#自动化测试)，已有结果见[测试报告](testing/latest-report.md)。

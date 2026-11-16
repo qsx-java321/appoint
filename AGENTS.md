@@ -7,14 +7,14 @@
 - 实现前说明目标、关键假设和完成条件。会改变业务结果的歧义先澄清，常规实现细节沿用项目约定。
 - 采用满足本次需求的简单方案，控制改动范围，清理本次产生的无用代码；无关问题单独说明。
 - 按变更运行有意义的检查，报告实际结果与未验证范围；文档检查不代表业务测试已执行。
-- 自动化测试维护单元/Mock、独立H2的MockMvc及按需运行的Testcontainers MySQL集成测试；均不连接dev/test/demo常驻资源。命令和隔离约定见[测试说明](docs/testing.md)。
+- 自动化测试维护单元/Mock、独立H2的MockMvc及按需运行的Testcontainers MySQL集成测试；均不连接dev/test/demo常驻资源。命令见[README](README.md#自动化测试)；`docs/testing/`仅存放测试报告，测试后按实际执行范围覆盖更新结果和日期。
 - 多步骤任务给出简短计划。过程记录按需放在`.scratch/`，普通任务无需固定的spec/map/issues或归档清单。
 
 ## 文档维护
 
 - 业务术语查阅[GLOSSARY.md](GLOSSARY.md)，相关设计原因查阅[docs/adr/](docs/adr/)；规则冲突要明确说明。
 - 业务行为、API和实现边界分别维护在[业务流程](docs/business-flow.md)、[API](docs/api.md)、[模块设计](docs/module-design.md)，避免重复描述。
-- 运行配置维护在[环境说明](docs/environments.md)，测试命令维护在[测试说明](docs/testing.md)。
+- 运行配置维护在[环境说明](docs/environments.md)，测试命令维护在[README](README.md#自动化测试)。
 - README作为阅读入口，文档结构或使用方式变化时同步更新。每项业务规则优先维护一个主要说明位置。
 - 完成的过程资料通过Git追溯，`.scratch/`临时内容默认不纳入Git。当前文档说明现行行为，整理后运行`python3 scripts/check_documentation.py`。
 

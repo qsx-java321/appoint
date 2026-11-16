@@ -18,7 +18,7 @@ status: accepted
 
 四模块深度化已完成。`AppointmentLifecycle` 内部封装场次→预约锁定、确认库存/序号及关闭释放；`PaymentLifecycle` 封装支付锁定及关闭。锁与生命周期写操作要求 MANDATORY，锁定 Case 只在获取它的事务内使用。coordination 通过完整操作和纯 Policy 编排，不再传库存更新或下一序号；支付内部统一 payment 父锁先于子记录。查询使用只读 Projector/Assembler。
 
-迟到支付释放和有界重试按 [ADR 0006](0006-late-payment-and-consumer-retries.md) 落实。旧 dev/test 同步模拟入口及兼容尝试已删除。以上是既有模块化单体和可靠事件决定的实现收口，没有新增部署架构或领域术语；最终 interface、事务及事件契约见 [四模块代码设计](../module-design.md)，实际验证见 [测试与验证](../testing.md)。
+迟到支付释放和有界重试按 [ADR 0006](0006-late-payment-and-consumer-retries.md) 落实。旧 dev/test 同步模拟入口及兼容尝试已删除。以上是既有模块化单体和可靠事件决定的实现收口，没有新增部署架构或领域术语；最终 interface、事务及事件契约见 [四模块代码设计](../module-design.md)，实际验证见 [测试报告](../testing/latest-report.md)。
 
 ## 当前接口与恢复边界（2026-11-10）
 
