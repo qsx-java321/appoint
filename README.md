@@ -12,7 +12,7 @@
 
 ## 技术栈
 
-Java 21、Spring Boot、Spring Security、MyBatis-Plus、MySQL 8.4、Flyway、Redis、RabbitMQ；前端使用Node 24、Vue 3、TypeScript、Vite、Pinia和Axios。测试仅保留单元/Mock与MockMvc，使用JUnit 5、Mockito和Vitest；MockMvc使用H2内存库。
+Java 21、Spring Boot、Spring Security、MyBatis-Plus、MySQL 8.4、Flyway、Redis、RabbitMQ；前端使用Node 24、Vue 3、TypeScript、Vite、Pinia和Axios。测试使用JUnit 5、Mockito、MockMvc、Testcontainers和Vitest；MockMvc使用独立H2内存库，MySQL事务与并发测试使用临时容器。
 
 ## 快速启动
 
@@ -229,6 +229,20 @@ tail -f .local-env/dev-backend.log
 
 在日志跟踪终端按`Ctrl+C`只结束跟踪；停止应用使用上述脚本命令。初始化配置细节、只启动Spring Boot、IDE运行、test重置及业务调时见[环境说明](docs/environments.md)。
 
+## 自动化测试
+
+在项目根目录运行后端测试：
+
+```bash
+# 单元/Mock与H2/MockMvc，无需Docker
+./mvnw clean test
+
+# 上述测试加真实MySQL集成测试，需要Docker
+./mvnw -Pmysql-it clean verify
+```
+
+MySQL测试自行创建临时容器，无需运行三环境初始化、启动或重置脚本。`mysql-it`是Maven测试分组，与常驻`test`环境不同。单类执行、IDE配置、Mockito agent、报告位置和测试边界见[测试说明](docs/testing.md#mysql集成测试)。
+
 ## 文档入口
 
 | 想了解什么 | 文档 |
@@ -248,7 +262,7 @@ tail -f .local-env/dev-backend.log
 
 ## 当前状态与边界
 
-核心业务开发、三环境改造和约定范围的业务验收已完成。自动化测试仅维护单元/Mock与MockMvc；三环境预置目录、账号登录及权限已完成真实环境核验，最新验证结果与范围见[测试说明](docs/testing.md#预置目录与账号验证)。
+核心业务开发、三环境改造和约定范围的业务验收已完成。自动化测试包含单元/Mock、H2/MockMvc和按需执行的MySQL集成测试；最新后端验收为324项默认测试及12项MySQL测试通过，详见[测试说明](docs/testing.md#mysql集成接入验收)。三环境预置目录、账号登录及权限的历史核验范围另见[预置目录与账号验证](docs/testing.md#预置目录与账号验证)。
 
 系统使用MockPay，尚未接入真实资金渠道；渠道状态仅保存在当前后端进程内，跨重启查询与退款续接有限制。
 

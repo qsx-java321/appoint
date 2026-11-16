@@ -6,6 +6,7 @@ import com.qsx.appoint.appointment.service.AppointmentService;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.coordination.application.PaymentSucceededProcessor;
+import com.qsx.appoint.coordination.application.PaymentSucceededEvent;
 import com.qsx.appoint.coordination.messaging.PaymentSucceededEventCodec;
 import com.qsx.appoint.payment.adapter.mock.MockPaymentGateway;
 import com.qsx.appoint.payment.application.PaymentAttemptService;
@@ -50,6 +51,13 @@ public class FormalPaymentTestSupport {
         return payWithToken(token,Long.valueOf(paymentId));
     }
     public AppointmentResponse pay(Long userId, Long paymentId) {
+        var event = recordPaymentSuccess(userId, paymentId);
+        processor.process(event);
+        return appointments.getOwned(userId, event.appointmentOrderId());
+    }
+
+    /** 提交收款事实并返回Outbox事件，由调用者控制预约确认时机。 */
+    public PaymentSucceededEvent recordPaymentSuccess(Long userId, Long paymentId) {
         var payment = payments.find(paymentId);
         if (payment == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         if (!payment.userId().equals(userId)) throw new BusinessException(ErrorCode.FORBIDDEN);
@@ -69,8 +77,7 @@ public class FormalPaymentTestSupport {
         var events = outbox.selectList(new LambdaQueryWrapper<PaymentOutboxEvent>()
                 .eq(PaymentOutboxEvent::getAggregateId,paymentId).eq(PaymentOutboxEvent::getEventType,"PaymentSucceeded"));
         if (events.size() != 1) throw new AssertionError("每单必须只有一个真实PaymentSucceeded事件");
-        processor.process(codec.read(storedPayload(events.getFirst()).getBytes(StandardCharsets.UTF_8)));
-        return appointments.getOwned(userId,payment.appointmentOrderId());
+        return codec.read(storedPayload(events.getFirst()).getBytes(StandardCharsets.UTF_8));
     }
     private String storedPayload(PaymentOutboxEvent event) {
         // H2把String参数写入JSON列时额外编码为JSON字符串；仅测试适配这一驱动差异。

@@ -8,7 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/** 屏蔽宿主环境的连接覆盖，保留测试声明的H2配置。 */
+/** 屏蔽宿主环境的连接覆盖，保留测试声明的独立数据源配置。 */
 public class RegressionEnvironment implements ApplicationContextInitializer<ConfigurableApplicationContext> {
     @Override
     public void initialize(ConfigurableApplicationContext context) {

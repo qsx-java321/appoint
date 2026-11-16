@@ -1,0 +1,40 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 10000
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    time-zone: Asia/Shanghai
+  data:
+    redis:
+      connect-timeout: 500ms
+      timeout: 200ms
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+
+appoint:
+  jwt:
+    secret: mysql-integration-only-secret-at-least-thirty-two-characters-12345
+    expiration-seconds: 7200
+  appointment:
+    payment-timeout: 15m
+  catalog-cache:
+    enabled: false
+  messaging:
+    enabled: false
+  expiration:
+    enabled: false
+  reconciliation:
+    enabled: false
+  outbox:
+    enabled: false
+  local-environment:
+    enabled: false
