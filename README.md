@@ -20,7 +20,7 @@ Java 21、Spring Boot、Spring Security、MyBatis-Plus、MySQL 8.4、Flyway、Re
 
 在Linux或WSL2 Ubuntu中准备Git、JDK 21、Python 3、Node 24（至少24.12且低于25）、npm和Docker Compose v2。先启动Docker服务；Windows使用Docker Desktop时，确保已启用当前WSL发行版的集成。Java、Python、Node/npm均使用WSL内的版本，当前终端应能访问Docker。
 
-项目使用Maven Wrapper，无需另装Maven；首次运行需要联网下载Docker镜像、Maven和应用依赖。本文使用Python脚本同时管理前后端，无需在IDE中重复运行main类、手动修改`spring.profiles.default`或另开`npm run dev`。
+项目使用Maven Wrapper，无需另装Maven；首次运行需要联网下载Docker镜像、Maven和应用依赖。项目仅保留`scripts/local_env.py`一个Python脚本，用于初始化配置和资源、启停前后端及环境管理，无需在IDE中重复运行main类、手动修改`spring.profiles.default`或另开`npm run dev`。
 
 - [首次克隆并启动](#首次克隆并启动)
 - [日常启动](#日常启动)
@@ -263,7 +263,7 @@ MySQL测试自行创建临时容器，不连接dev/test/demo常驻资源，无�
 
 首次体验新增就诊人时，可参考 [docs/patient-examples.md](docs/patient-examples.md)。文档提供8组可直接复制到页面的就诊人资料，包含姓名、身份证号码、联系电话和联系邮箱，并说明填写步骤、字段含义与常见错误处理；示例身份证号码已通过项目校验器检查，适用于本地演示和手动体验。
 
-文档以当前实现为准，历史开发过程与验收证据保存在Git提交`7b8a370`。文档调整后运行`python3 scripts/check_documentation.py`检查链接与API契约。
+文档以当前实现为准，历史开发过程与验收证据保存在Git提交`7b8a370`。文档调整后核对链接、JSON示例与API契约。
 
 ## 当前状态与边界
 

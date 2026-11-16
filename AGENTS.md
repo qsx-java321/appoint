@@ -16,9 +16,11 @@
 - 业务行为、API和实现边界分别维护在[业务流程](docs/business-flow.md)、[API](docs/api.md)、[模块设计](docs/module-design.md)，避免重复描述。
 - 运行配置维护在[环境说明](docs/environments.md)，测试命令维护在[README](README.md#自动化测试)。
 - README作为阅读入口，文档结构或使用方式变化时同步更新。每项业务规则优先维护一个主要说明位置。
-- 完成的过程资料通过Git追溯，`.scratch/`临时内容默认不纳入Git。当前文档说明现行行为，整理后运行`python3 scripts/check_documentation.py`。
+- 完成的过程资料通过Git追溯，`.scratch/`临时内容默认不纳入Git。当前文档说明现行行为，整理后核对链接、JSON示例及API契约。
 
 ## 本地环境
+
+- Python脚本仅保留`scripts/local_env.py`，用于环境初始化、启停及管理。
 
 - dev/test/demo共用Compose真实MySQL、Redis、RabbitMQ，数据库、Redis namespace、RabbitMQ vhost及凭据独立。一次按需启动一套，切换前停止上一套。
 - dev保留原appoint数据；test默认保留，显式重置；demo每次后端启动恢复初始状态。同环境锁与重置保护保留，不增加跨环境代码互斥。
