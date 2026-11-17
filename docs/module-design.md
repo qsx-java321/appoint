@@ -1,12 +1,12 @@
 # 模块设计与维护
 
-项目为单Spring Boot应用、单Maven工程的模块化单体，前端独立构建。MySQL保存业务事实，Flyway以V1初始化完整结构、V2扩充样例目录；Redis只缓存目录，RabbitMQ用于支付后的可靠协调。业务规则见[业务流程](business-flow.md)，请求响应见[API](api.md)，设计原因见[ADR](adr/)。
+项目为单Spring Boot应用、单Maven工程的模块化单体，前端独立构建。MySQL保存业务事实，Flyway以V1初始化完整结构、V2扩充样例目录；Redis保存目录缓存、注册验证码及一次性票据，RabbitMQ用于支付后的可靠协调，Mailpit接收本地注册邮件。业务规则见[业务流程](business-flow.md)，请求响应见[API](api.md)，设计原因见[ADR](adr/)。
 
 ## 模块职责与依赖
 
 | 模块 | 负责内容 | 主要接口 |
 | --- | --- | --- |
-| auth / user / patient | 登录、角色和本人就诊人 | 认证与资料Service |
+| auth / user / patient | 邮箱验证注册、登录、角色和本人就诊人 | RegistrationVerificationService、认证与资料Service |
 | catalog | 医疗目录、统一设置、场次查询、医生身份和目录缓存 | CatalogService、DoctorAccountService |
 | appointment | 暂占、有效占用、库存、凭证和号码 | AppointmentHoldService、AppointmentLifecycle |
 | payment | 支付单、尝试、验签、审计、退款、Outbox和渠道 | PaymentAttemptService、PaymentLifecycle、RefundWorker |
@@ -90,7 +90,7 @@ Outbox随资金事务写库。`OutboxPublishTransaction`用FOR UPDATE SKIP LOCKE
 
 支付成功与退款执行采用有界重试；支付成功为首次加两次TTL重试，每次间隔1秒，无效消息或耗尽进入DLQ。转发确认成功后才ACK原消息，失败NACK/requeue。至少一次投递可能产生额外物理重投，不承诺外部资金恰好一次。
 
-退款结果队列已有拓扑但没有监听器；退款状态由worker落库，查询直接读取数据库，不代表短信邮件通知已实现。
+退款结果队列已有拓扑但没有监听器；退款状态由worker落库，查询直接读取数据库，不代表业务短信或退款邮件通知已实现；注册验证码邮件由auth独立发送。
 
 ## 就诊与查询
 
@@ -122,3 +122,11 @@ Outbox随资金事务写库。`OutboxPublishTransaction`用FOR UPDATE SKIP LOCKE
 DLQ重放只允许PAYMENT_SUCCEEDED、REFUND_REQUESTED、REFUND_RESULT逻辑目标，不接受任意物理队列。EMPTY表示未取到消息，REPLAYED只说明转发获确认；退款结果目标当前无消费者。对账不自动重置FAILED、不重放DLQ或查询渠道资金，也不修复历史库存。
 
 保留Inbox、原消息身份和资金成功事实。已产生新模型数据后的应用回退必须确认schema及数据兼容；MySQL DDL不能假定整份迁移自动回滚。日常环境初始化与重置使用[正式入口](environments.md)，不通过删卷处理问题。
+
+## 邮箱注册验证
+
+`AuthController` 调用 `RegistrationVerificationService` 发送/验证验证码；该服务依赖 `StringRedisTemplate`、`UserService` 和 `RegistrationMailSender`，后者用 `JavaMailSender` 同步发送文本邮件。`RegistrationProperties` 提供环境 namespace、发件人、验证码和票据TTL，默认均为五分钟。
+
+Redis 使用 `appoint:{env}:auth:register-code:{email}` 保存验证码，使用 `appoint:{env}:auth:signup-ticket:{ticket}` 保存已验证邮箱。验证成功删除验证码并创建UUID票据；注册使用getAndDelete读取并删除票据，然后执行现有邮箱查重及MySQL用户/角色事务。Redis消费不随MySQL回滚，本地版本不实现补偿。没有新增数据库表、限流、Lua或邮件消息队列。TTL使用Redis真实时间，不受test业务Clock影响。
+
+前端在同一注册页切换验证邮箱、设置密码两个步骤，票据只保存在页面内存。刷新或返回修改邮箱后重新验证，注册成功跳转登录。

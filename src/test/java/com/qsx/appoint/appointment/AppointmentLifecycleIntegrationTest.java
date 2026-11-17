@@ -1,5 +1,7 @@
 package com.qsx.appoint.appointment;
 
+import static com.qsx.appoint.support.RegistrationTestSupport.verifiedBody;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -397,7 +399,7 @@ class AppointmentLifecycleIntegrationTest {
     private AuthenticatedUser registerAndLogin() throws Exception {
         String email = "lifecycle-" + UUID.randomUUID() + "@example.com";
         String body = "{\"email\":\"" + email + "\",\"password\":\"password123\"}";
-        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(verifiedBody(mockMvc, body)))
                 .andExpect(status().isCreated());
         String response = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON).content(body))

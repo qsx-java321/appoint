@@ -8,10 +8,20 @@ export const api = {
       method: "POST",
       data: { email, password },
     }),
-  register: (email: string, password: string) =>
+  sendRegistrationCode: (email: string) =>
+    request<T.RegistrationCodeResponse>("/auth/register/code", {
+      method: "POST",
+      data: { email },
+    }),
+  verifyRegistrationCode: (email: string, code: string) =>
+    request<T.SignupTicketResponse>("/auth/register/verify", {
+      method: "POST",
+      data: { email, code },
+    }),
+  register: (email: string, password: string, signupTicket: string) =>
     request<T.User>("/auth/register", {
       method: "POST",
-      data: { email, password },
+      data: { email, password, signupTicket },
     }),
   me: () => request<T.User>("/users/me"),
   hospitals: () => request<T.Hospital[]>("/hospitals"),

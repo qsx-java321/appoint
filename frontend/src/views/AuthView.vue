@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { api } from "../api";
-import { message } from "../api/client";
+import { ApiError, message } from "../api/client";
 import { useAuth } from "../stores/auth";
 import { safeReturn } from "../lib/session";
 const route = useRoute(),
@@ -15,6 +15,40 @@ const email = ref(""),
   busy = ref(false),
   error = ref(""),
   success = ref("");
+const step = ref<"verify" | "password">("verify");
+const code = ref(""),
+  signupTicket = ref(""),
+  verifiedEmail = ref(""),
+  confirmPassword = ref("");
+function resetRegistration() {
+  step.value = "verify";
+  signupTicket.value = "";
+  password.value = "";
+  confirmPassword.value = "";
+  code.value = "";
+}
+watch(
+  () => route.path,
+  () => {
+    resetRegistration();
+    error.value = "";
+    success.value = "";
+  },
+);
+async function sendCode() {
+  if (busy.value) return;
+  busy.value = true;
+  error.value = "";
+  success.value = "";
+  try {
+    await api.sendRegistrationCode(email.value.trim().toLowerCase());
+    success.value = "验证码已发送，有效期5分钟。请在 Mailpit 查看邮件。";
+  } catch (e) {
+    error.value = message(e);
+  } finally {
+    busy.value = false;
+  }
+}
 async function submit() {
   if (busy.value) return;
   busy.value = true;
@@ -22,7 +56,25 @@ async function submit() {
   success.value = "";
   try {
     if (register.value) {
-      await api.register(email.value.trim().toLowerCase(), password.value);
+      if (step.value === "verify") {
+        const normalized = email.value.trim().toLowerCase();
+        const result = await api.verifyRegistrationCode(normalized, code.value);
+        signupTicket.value = result.signupTicket;
+        verifiedEmail.value = normalized;
+        step.value = "password";
+        code.value = "";
+        return;
+      }
+      if (password.value !== confirmPassword.value) {
+        error.value = "两次密码输入不一致。";
+        return;
+      }
+      await api.register(
+        verifiedEmail.value,
+        password.value,
+        signupTicket.value,
+      );
+      resetRegistration();
       password.value = "";
       success.value = "注册成功，请登录。";
       await router.replace({
@@ -35,6 +87,7 @@ async function submit() {
       await router.replace(safeReturn(route.query.redirect));
     }
   } catch (e) {
+    if (e instanceof ApiError && e.code === 3005) resetRegistration();
     error.value = message(e);
   } finally {
     busy.value = false;
@@ -64,13 +117,35 @@ async function submit() {
         暂时无法验证会话，请检查服务连接后重试。
       </p>
       <form class="form" @submit.prevent="submit">
-        <label
+        <p v-if="register">
+          {{ step === "verify" ? "第一步：验证邮箱" : "第二步：设置密码" }}
+        </p>
+        <p v-if="register && step === 'password'">
+          已验证邮箱：{{ verifiedEmail }}
+        </p>
+        <label v-if="!register || step === 'verify'"
           >邮箱<input
             v-model="email"
             type="email"
             required
-            autocomplete="username" /></label
-        ><label
+            autocomplete="username"
+        /></label>
+        <template v-if="register && step === 'verify'">
+          <button type="button" :disabled="busy || !email" @click="sendCode">
+            发送验证码
+          </button>
+          <label
+            >验证码<input
+              v-model="code"
+              aria-label="验证码"
+              required
+              pattern="[0-9]{6}"
+              maxlength="6"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+          /></label>
+        </template>
+        <label v-if="!register || step === 'password'"
           >密码<span class="input-row"
             ><input
               aria-label="密码"
@@ -89,10 +164,33 @@ async function submit() {
             </button></span
           ><small v-if="register">8–64个字符</small></label
         >
+        <template v-if="register && step === 'password'">
+          <label
+            >确认密码<input
+              v-model="confirmPassword"
+              aria-label="确认密码"
+              type="password"
+              required
+              minlength="8"
+              maxlength="64"
+              autocomplete="new-password"
+          /></label>
+          <button type="button" :disabled="busy" @click="resetRegistration">
+            返回修改邮箱
+          </button>
+        </template>
         <p v-if="error" class="error" role="alert">{{ error }}</p>
         <p v-if="success" class="notice" role="status">{{ success }}</p>
         <button class="primary" :disabled="busy">
-          {{ busy ? "正在提交…" : register ? "注册账号" : "登录" }}
+          {{
+            busy
+              ? "正在提交…"
+              : register
+                ? step === "verify"
+                  ? "下一步"
+                  : "完成注册"
+                : "登录"
+          }}
         </button>
         <p class="muted">
           {{

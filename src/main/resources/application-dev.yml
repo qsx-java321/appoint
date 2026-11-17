@@ -15,6 +15,8 @@ spring:
     password: ${RABBITMQ_PASSWORD}
     virtual-host: /appoint-dev
 appoint:
+  registration:
+    namespace: dev
   local-environment:
     enabled: true
     name: dev

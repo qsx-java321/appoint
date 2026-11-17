@@ -5,6 +5,7 @@ import com.qsx.appoint.auth.dto.LoginRequest;
 import com.qsx.appoint.auth.dto.LoginResponse;
 import com.qsx.appoint.auth.dto.RegisterRequest;
 import com.qsx.appoint.auth.service.AuthService;
+import com.qsx.appoint.auth.service.RegistrationVerificationService;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.security.JwtProperties;
@@ -34,6 +35,7 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
+    private final RegistrationVerificationService verification;
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
     private final UserRoleMapper userRoleMapper;
@@ -47,6 +49,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public UserResponse register(RegisterRequest request) {
         String email = normalizeEmail(request.getEmail());
+        verification.consumeTicket(email, request.getSignupTicket());
         if (userService.findByEmail(email) != null) {
             throw new BusinessException(ErrorCode.EMAIL_EXISTS);
         }

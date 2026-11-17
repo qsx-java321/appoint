@@ -1,0 +1,307 @@
+{
+  "date": "2026-11-17",
+  "branch": "feat/email-signup-verification",
+  "base": "6a321a5",
+  "environments": [
+    {
+      "env": "test",
+      "started": "2026-11-17T15:01:40.330Z",
+      "checks": [
+        {
+          "path": "/auth/register/code",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "browser": "Mailpit inbox visible"
+        },
+        {
+          "browser": "register → login → me",
+          "passed": true
+        },
+        {
+          "path": "/auth/register",
+          "status": 400,
+          "code": 3005
+        },
+        {
+          "path": "/auth/register/code",
+          "status": 409,
+          "code": 3001
+        },
+        {
+          "path": "/auth/register/code",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register/verify",
+          "status": 400,
+          "code": 3003
+        },
+        {
+          "path": "/auth/register",
+          "status": 400,
+          "code": 3005
+        },
+        {
+          "path": "/auth/register/code",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register/verify",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register/code",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register/verify",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register",
+          "status": 201,
+          "code": 0
+        },
+        {
+          "path": "/auth/register",
+          "status": 409,
+          "code": 3001
+        },
+        {
+          "path": "/auth/register/verify",
+          "status": 400,
+          "code": 3004
+        }
+      ],
+      "accounts": [
+        {
+          "email": "test-signup-1794927700330@example.com",
+          "id": "2122706748706975745"
+        },
+        {
+          "email": "test-duplicate-1794927700330@example.com",
+          "id": "2122706751273889794"
+        }
+      ],
+      "finished": "2026-11-17T15:06:42.428Z",
+      "passed": true,
+      "database_checks": {
+        "registered_counts": [
+          1,
+          1
+        ],
+        "rejected_email_counts": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "env": "dev",
+      "started": "2026-11-17T15:07:39.942Z",
+      "checks": [
+        {
+          "path": "/auth/register/code",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "browser": "Mailpit inbox visible"
+        },
+        {
+          "browser": "register → login → me",
+          "passed": true
+        },
+        {
+          "path": "/auth/register",
+          "status": 400,
+          "code": 3005
+        },
+        {
+          "path": "/auth/register/code",
+          "status": 409,
+          "code": 3001
+        },
+        {
+          "path": "/auth/register/code",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register/verify",
+          "status": 400,
+          "code": 3003
+        },
+        {
+          "path": "/auth/register",
+          "status": 400,
+          "code": 3005
+        },
+        {
+          "path": "/auth/register/code",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register/verify",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register/code",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register/verify",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register",
+          "status": 201,
+          "code": 0
+        },
+        {
+          "path": "/auth/register",
+          "status": 409,
+          "code": 3001
+        },
+        {
+          "path": "/auth/register/verify",
+          "status": 400,
+          "code": 3004
+        }
+      ],
+      "accounts": [
+        {
+          "email": "dev-signup-1794928059942@example.com",
+          "id": "2122708259096883201"
+        },
+        {
+          "email": "dev-duplicate-1794928059942@example.com",
+          "id": "2122708261873512450"
+        }
+      ],
+      "finished": "2026-11-17T15:12:42.418Z",
+      "passed": true,
+      "database_checks": {
+        "registered_counts": [
+          1,
+          1
+        ],
+        "rejected_email_counts": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "env": "demo",
+      "started": "2026-11-17T15:13:40.288Z",
+      "checks": [
+        {
+          "path": "/auth/register/code",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "browser": "Mailpit inbox visible"
+        },
+        {
+          "browser": "register → login → me",
+          "passed": true
+        },
+        {
+          "path": "/auth/register",
+          "status": 400,
+          "code": 3005
+        },
+        {
+          "path": "/auth/register/code",
+          "status": 409,
+          "code": 3001
+        },
+        {
+          "path": "/auth/register/code",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register/verify",
+          "status": 400,
+          "code": 3003
+        },
+        {
+          "path": "/auth/register",
+          "status": 400,
+          "code": 3005
+        },
+        {
+          "path": "/auth/register/code",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register/verify",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register/code",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register/verify",
+          "status": 200,
+          "code": 0
+        },
+        {
+          "path": "/auth/register",
+          "status": 201,
+          "code": 0
+        },
+        {
+          "path": "/auth/register",
+          "status": 409,
+          "code": 3001
+        },
+        {
+          "path": "/auth/register/verify",
+          "status": 400,
+          "code": 3004
+        }
+      ],
+      "accounts": [
+        {
+          "email": "demo-signup-1794928420288@example.com",
+          "id": "2122709769574785025"
+        },
+        {
+          "email": "demo-duplicate-1794928420288@example.com",
+          "id": "2122709772288499714"
+        }
+      ],
+      "finished": "2026-11-17T15:18:42.524Z",
+      "passed": true,
+      "database_checks": {
+        "registered_counts": [
+          1,
+          1
+        ],
+        "rejected_email_counts": [
+          0,
+          0
+        ]
+      }
+    }
+  ]
+}

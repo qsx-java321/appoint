@@ -22,7 +22,7 @@
 
 - Python脚本仅保留`scripts/local_env.py`，用于环境初始化、启停及管理。
 
-- dev/test/demo共用Compose真实MySQL、Redis、RabbitMQ，数据库、Redis namespace、RabbitMQ vhost及凭据独立。一次按需启动一套，切换前停止上一套。
+- dev/test/demo共用Compose中的MySQL、Redis、RabbitMQ和Mailpit；数据库、Redis namespace、RabbitMQ vhost及凭据独立，测试邮件按标题环境和收件人区分。一次按需启动一套，切换前停止上一套。
 - dev保留原appoint数据；test默认保留，显式重置；demo每次后端启动恢复初始状态。同环境锁与重置保护保留，不增加跨环境代码互斥。
 - Compose操作显式使用`--env-file compose.env`；对应profile加载`.env.dev/.env.test/.env.demo`。私密配置不提交、不输出；保留密码和数据卷。
 - IDE/Maven选择单个profile，工作目录为项目根目录，默认dev。test可调业务Clock，dev/demo使用上海真实时间；MockPay渠道状态仅存内存。

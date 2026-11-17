@@ -1,6 +1,13 @@
 export type Id = string;
 export type Role = "USER" | "DOCTOR" | "ADMIN";
 export type Money = string | number;
+export interface RegistrationCodeResponse {
+  expiresIn: number;
+}
+export interface SignupTicketResponse {
+  signupTicket: string;
+  expiresIn: number;
+}
 export interface User {
   id: Id;
   email: string;

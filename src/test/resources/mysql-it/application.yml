@@ -21,6 +21,8 @@ mybatis-plus:
     banner: false
 
 appoint:
+  registration:
+    namespace: mysql-it
   jwt:
     secret: mysql-integration-only-secret-at-least-thirty-two-characters-12345
     expiration-seconds: 7200

@@ -1,5 +1,7 @@
 package com.qsx.appoint;
 
+import static com.qsx.appoint.support.RegistrationTestSupport.verifiedBody;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.catalog.entity.Schedule;
@@ -68,7 +70,7 @@ class ApiFlowIntegrationTest {
         String email = "flow-user@example.com";
         String body = "{\"email\":\"" + email + "\",\"password\":\"password123\"}";
 
-        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(verifiedBody(mockMvc, body)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.email").value(email));
 
@@ -85,16 +87,18 @@ class ApiFlowIntegrationTest {
     @Test
     void duplicateEmailReturnsConflict() throws Exception {
         String body = "{\"email\":\"duplicate@example.com\",\"password\":\"password123\"}";
-        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+        String first = verifiedBody(mockMvc, body);
+        String second = verifiedBody(mockMvc, body);
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(first))
                 .andExpect(status().isCreated());
-        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(second))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(3001));
     }
 
     @Test
     void wrongPasswordAndMissingTokenAreRejected() throws Exception {
         String body = "{\"email\":\"wrong-password@example.com\",\"password\":\"password123\"}";
-        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(verifiedBody(mockMvc, body)))
                 .andExpect(status().isCreated());
         mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"wrong-password@example.com\",\"password\":\"incorrect123\"}"))
@@ -106,7 +110,7 @@ class ApiFlowIntegrationTest {
     @Test
     void doctorCatalogExposesGlobalDoctorNumbers() throws Exception {
         String body = "{\"email\":\"catalog-user@example.com\",\"password\":\"password123\"}";
-        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body));
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(verifiedBody(mockMvc, body)));
         String loginResult = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andReturn().getResponse().getContentAsString();
         String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
@@ -124,7 +128,7 @@ class ApiFlowIntegrationTest {
     @Test
     void responseIdsAreStringsAndStringScheduleIdCanCreateAppointment() throws Exception {
         String body = "{\"email\":\"string-id-user@example.com\",\"password\":\"password123\"}";
-        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(verifiedBody(mockMvc, body)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.id").isString());
         String loginResult = mockMvc.perform(post("/api/v1/auth/login")
@@ -154,7 +158,7 @@ class ApiFlowIntegrationTest {
     void appointmentAndPaymentAdvanceStatesOnlyOnce() throws Exception {
         String email = "order-user@example.com";
         String body = "{\"email\":\"" + email + "\",\"password\":\"password123\"}";
-        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body));
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(verifiedBody(mockMvc, body)));
         String loginResult = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andReturn().getResponse().getContentAsString();
         String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
@@ -189,7 +193,7 @@ class ApiFlowIntegrationTest {
     @Test
     void startingMockPaymentAttemptReturnsAcceptedAndStableCheckoutData() throws Exception {
         String body = "{\"email\":\"attempt-http@example.com\",\"password\":\"password123\"}";
-        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body));
+        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(verifiedBody(mockMvc, body)));
         String loginResult = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andReturn().getResponse().getContentAsString();

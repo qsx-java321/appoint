@@ -2,9 +2,11 @@
 
 同仓库的Spring Boot后端与Vue 3前端，提供预约挂号、模拟支付、到院签到及医生接诊。医院、科室和医生每天正常工作；场次由首次预约按需生成。
 
+注册时先验证邮箱，再设置密码。验证码邮件在[Mailpit](http://127.0.0.1:8025)查看；首次创建或更新共享服务使用 `docker compose --env-file compose.env up -d --wait`。
+
 ## 主要功能
 
-- 用户注册、JWT登录、角色权限和本人就诊人管理。
+- 邮箱验证码与票据注册、JWT登录、角色权限和本人就诊人管理。
 - 医院、科室、医生目录及管理员统一预约设置，Redis缓存目录查询。
 - 管理员查询医生所属医院、科室、绑定账号及初始密码配置位置，支持医生账号首次绑定。
 - 今天至后天十二个场次、幂等下单、库存暂占、费用与就诊资料快照。
@@ -13,7 +15,7 @@
 
 ## 技术栈
 
-Java 21、Spring Boot、Spring Security、MyBatis-Plus、MySQL 8.4、Flyway、Redis、RabbitMQ；前端使用Node 24、Vue 3、TypeScript、Vite、Pinia和Axios。测试使用JUnit 5、Mockito、MockMvc、Testcontainers和Vitest；MockMvc使用独立H2内存库，MySQL事务与并发测试使用临时容器。
+Java 21、Spring Boot、Spring Security、MyBatis-Plus、MySQL 8.4、Flyway、Redis、RabbitMQ、JavaMailSender和Mailpit；前端使用Node 24、Vue 3、TypeScript、Vite、Pinia和Axios。测试使用JUnit 5、Mockito、MockMvc、Testcontainers和Vitest；MockMvc使用独立H2内存库，MySQL事务与并发测试使用临时容器。
 
 ## 快速启动
 
@@ -57,7 +59,7 @@ python3 scripts/local_env.py start dev
 | 步骤 | 结果和影响 |
 | --- | --- |
 | `git clone` | 下载源码、配置模板和Git历史，不启动服务 |
-| `init` | 从四份`.example`创建缺失的`compose.env`、`.env.dev`、`.env.test`和`.env.demo`，已有配置保留；内部执行`docker compose --env-file compose.env up -d --wait`，启动MySQL、Redis、RabbitMQ，准备三套数据库及账号、RabbitMQ用户、vhost和权限，不创建业务表 |
+| `init` | 从四份`.example`创建缺失的`compose.env`、`.env.dev`、`.env.test`和`.env.demo`，已有配置保留；内部执行`docker compose --env-file compose.env up -d --wait`，启动MySQL、Redis、RabbitMQ和Mailpit，准备三套数据库及账号、RabbitMQ用户、vhost和权限，不创建业务表 |
 | `npm ci` | 按锁文件安装前端依赖到`frontend/node_modules`，不启动前端 |
 | `cutover-dev` | 检查8080端口，以及非空dev库的必要业务表；空库允许通过，通过后写入本机预检标记，不填充业务数据 |
 | `start dev` | 用Maven Wrapper启动dev后端，等待后端端口可连接后启动对应Vue前端，保存日志及进程记录 |
@@ -140,7 +142,7 @@ python3 scripts/local_env.py stop demo
 docker compose --env-file compose.env stop
 ```
 
-脚本的`stop`只停止它托管的对应环境前后端，不停止容器；Compose的`stop`停止三个共享容器，保留容器和数据卷，不退出Docker Desktop或停止Docker服务本身。dev/test下次启动继续保留数据库业务记录；demo本次停止不会清空数据，但下次后端启动会重置。MockPay渠道状态仅存后端内存，三套环境都不会在重启后恢复该状态。
+脚本的`stop`只停止它托管的对应环境前后端，不停止容器；Compose的`stop`停止四个共享容器，保留容器和数据卷，不退出Docker Desktop或停止Docker服务本身。dev/test下次启动继续保留数据库业务记录；demo本次停止不会清空数据，但下次后端启动会重置。MockPay渠道状态仅存后端内存，三套环境都不会在重启后恢复该状态。
 
 如果只是临时停止前后端或准备切换环境，仅执行对应的`python3 scripts/local_env.py stop ...`，保持共享容器运行即可。IDE手动启动的进程需要在IDE中停止，脚本不会接管这些进程。
 
@@ -250,10 +252,13 @@ MySQL测试自行创建临时容器，不连接dev/test/demo常驻资源，无�
 
 2026-11-17新增管理员医生账号查询，独立自动化回归及按test→dev→demo执行的实际验收见[医生账号查询验收报告](docs/testing/2026-11-17-doctor-accounts-report.md)与[JSON记录](docs/testing/2026-11-17-doctor-accounts-report.json)。本次新增报告，保留原报告内容。
 
+本次邮箱验证码与注册票据的三环境串行验收见[邮箱注册验收报告](docs/testing/email-signup-report.md)。
+
 ## 文档入口
 
 | 想了解什么 | 文档 |
 | --- | --- |
+| 邮箱验证码与注册票据实施记录 | [实施方案](docs/email-signup-plan.md) |
 | 如何启动、切换和维护环境 | [环境说明](docs/environments.md) |
 | 如何预约、付款、签到和接诊 | [业务流程](docs/business-flow.md) |
 | 新增就诊人时如何填写、可复制的多位示例 | [就诊人信息填写示例](docs/patient-examples.md) |
@@ -274,4 +279,4 @@ MySQL测试自行创建临时容器，不连接dev/test/demo常驻资源，无�
 
 系统使用MockPay，尚未接入真实资金渠道；渠道状态仅保存在当前后端进程内，跨重启查询与退款续接有限制。
 
-未实现医院关门、医生停诊、管理员手工维护场次、自动叫号、爽约、病历处方、实时推送和短信邮件通知。退款结果队列已有拓扑但没有监听器，Outbox失败耗尽和死信可能需要人工恢复。
+未实现医院关门、医生停诊、管理员手工维护场次、自动叫号、爽约、病历处方、实时推送及业务短信邮件通知（已有注册验证码邮件）。退款结果队列已有拓扑但没有监听器，Outbox失败耗尽和死信可能需要人工恢复。

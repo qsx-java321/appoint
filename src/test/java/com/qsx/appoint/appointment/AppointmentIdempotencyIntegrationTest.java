@@ -1,5 +1,7 @@
 package com.qsx.appoint.appointment;
 
+import static com.qsx.appoint.support.RegistrationTestSupport.verifiedBody;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.catalog.entity.Schedule;
@@ -284,7 +286,7 @@ class AppointmentIdempotencyIntegrationTest {
         String email = "appointment-idempotency-" + UUID.randomUUID() + "@example.com";
         String credentials = "{\"email\":\"" + email + "\",\"password\":\"password123\"}";
         mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON).content(credentials))
+                        .contentType(MediaType.APPLICATION_JSON).content(verifiedBody(mockMvc, credentials)))
                 .andExpect(status().isCreated());
         String response = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON).content(credentials))

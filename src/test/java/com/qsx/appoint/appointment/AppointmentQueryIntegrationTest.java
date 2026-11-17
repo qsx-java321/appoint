@@ -1,5 +1,7 @@
 package com.qsx.appoint.appointment;
 
+import static com.qsx.appoint.support.RegistrationTestSupport.verifiedBody;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.catalog.entity.Doctor;
@@ -292,7 +294,7 @@ class AppointmentQueryIntegrationTest {
         String email = "appointment-query-" + UUID.randomUUID() + "@example.com";
         String requestBody = "{\"email\":\"" + email + "\",\"password\":\"password123\"}";
         String registerResponse = mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON).content(requestBody))
+                        .contentType(MediaType.APPLICATION_JSON).content(verifiedBody(mockMvc, requestBody)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long userId = objectMapper.readTree(registerResponse).at("/data/id").asLong();

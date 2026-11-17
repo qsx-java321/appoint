@@ -1,6 +1,16 @@
 name: appoint
 
 services:
+  mailpit:
+    image: axllent/mailpit:v1.31
+    container_name: appoint-mailpit
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    networks:
+      - appoint-network
+    restart: "no"
+
   mysql:
     image: mysql:8.4
     container_name: appoint-mysql

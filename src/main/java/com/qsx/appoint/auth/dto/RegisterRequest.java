@@ -11,6 +11,9 @@ import lombok.Setter;
 @Setter
 public class RegisterRequest {
     @NotBlank
+    private String signupTicket;
+
+    @NotBlank
     @Email
     private String email;
 

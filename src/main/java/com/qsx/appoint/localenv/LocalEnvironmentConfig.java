@@ -37,9 +37,11 @@ public class LocalEnvironmentConfig {
                         }
                     }
                 } catch (Exception e) { throw new IllegalStateException("环境消息重置失败；启动停止"); }
-                String prefix = "appoint:" + lifecycle.name() + ":catalog:v1:*";
-                try (var cursor = redis.scan(ScanOptions.scanOptions().match(prefix).count(100).build())) {
-                    cursor.forEachRemaining(redis::delete);
+                for (String prefix : java.util.List.of("appoint:" + lifecycle.name() + ":catalog:v1:*",
+                        "appoint:" + lifecycle.name() + ":auth:*")) {
+                    try (var cursor = redis.scan(ScanOptions.scanOptions().match(prefix).count(100).build())) {
+                        cursor.forEachRemaining(redis::delete);
+                    }
                 }
                 org.flywaydb.core.Flyway.configure().configuration(flyway.getConfiguration())
                         .cleanDisabled(false).load().clean();

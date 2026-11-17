@@ -1,5 +1,7 @@
 package com.qsx.appoint.patient;
 
+import static com.qsx.appoint.support.RegistrationTestSupport.verifiedBody;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -164,7 +166,7 @@ class PatientIntegrationTest {
         String email = "patient-" + UUID.randomUUID() + "@example.com";
         String credentials = "{\"email\":\"" + email + "\",\"password\":\"password123\"}";
         mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON).content(credentials))
+                        .contentType(MediaType.APPLICATION_JSON).content(verifiedBody(mockMvc, credentials)))
                 .andExpect(status().isCreated());
         String login = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON).content(credentials))

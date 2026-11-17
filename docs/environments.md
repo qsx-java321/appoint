@@ -1,6 +1,6 @@
 # dev、test、demo三环境使用说明
 
-三套环境共用Docker Compose中的真实MySQL、Redis、RabbitMQ，前后端在宿主机启动。dev用于日常业务体验，test用于独立操作业务，demo用于首次体验和演示。三环境的业务代码和规则一致，通过独立配置、身份和数据生命周期区分用途。
+三套环境共用Docker Compose中的真实MySQL、Redis、RabbitMQ及Mailpit，前后端在宿主机启动。dev用于日常业务体验，test用于独立操作业务，demo用于首次体验和演示。三环境的业务代码和规则一致，通过独立配置、身份和数据生命周期区分用途。
 
 ## 环境对应关系
 
@@ -11,6 +11,7 @@
 | MySQL数据库 | appoint（原库） | appoint_test | appoint_demo |
 | Redis namespace | dev | test | demo |
 | RabbitMQ vhost | /appoint-dev | /appoint-test | /appoint-demo |
+| 注册邮件 | 共用Mailpit，标题[dev] | 共用Mailpit，标题[test] | 共用Mailpit，标题[demo] |
 | 私密配置 | .env.dev | .env.test | .env.demo |
 | 数据生命周期 | 一直保留 | 默认保留，显式重置 | 每次后端启动恢复初始状态 |
 | 业务时间 | 上海真实时间 | 默认实时，可运行中调时 | 上海真实时间 |
@@ -114,7 +115,7 @@ demo清理仅针对自身数据库、缓存和消息；脚本、Maven、IDE入�
 
 demo每次后端启动重新执行V1和V2，再按当前`.env.demo`的`LOCAL_SEED_PASSWORD`创建上述20个用户及医生绑定。
 
-test普通重启保留数据，只有显式重置才清空自己的业务数据（包括自行注册的用户和预约），重建表和样例目录、清理目录缓存及应用消息队列。确保共享容器运行，先停止test，再重置并重新启动：
+test普通重启保留数据，只有显式重置才清空自己的业务数据（包括自行注册的用户和预约），重建表和样例目录、清理目录缓存、注册验证码/票据及应用消息队列。确保共享容器运行，先停止test，再重置并重新启动：
 
 ```bash
 docker compose --env-file compose.env up -d --wait
@@ -152,10 +153,18 @@ python3 scripts/local_env.py clock test reset
 
 命令用LOCAL_SEED_PASSWORD登录专用管理员；若已修改管理员密码，应使用有效凭据调用[调时API](api.md#test环境业务调时)。
 
-设置后时间继续走秒；偏移仅存当前进程，重启恢复实时。调时影响使用业务Clock的预约、支付截止、签到及相关任务，不修改系统、数据库、浏览器或JWT时间。回拨不撤销已完成事实。dev/demo不注册调时接口。
+设置后时间继续走秒；偏移仅存当前进程，重启恢复实时。调时影响使用业务Clock的预约、支付截止、签到及相关任务，不修改系统、数据库、浏览器、JWT或注册验证码/票据的有效时间。回拨不撤销已完成事实。dev/demo不注册调时接口。
 
 MockPay继续保存在内存，应用重启后旧渠道支付查询和退款续接存在限制。demo是本地演示环境，不代表生产部署。
 
 ## 自动化测试与常驻环境
 
 常驻`test`是可手动体验和调整业务时间的运行环境；Maven的`mysql-it`用于启动Testcontainers临时MySQL执行自动化测试，二者互不依赖。自动化测试不读取三环境私密配置，不要求运行Compose初始化或环境重置。测试运行命令见[README](../README.md#自动化测试)，已有结果见[测试报告](testing/latest-report.md)。
+
+## 本地注册邮件
+
+四个共享服务由同一Compose统一管理。Mailpit使用已有 `axllent/mailpit:v1.31` 镜像，容器名 `appoint-mailpit`，复用镜像健康检查。宿主后端通过 `127.0.0.1:1025` SMTP发信，浏览器打开[Mailpit](http://127.0.0.1:8025)查看验证码。默认无认证/TLS、无外部投递；邮件仅为本地测试使用，临时存储不保证退出后保留。
+
+已有项目更新后执行 `docker compose --env-file compose.env up -d --wait` 即会创建Mailpit，不必重新init。脚本start/stop仍只管理前后端；Compose stop停止全部四个共享服务。
+
+三环境共用收件页面，邮件标题通过 `[dev]`、`[test]`、`[demo]` 区分。SMTP配置位于application.yml；注册namespace位于对应profile配置。验证码和票据在Redis按环境前缀隔离，demo每次后端启动与test显式重置会清理自身auth键；普通dev/test重启保留并自然过期。已有账号及预置账号仍直接邮箱密码登录，新公开注册必须验证邮箱。

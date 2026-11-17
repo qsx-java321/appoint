@@ -10,6 +10,7 @@ import java.lang.annotation.*;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Inherited
+@org.springframework.context.annotation.Import(RegistrationTestSupport.class)
 @SpringBootTest
 @TestPropertySource(properties = {
         "spring.config.location=classpath:/regression/",

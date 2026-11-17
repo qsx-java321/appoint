@@ -16,26 +16,33 @@
 
 ## 账号注册、登录与当前用户
 
-| 方法与路径 | 权限 | 请求 | 成功响应 |
-| --- | --- | --- | --- |
-| `POST /api/v1/auth/register` | 匿名 | `email`、`password` | 201，用户对象 |
-| `POST /api/v1/auth/login` | 匿名 | `email`、`password` | 200，Token 与用户对象 |
-| `GET /api/v1/users/me` | 登录 | 无请求体 | 200，当前用户对象 |
+匿名注册分三阶段；先验证邮箱，最后创建账号。登录沿用邮箱密码。
 
-注册、登录请求示例：
+| 方法与路径 | 参数 | 成功结果 |
+| --- | --- | --- |
+| `POST /api/v1/auth/register/code` | `email` | 200，`{"expiresIn":300}`，验证码发往 Mailpit |
+| `POST /api/v1/auth/register/verify` | `email`、`code` | 200，`{"signupTicket":"<UUID>","expiresIn":300}` |
+| `POST /api/v1/auth/register` | `email`、`password`、`signupTicket` | 201，用户对象 |
+| `POST /api/v1/auth/login` | `email`、`password` | 200，Token 与用户对象 |
+| `GET /api/v1/users/me` | 无请求体，需要登录 | 200，当前用户对象 |
+
+上述 data 均包含在统一 Result 响应中。验证码是保留前导零的六位数字字符串，有效期五分钟；重发覆盖旧码。验证成功删除验证码并签发五分钟票据；验证步骤不创建用户。注册必须消费与邮箱匹配的票据，之后检查邮箱重复并创建账号。注册不会自动登录。
 
 ```json
-{
-  "email": "student@example.com",
-  "password": "password123"
-}
+{"email":"reader@example.com","password":"example-password","signupTicket":"<verify返回的票据>"}
 ```
 
-邮箱必须非空并符合邮箱格式，保存和登录查找前会去除首尾空白、转为小写。注册密码必须为 8–64 个字符；登录密码要求非空。
+邮箱要求非空且符合格式，业务处理前统一去除首尾空白并转小写。注册密码为8–64字符，登录密码要求非空。用户对象为 `id`、`email`、`roles`，不含密码；注册只授予 `USER`，管理员授权见[环境说明](environments.md#dev管理员授权)。
 
-用户对象为 `id`、`email`、`roles`，不含密码。注册只赋予 `USER`；本地开发的管理员授权见 [README](environments.md#dev管理员授权)。重复邮箱返回 `409 / 3001`，账号或密码错误返回 `401 / 2003`。
+| 条件 | HTTP / code |
+| --- | --- |
+| 验证码错误 | 400 / 3003 |
+| 验证码不存在或过期 | 400 / 3004 |
+| 票据无效、过期、已消费或邮箱不匹配 | 400 / 3005 |
+| 重复邮箱 | 409 / 3001 |
+| 邮箱或密码错误 | 401 / 2003 |
 
-登录响应为 `accessToken`、`tokenType`（`Bearer`）、`expiresIn`（秒，当前配置 7200）和 `user`。后续请求携带 `Authorization: Bearer <accessToken>`；未提供或无效/过期 Token 访问受保护接口返回 `401 / 2001`。`users/me` 查询当前数据库角色，但请求权限来自 JWT 中的角色，授权后应重新登录。当前用户记录不存在返回 `404 / 3002`。
+登录响应为 `accessToken`、`tokenType`（Bearer）、`expiresIn`（7200秒）和 `user`。后续携带 `Authorization: Bearer <accessToken>`；无效/过期Token访问受保护接口返回401/2001。`users/me` 查询数据库角色，但权限来自JWT角色，角色变更应重新登录。当前用户不存在返回404/3002。
 
 ## 就诊人管理
 
@@ -257,6 +264,9 @@ dev/test/demo 注册以下 MockPay 接口，均需要登录，无请求体：
 | 账号或密码错误 | `401 / 2003` |
 | 注册邮箱重复 | `409 / 3001` |
 | 当前账号记录不存在 | `404 / 3002` |
+| 注册验证码错误 | `400 / 3003` |
+| 注册验证码不存在或过期 | `400 / 3004` |
+| 注册票据无效、过期、已消费或邮箱不匹配 | `400 / 3005` |
 | 普通用户访问管理员接口、访问他人就诊人或预约/支付 | `403 / 2002` |
 | 资源不存在或旧管理员场次路由 | `404 / 4001` |
 | 本账号重复登记就诊人证件 | `409 / 4101` |

@@ -2,349 +2,26 @@
   "groups": {
     "backend": {
       "title": "后端单元/Mock与H2/MockMvc",
-      "tested_on": "2026-11-16",
-      "command": null,
-      "build_exit_code": null,
-      "source_revision": null,
-      "status": "用例通过",
+      "tested_on": "2026-11-17",
+      "command": "./mvnw clean test；./mvnw -Pmysql-it verify",
+      "build_exit_code": 0,
+      "source_revision": "本报告所在提交（基于6a321a5开发；验收后仅复核文档）",
+      "status": "通过",
       "totals": {
-        "tests": 324,
+        "tests": 337,
         "failures": 0,
         "errors": 0,
         "skipped": 0,
-        "passed": 324
+        "passed": 337
       },
-      "duration_seconds": 29.318,
       "suites": [
-        {
-          "name": "com.qsx.appoint.ApiFlowIntegrationTest",
-          "tests": 7,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 7,
-          "duration_seconds": 1.507,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.appointment.AppointmentExpirationJobTest",
-          "tests": 1,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 1,
-          "duration_seconds": 0.073,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.appointment.AppointmentIdempotencyIntegrationTest",
-          "tests": 7,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 7,
-          "duration_seconds": 2.039,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.appointment.AppointmentLifecycleIntegrationTest",
-          "tests": 12,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 12,
-          "duration_seconds": 2.702,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.appointment.AppointmentQueryIntegrationTest",
-          "tests": 10,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 10,
-          "duration_seconds": 2.994,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.appointment.OnDemandBookingHttpTest",
-          "tests": 14,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 14,
-          "duration_seconds": 0.993,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.appointment.ScheduleInventoryIntegrationTest",
-          "tests": 6,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 6,
-          "duration_seconds": 4.617,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.bookingquery.application.AppointmentResponseAssemblerTest",
-          "tests": 7,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 7,
-          "duration_seconds": 0.01,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.bookingquery.application.BookingQueryServiceTest",
-          "tests": 3,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 3,
-          "duration_seconds": 0.071,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.bookingquery.application.BookingWorkflowProjectorTest",
-          "tests": 14,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 14,
-          "duration_seconds": 0.01,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.catalog.BookingSettingsHttpTest",
-          "tests": 3,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 3,
-          "duration_seconds": 0.035,
-          "attention": []
-        },
         {
           "name": "com.qsx.appoint.catalog.CatalogManagementIntegrationTest",
           "tests": 11,
           "failures": 0,
           "errors": 0,
           "skipped": 0,
-          "passed": 11,
-          "duration_seconds": 0.228,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.catalog.SessionCatalogHttpTest",
-          "tests": 4,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 4,
-          "duration_seconds": 0.547,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.catalog.cache.CatalogDirectoryCacheTest",
-          "tests": 8,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 8,
-          "duration_seconds": 0.273,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.catalog.model.BookingTimeRulesTest",
-          "tests": 9,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 9,
-          "duration_seconds": 0.006,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.common.messaging.ConfirmedMessagePublisherTest",
-          "tests": 5,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 5,
-          "duration_seconds": 0.025,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.common.messaging.RabbitConsumerFailureHandlerTest",
-          "tests": 22,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 22,
-          "duration_seconds": 0.073,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.coordination.LifecycleLanguageTest",
-          "tests": 2,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 2,
-          "duration_seconds": 0.007,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.coordination.PaymentSucceededEventCodecTest",
-          "tests": 1,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 1,
-          "duration_seconds": 0.004,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.coordination.application.BookingLifecyclePolicyTest",
-          "tests": 42,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 42,
-          "duration_seconds": 0.044,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.coordination.messaging.PaymentSucceededListenerTest",
-          "tests": 5,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 5,
-          "duration_seconds": 0.187,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.localenv.LocalEnvironmentAccountsHttpTest",
-          "tests": 7,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 7,
-          "duration_seconds": 7.045,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.localenv.LocalEnvironmentPolicyTest",
-          "tests": 9,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 9,
-          "duration_seconds": 0.066,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.localenv.SampleCatalogUpgradeHttpTest",
-          "tests": 1,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 1,
-          "duration_seconds": 0.577,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.patient.PatientIntegrationTest",
-          "tests": 4,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 4,
-          "duration_seconds": 1.376,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.payment.PaymentDomainEnumTest",
-          "tests": 1,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 1,
-          "duration_seconds": 0.005,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.payment.PaymentGatewayContractTest",
-          "tests": 7,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 7,
-          "duration_seconds": 0.179,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.payment.application.PaymentNotificationBoundaryTest",
-          "tests": 2,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 2,
-          "duration_seconds": 0.201,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.payment.application.PaymentNotificationPolicyTest",
-          "tests": 10,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 10,
-          "duration_seconds": 0.04,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.payment.messaging.DeadLetterReplayContractTest",
-          "tests": 10,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 10,
-          "duration_seconds": 0.216,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.payment.messaging.MessageConsumerContractTest",
-          "tests": 30,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 30,
-          "duration_seconds": 0.37,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.payment.messaging.RefundRequestedListenerTest",
-          "tests": 5,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 5,
-          "duration_seconds": 0.731,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.visit.VisitHttpTest",
-          "tests": 37,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 37,
-          "duration_seconds": 1.778,
-          "attention": []
+          "passed": 11
         },
         {
           "name": "com.qsx.appoint.visit.application.VisitServiceTest",
@@ -352,9 +29,255 @@
           "failures": 0,
           "errors": 0,
           "skipped": 0,
-          "passed": 2,
-          "duration_seconds": 0.265,
-          "attention": []
+          "passed": 2
+        },
+        {
+          "name": "com.qsx.appoint.payment.PaymentDomainEnumTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 1
+        },
+        {
+          "name": "com.qsx.appoint.payment.application.PaymentNotificationPolicyTest",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 10
+        },
+        {
+          "name": "com.qsx.appoint.appointment.OnDemandBookingHttpTest",
+          "tests": 14,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 14
+        },
+        {
+          "name": "com.qsx.appoint.coordination.PaymentSucceededEventCodecTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 1
+        },
+        {
+          "name": "com.qsx.appoint.payment.application.PaymentNotificationBoundaryTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 2
+        },
+        {
+          "name": "com.qsx.appoint.coordination.messaging.PaymentSucceededListenerTest",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 5
+        },
+        {
+          "name": "com.qsx.appoint.catalog.DoctorAccountQueryHttpTest",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 7
+        },
+        {
+          "name": "com.qsx.appoint.payment.messaging.MessageConsumerContractTest",
+          "tests": 30,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 30
+        },
+        {
+          "name": "com.qsx.appoint.payment.messaging.RefundRequestedListenerTest",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 5
+        },
+        {
+          "name": "com.qsx.appoint.appointment.AppointmentLifecycleIntegrationTest",
+          "tests": 12,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 12
+        },
+        {
+          "name": "com.qsx.appoint.patient.PatientIntegrationTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 4
+        },
+        {
+          "name": "com.qsx.appoint.common.messaging.RabbitConsumerFailureHandlerTest",
+          "tests": 22,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 22
+        },
+        {
+          "name": "com.qsx.appoint.ApiFlowIntegrationTest",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 7
+        },
+        {
+          "name": "com.qsx.appoint.localenv.LocalEnvironmentPolicyTest",
+          "tests": 9,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 9
+        },
+        {
+          "name": "com.qsx.appoint.catalog.SessionCatalogHttpTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 4
+        },
+        {
+          "name": "com.qsx.appoint.coordination.LifecycleLanguageTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 2
+        },
+        {
+          "name": "com.qsx.appoint.localenv.LocalEnvironmentAccountsHttpTest",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 7
+        },
+        {
+          "name": "com.qsx.appoint.catalog.DoctorAccountQueryServiceTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 4
+        },
+        {
+          "name": "com.qsx.appoint.bookingquery.application.BookingQueryServiceTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 3
+        },
+        {
+          "name": "com.qsx.appoint.appointment.AppointmentIdempotencyIntegrationTest",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 7
+        },
+        {
+          "name": "com.qsx.appoint.common.messaging.ConfirmedMessagePublisherTest",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 5
+        },
+        {
+          "name": "com.qsx.appoint.visit.VisitHttpTest",
+          "tests": 37,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 37
+        },
+        {
+          "name": "com.qsx.appoint.catalog.model.BookingTimeRulesTest",
+          "tests": 9,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 9
+        },
+        {
+          "name": "com.qsx.appoint.catalog.cache.CatalogDirectoryCacheTest",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 8
+        },
+        {
+          "name": "com.qsx.appoint.auth.RegistrationHttpTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 2
+        },
+        {
+          "name": "com.qsx.appoint.bookingquery.application.BookingWorkflowProjectorTest",
+          "tests": 14,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 14
+        },
+        {
+          "name": "com.qsx.appoint.appointment.AppointmentExpirationJobTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 1
+        },
+        {
+          "name": "com.qsx.appoint.payment.messaging.DeadLetterReplayContractTest",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 10
+        },
+        {
+          "name": "com.qsx.appoint.appointment.AppointmentQueryIntegrationTest",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 10
+        },
+        {
+          "name": "com.qsx.appoint.catalog.BookingSettingsHttpTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 3
+        },
+        {
+          "name": "com.qsx.appoint.appointment.ScheduleInventoryIntegrationTest",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 6
         },
         {
           "name": "com.qsx.appoint.visit.domain.VisitRulesTest",
@@ -362,19 +285,49 @@
           "failures": 0,
           "errors": 0,
           "skipped": 0,
-          "passed": 6,
-          "duration_seconds": 0.024,
-          "attention": []
+          "passed": 6
+        },
+        {
+          "name": "com.qsx.appoint.bookingquery.application.AppointmentResponseAssemblerTest",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 7
+        },
+        {
+          "name": "com.qsx.appoint.coordination.application.BookingLifecyclePolicyTest",
+          "tests": 42,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 42
+        },
+        {
+          "name": "com.qsx.appoint.payment.PaymentGatewayContractTest",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 7
+        },
+        {
+          "name": "com.qsx.appoint.localenv.SampleCatalogUpgradeHttpTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 1
         }
       ]
     },
     "mysql": {
       "title": "MySQL集成测试",
-      "tested_on": "2026-11-16",
-      "command": null,
-      "build_exit_code": null,
-      "source_revision": null,
-      "status": "用例通过",
+      "tested_on": "2026-11-17",
+      "command": "./mvnw -Pmysql-it verify",
+      "build_exit_code": 0,
+      "source_revision": "本报告所在提交（基于6a321a5开发；验收后仅复核文档）",
+      "status": "通过",
       "totals": {
         "tests": 12,
         "failures": 0,
@@ -382,7 +335,6 @@
         "skipped": 0,
         "passed": 12
       },
-      "duration_seconds": 53.891,
       "suites": [
         {
           "name": "com.qsx.appoint.mysql.BookingConcurrencyMySqlIT",
@@ -390,29 +342,7 @@
           "failures": 0,
           "errors": 0,
           "skipped": 0,
-          "passed": 4,
-          "duration_seconds": 9.977,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.mysql.BookingRollbackMySqlIT",
-          "tests": 1,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 1,
-          "duration_seconds": 9.256,
-          "attention": []
-        },
-        {
-          "name": "com.qsx.appoint.mysql.MigrationMySqlIT",
-          "tests": 2,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 2,
-          "duration_seconds": 23.848,
-          "attention": []
+          "passed": 4
         },
         {
           "name": "com.qsx.appoint.mysql.PaymentConsistencyMySqlIT",
@@ -420,9 +350,23 @@
           "failures": 0,
           "errors": 0,
           "skipped": 0,
-          "passed": 5,
-          "duration_seconds": 10.81,
-          "attention": []
+          "passed": 5
+        },
+        {
+          "name": "com.qsx.appoint.mysql.MigrationMySqlIT",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 2
+        },
+        {
+          "name": "com.qsx.appoint.mysql.BookingRollbackMySqlIT",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 1
         }
       ]
     }
@@ -430,17 +374,17 @@
   "recorded_checks": [
     {
       "title": "前端单元/Mock",
-      "tested_on": "2026-11-15",
-      "tests": 22,
-      "status": "通过（历史记录）",
-      "evidence": "5个文件；原测试文档中的“测试精简历史验证”。本次未重跑，原命令与被测提交未单独保留。"
+      "tested_on": "2026-11-17",
+      "tests": 30,
+      "status": "通过",
+      "evidence": "npm test，7文件、30项通过；API使用Mock。"
     },
     {
       "title": "前端类型检查与生产构建",
-      "tested_on": "2026-11-15",
+      "tested_on": "2026-11-17",
       "tests": null,
-      "status": "通过（历史记录）",
-      "evidence": "原测试文档中的“测试精简历史验证”。本次未重跑，原命令与被测提交未单独保留。"
+      "status": "通过",
+      "evidence": "npm run build退出0，含TypeScript检查。"
     },
     {
       "title": "环境脚本单元/Mock",
@@ -464,13 +408,11 @@
       "evidence": "原测试文档中的“三环境历史验收”。test覆盖注册至接诊及异常分支，dev/demo覆盖注册至付款预约成功；使用MockPay，原被测提交未知。"
     }
   ],
-  "report_date": "2026-11-16",
-  "basis": "自动化测试数据来自既有Maven报告，历史验收沿用原测试文档；2026-11-16另行完成test环境真实HTTP主流程实测，各组独立记录验收日期和覆盖范围。",
+  "report_date": "2026-11-17",
+  "basis": "本轮邮箱注册改造自动化实测；历史人工业务验收见各独立报告。",
   "limitations": [
-    "Maven原始报告未记录被测代码提交和Maven退出码，均保留为未知；API主流程实测的被测版本单独记录。",
-    "支付使用内存MockPay，不代表真实资金渠道验收。",
-    "MySQL测试未覆盖吞吐压测、Redis/RabbitMQ运行故障及浏览器端到端流程。",
-    "退款终态仅验证至本地REFUND_PENDING，未验证真实消息和退款渠道完成。"
+    "Redis/SMTP在自动化中使用测试替身，真实链路见email-signup-report.md",
+    "未新增限流、防刷、并发、故障恢复或真实邮箱投递测试"
   ],
   "api_main_flow": {
     "tested_on": "2026-11-16",
@@ -493,5 +435,22 @@
     "exception_branches_tested": false,
     "clock_restored_to": "realtime",
     "report": "api-flow-report.md"
+  },
+  "frontend": {
+    "tested_on": "2026-11-17",
+    "files": 7,
+    "tests": 30,
+    "passed": 30,
+    "build_exit_code": 0
+  },
+  "email_signup": {
+    "report": "email-signup-report.md",
+    "details": "email-signup-report.json",
+    "environment_order": [
+      "test",
+      "dev",
+      "demo"
+    ],
+    "status": "通过"
   }
 }
