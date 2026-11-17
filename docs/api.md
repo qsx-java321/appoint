@@ -279,6 +279,41 @@ dev/test/demo 注册以下 MockPay 接口，均需要登录，无请求体：
 | 已超过预约场次签到截止时间 | `409 / 4504` |
 | 查询状态组合或关联完整性异常 | `500 / 1002` |
 
+## 管理员医生账号查询
+
+`GET /api/v1/admin/doctor-accounts`仅允许`ADMIN`访问，无请求参数，成功返回200。查询当前后端所连接环境的全部医生，按医院ID、科室ID、医生编号、医生ID排序；读取实际目录和账号绑定，不使用目录缓存，未绑定账号的医生也返回。无医生时`items=[]`。
+
+data为`environment`（当前环境名称）和`items`数组。每项字段如下，ID沿用字符串约定：
+
+| 字段 | 含义 |
+| --- | --- |
+| hospitalId、hospitalName | 所属医院ID及当前名称 |
+| departmentId、departmentName | 所属科室ID及当前名称 |
+| doctorId、doctorNo、doctorName | 医生ID、编号及当前姓名 |
+| userId、email | 绑定的账号ID和邮箱，未绑定时均为null |
+| bindingStatus | BOUND（已绑定）或UNBOUND（未绑定） |
+| passwordHint | 密码说明，不含密码或密码哈希 |
+
+例如test环境的一个列表项：
+
+```json
+{
+  "hospitalId": "1",
+  "hospitalName": "示例市第一人民医院",
+  "departmentId": "1",
+  "departmentName": "内科",
+  "doctorId": "1",
+  "doctorNo": "DOC000001",
+  "doctorName": "张医生",
+  "userId": "2",
+  "email": "test-doctor-001@example.local",
+  "bindingStatus": "BOUND",
+  "passwordHint": "初始密码见 .env.test 的 LOCAL_SEED_PASSWORD"
+}
+```
+
+预置医生账号通过`local_environment_seed_accounts`归属记录识别，不根据邮箱格式推断。dev/test/demo的提示分别指向`.env.dev`、`.env.test`、`.env.demo`；自行注册后绑定的账号提示“使用注册时设置的密码”，未绑定时提示“未绑定账号”。配置中的初始密码只用于首次创建，修改配置不会更新已有账号密码。该接口不读取密码配置，也不提供修改密码、解绑或换绑操作。未登录返回`401 / 2001`，已登录但没有ADMIN返回`403 / 2002`。
+
 ## 到院签到与门诊接诊
 
 所有成功响应为200。用户动作限定本人预约，医生动作限定本人已确认预约；写入口重新校验状态，成功后查询并返回最新详情。

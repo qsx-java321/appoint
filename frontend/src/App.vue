@@ -88,7 +88,8 @@ function logout() {
       <strong>管理工作台</strong
       ><RouterLink to="/admin/catalog">医院科室医生</RouterLink
       ><RouterLink to="/admin/booking-settings">统一预约设置</RouterLink
-      ><RouterLink to="/admin/doctor-accounts">医生账号绑定</RouterLink>
+      ><RouterLink to="/admin/doctor-accounts">医生账号查询</RouterLink
+      ><RouterLink to="/admin/doctor-accounts/bind">医生账号绑定</RouterLink>
     </aside>
     <main id="main"><RouterView /></main>
   </div>

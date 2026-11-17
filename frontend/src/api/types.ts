@@ -28,6 +28,23 @@ export interface Doctor {
   title: string;
   introduction: string | null;
 }
+export interface DoctorAccount {
+  hospitalId: Id;
+  hospitalName: string;
+  departmentId: Id;
+  departmentName: string;
+  doctorId: Id;
+  doctorNo: string;
+  doctorName: string;
+  userId: Id | null;
+  email: string | null;
+  bindingStatus: "BOUND" | "UNBOUND";
+  passwordHint: string;
+}
+export interface DoctorAccountList {
+  environment: string;
+  items: DoctorAccount[];
+}
 export type SessionType =
   "MORNING_FIRST" | "MORNING_SECOND" | "AFTERNOON_FIRST" | "AFTERNOON_SECOND";
 export interface Schedule {

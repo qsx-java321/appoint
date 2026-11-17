@@ -44,6 +44,8 @@ flowchart LR
 
 [LocalEnvironmentAccounts](../src/main/java/com/qsx/appoint/localenv/LocalEnvironmentAccounts.java)由启动生命周期在迁移完成后的同一账号初始化事务中调用；所有环境使用相同的账号创建与绑定逻辑。`local_environment_seed_accounts`记录账号归属，防止对同邮箱人工账号自动提权；医生绑定用条件UPDATE保留已有绑定。冲突时账号初始化事务回滚，迁移已提交的目录数据保留。已有账号密码、角色及管理员维护的目录不在普通重启时覆盖，具体样例和数据生命周期见[账号及重置](environments.md#账号及重置)。
 
+管理员医生账号查询由`DoctorAccountQueryService`负责，通过单次只读联查组合医院、科室、医生、登录账号及预置归属记录；医生为主表，保留未绑定医生，直接反映目录和绑定变更，不使用Redis缓存。查询仅根据环境名生成密码位置说明，不读取密码配置或查询密码哈希；接口字段见[管理员医生账号查询](api.md#管理员医生账号查询)。
+
 ## 创建与生命周期接口
 
 [DefaultBookingCoordinator](../src/main/java/com/qsx/appoint/coordination/application/DefaultBookingCoordinator.java)规范化UUID幂等键和内容摘要，再调用独立Spring事务Bean `BookingCreationTransaction`。账号内幂等登记、按需场次、占号、预约、支付及回执同库提交。唯一键冲突退出事务并回滚后，外层才能查询已提交登记并返回重放回执。

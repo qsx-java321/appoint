@@ -64,6 +64,11 @@ export const router = createRouter({
     },
     {
       path: "/admin/doctor-accounts",
+      component: () => import("../views/DoctorAccountsView.vue"),
+      meta: { role: "ADMIN" },
+    },
+    {
+      path: "/admin/doctor-accounts/bind",
       component: () => import("../views/BindingView.vue"),
       meta: { role: "ADMIN" },
     },

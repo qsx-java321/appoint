@@ -6,6 +6,7 @@
 
 - 用户注册、JWT登录、角色权限和本人就诊人管理。
 - 医院、科室、医生目录及管理员统一预约设置，Redis缓存目录查询。
+- 管理员查询医生所属医院、科室、绑定账号及初始密码配置位置，支持医生账号首次绑定。
 - 今天至后天十二个场次、幂等下单、库存暂占、费用与就诊资料快照。
 - MockPay支付、异步确认取号、取消、超时、原路退款及消息重试。
 - 用户签到，医生四场看板、开始和完成接诊，双方查看同一就诊进度。
@@ -246,6 +247,8 @@ MySQL测试自行创建临时容器，不连接dev/test/demo常驻资源，无�
 测试结果见[测试报告](docs/testing/latest-report.md)与[JSON报告](docs/testing/latest-report.json)。重新测试后直接覆盖对应结果，保留实际测试日期和未验证范围；旧结果通过Git历史追溯。
 
 常驻test环境的真实HTTP主流程实测见[API主流程测试报告](docs/testing/api-flow-report.md)，记录注册到就诊完成的实际请求和响应。该实测与上述独立自动化测试分别统计。
+
+2026-11-17新增管理员医生账号查询，独立自动化回归及按test→dev→demo执行的实际验收见[医生账号查询验收报告](docs/testing/2026-11-17-doctor-accounts-report.md)与[JSON记录](docs/testing/2026-11-17-doctor-accounts-report.json)。本次新增报告，保留原报告内容。
 
 ## 文档入口
 

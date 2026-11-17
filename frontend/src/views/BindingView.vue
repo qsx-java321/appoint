@@ -50,6 +50,11 @@ onMounted(load);
 <template>
   <h1>医生账号首次绑定</h1>
   <p class="lead">选择医生档案，再填写已存在的登录账号ID。</p>
+  <p>
+    <RouterLink to="/admin/doctor-accounts"
+      >查看医生账号及当前绑定关系</RouterLink
+    >
+  </p>
   <RequestState :loading="loading" :error="error" @retry="refresh"
     ><section class="panel">
       <form class="form settings-form" @submit.prevent="bind">
@@ -98,7 +103,7 @@ onMounted(load);
       <div v-if="result" class="notice" role="status">
         <h2>本次绑定成功</h2>
         <p>医生ID {{ result.doctorId }} · 账号ID {{ result.userId }}</p>
-        <p>请医生重新登录。本回执不提供绑定关系查询。</p>
+        <p>请医生重新登录；可返回医生账号查询页面查看最新绑定关系。</p>
       </div>
     </section></RequestState
   >

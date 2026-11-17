@@ -84,6 +84,7 @@ export const api = {
       method: "PUT",
       data: { capacityPerSession, registrationFee },
     }),
+  doctorAccounts: () => request<T.DoctorAccountList>("/admin/doctor-accounts"),
   bind: (doctor: string, userId: string) =>
     request<{ doctorId: string; userId: string }>(
       `/admin/doctors/${id(doctor)}/account`,
