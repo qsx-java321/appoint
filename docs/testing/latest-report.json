@@ -421,6 +421,13 @@
       "tests": null,
       "status": "通过",
       "evidence": "独立 Compose 空库完成 init 后直接 start dev，确认 Flyway V1/V2、19 个预置账号、前后端就绪及就诊人创建。停机后直接启动 dev JAR，确认就诊人保留。"
+    },
+    {
+      "title": "Mailpit 持久化验收",
+      "tested_on": "2026-11-18",
+      "tests": null,
+      "status": "通过",
+      "evidence": "Compose 配置校验通过。隔离项目通过 SMTP 写入测试邮件，保留数据卷强制重建容器后，通过 API 读到同一封邮件。"
     }
   ],
   "report_date": "2026-11-18",

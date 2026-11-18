@@ -46,7 +46,18 @@ init先从`compose.env.example`、`.env.dev.example`、`.env.test.example`和`.e
 
 完成初始化并安装前端依赖后，即可直接启动任一环境。首次使用 dev 执行 `python3 scripts/local_env.py start dev`，空库由 Flyway 在后端启动时初始化。
 
-Compose操作始终使用`docker compose --env-file compose.env ...`。停止共享依赖用`docker compose --env-file compose.env stop`，保留卷。
+## Compose 服务与数据卷
+
+Compose 项目名为 `appoint`。四个共享服务使用 `appoint-network`，其镜像、端口和挂载由 [compose.yaml](../compose.yaml) 定义。
+
+| 容器 | 镜像 | 宿主机端口 | 命名卷 | 容器挂载目录 |
+| --- | --- | --- | --- | --- |
+| `appoint-mysql` | `mysql:8.4` | `3306` | `appoint_appoint-mysql-data` | `/var/lib/mysql` |
+| `appoint-redis` | `redis:7.4.9` | `6379` | `appoint_appoint-redis-data` | `/data` |
+| `appoint-rabbitmq` | `rabbitmq:4.3.2-management` | `5672`、`15672` | `appoint_appoint-rabbitmq-data` | `/var/lib/rabbitmq` |
+| `appoint-mailpit` | `axllent/mailpit:v1.31` | `127.0.0.1:1025`、`127.0.0.1:8025` | `appoint_appoint-mailpit-data` | `/data` |
+
+Compose 操作使用 `docker compose --env-file compose.env ...`。执行 `docker compose --env-file compose.env stop` 后，容器停止并继续引用这些卷，下次启动时复用原数据。
 
 ## 启动和切换
 
@@ -162,7 +173,9 @@ MockPay继续保存在内存，应用重启后旧渠道支付查询和退款续�
 
 ## 本地注册邮件
 
-四个共享服务由同一Compose统一管理。Mailpit使用已有 `axllent/mailpit:v1.31` 镜像，容器名 `appoint-mailpit`，复用镜像健康检查。宿主后端通过 `127.0.0.1:1025` SMTP发信，浏览器打开[Mailpit](http://127.0.0.1:8025)查看验证码。默认无认证/TLS、无外部投递；邮件仅为本地测试使用，临时存储不保证退出后保留。
+Mailpit 复用镜像健康检查。宿主后端通过 `127.0.0.1:1025` 发送本地测试邮件，浏览器打开[Mailpit](http://127.0.0.1:8025)查看验证码。
+
+Mailpit 将 SQLite 邮件数据库保存到 `/data/mailpit.db`，该目录挂载命名卷 `appoint_appoint-mailpit-data`。保留该卷时，停止或重建容器后仍可读取已保存的邮件。验证码有效期由后端和 Redis 管理。
 
 已完成初始化时，使用 `docker compose --env-file compose.env up -d --wait` 启动四个共享服务。脚本的 `start` 和 `stop` 管理前后端，Compose 的 `stop` 管理共享服务。
 

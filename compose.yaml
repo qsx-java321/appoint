@@ -4,9 +4,13 @@ services:
   mailpit:
     image: axllent/mailpit:v1.31
     container_name: appoint-mailpit
+    environment:
+      MP_DATABASE: /data/mailpit.db
     ports:
       - "127.0.0.1:1025:1025"
       - "127.0.0.1:8025:8025"
+    volumes:
+      - appoint-mailpit-data:/data
     networks:
       - appoint-network
     restart: "no"
@@ -77,6 +81,7 @@ volumes:
   appoint-mysql-data:
   appoint-redis-data:
   appoint-rabbitmq-data:
+  appoint-mailpit-data:
 
 networks:
   appoint-network:

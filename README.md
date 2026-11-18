@@ -71,7 +71,7 @@ python3 scripts/local_env.py stop demo
 docker compose --env-file compose.env stop
 ```
 
-将 `demo` 换成当前环境名称。`stop` 管理脚本启动的前后端。通过 IDE、JAR 或 npm 单独启动的进程从原入口停止。Compose 停止时保留数据卷。
+将 `demo` 换成当前环境名称。`stop` 管理脚本启动的前后端。通过 IDE、JAR 或 npm 单独启动的进程从原入口停止。Compose 停止时保留四个命名卷，包括 Mailpit 邮件库。见[Compose 服务与数据卷](docs/environments.md#compose-服务与数据卷)。
 
 ### 切换环境
 
