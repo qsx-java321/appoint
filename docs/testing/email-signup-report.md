@@ -41,7 +41,11 @@ test第一次浏览器脚本曾把登录页redirect查询参数误判成已进�
 - 前端类型检查、生产构建和改动文件Prettier检查通过。
 - Compose配置校验通过，Mailpit及其余三个共享容器健康；Mailpit复用镜像内置readyz检查。
 
-命令、测试隔离和一次宿主时钟回拨后的重跑说明见[最新报告](latest-report.md)。没有扩展其他错误、并发、限流、故障补偿或真实外部邮箱投递场景。
+执行了 `./mvnw clean test`、`./mvnw -Pmysql-it verify`，以及前端的 `npm test` 和 `npm run build`，最终均以退出码 0 完成。自动化测试使用 H2、临时 MySQL 及 Redis 和邮件测试替身。真实验证码过期、SMTP 和浏览器流程由上面的三环境验收覆盖。
+
+有一次执行 MySQL 集成测试命令时，宿主时钟回拨约 2.1 秒，前置回归因雪花 ID 生成错误中止，当时尚未进入 MySQL 测试。完整重跑后，337 项后端回归和 12 项 MySQL 集成测试均通过。原始自动化记录保存在提交 `088fe2d` 的 `docs/testing/latest-report.md`。
+
+本轮覆盖上述注册流程与错误场景。并发、限流、故障补偿及真实外部邮箱投递未纳入验收。
 
 ## 串行运行及恢复
 

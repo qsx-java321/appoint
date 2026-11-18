@@ -1,50 +1,36 @@
-# dev、test、demo三环境使用说明
+# 本地环境指南
 
-三套环境共用Docker Compose中的真实MySQL、Redis、RabbitMQ及Mailpit，前后端在宿主机启动。dev用于日常业务体验，test用于独立操作业务，demo用于首次体验和演示。三环境的业务代码和规则一致，通过独立配置、身份和数据生命周期区分用途。
+dev 用于日常开发，test 用于手动验收和业务调时，demo 用于初次体验。三套环境共用 Docker Compose 中的 MySQL、Redis、RabbitMQ 和 Mailpit，前后端在宿主机启动。首次运行从 [README 快速启动](../README.md#快速启动)进入。
+
+[启停与日志](#启动和切换) · [账号及重置](#账号及重置) · [test 调时](#test业务调时) · [Mailpit](#本地注册邮件) · [Flyway 基线](#flyway初始化基线)
 
 ## 环境对应关系
 
 | 项目 | dev | test | demo |
 | --- | --- | --- | --- |
 | Spring profile | dev | test | demo（默认） |
-| 前端→后端 | 5173→8080 | 5173→8080 | 5173→8080 |
-| MySQL数据库 | appoint（原库） | appoint_test | appoint_demo |
-| Redis namespace | dev | test | demo |
-| RabbitMQ vhost | /appoint-dev | /appoint-test | /appoint-demo |
-| 注册邮件 | 共用Mailpit，标题[dev] | 共用Mailpit，标题[test] | 共用Mailpit，标题[demo] |
-| 私密配置 | .env.dev | .env.test | .env.demo |
+| 前端 → 后端 | `5173` → `8080` | `5173` → `8080` | `5173` → `8080` |
+| MySQL 数据库 | `appoint`（原库） | `appoint_test` | `appoint_demo` |
+| Redis namespace | `dev` | `test` | `demo` |
+| RabbitMQ vhost | `/appoint-dev` | `/appoint-test` | `/appoint-demo` |
+| Mailpit 邮件标题前缀 | `[dev]` | `[test]` | `[demo]` |
+| 私密配置 | `.env.dev` | `.env.test` | `.env.demo` |
 | 数据生命周期 | 一直保留 | 默认保留，显式重置 | 每次后端启动恢复初始状态 |
 | 业务时间 | 上海真实时间 | 默认实时，可运行中调时 | 上海真实时间 |
 
-三个数据库使用同一套Flyway迁移与基础目录，不复制dev业务数据。数据库账号、RabbitMQ权限和JWT密钥独立，Redis按前缀隔离。启动时校验最终连接目标；项目级MySQL运行锁和共用端口检查先于重置，脚本、Maven、IDE使用同一生命周期。
-
-前后端一次只能运行一套。切换前先停止当前前后端。脚本在启动前检查三环境的托管进程和两个共用端口，后端在初始化前取得项目级运行锁。
-
-## Flyway初始化基线
-
-当前以[src/main/resources/db/migration/V1__init_schema.sql](../src/main/resources/db/migration/V1__init_schema.sql)初始化完整结构。它合并原V1至V11的SQL和Java迁移结果，一次创建22张业务表、索引、约束和原有基础数据；V1保持不变。随后由[V2迁移](../src/main/java/db/migration/V2__expand_sample_catalog.java)追加医疗目录，使全新环境具有2家医院、6个科室和18名医生。环境账号由应用启动生命周期创建。历史示例场次保留，当前四场预约继续按首次下单生成。
-
-这是面向重新部署的首版整理，不提供旧库原地升级。已经执行旧迁移链的数据库，其Flyway历史和V1校验和与当前代码不兼容；重复运行init或复制配置均不会转换这些历史。需要保留旧数据时应继续使用整理前的代码，并另行制定数据迁移方案；确认放弃旧数据后，使用空库重新初始化，不通过repair、删除历史记录或baseline跳过校验。
-
-应用启动时由Flyway执行迁移，不需要手工导入SQL。空库依次执行V1和V2，现行V1数据库只追加V2，成功后版本为2；普通重启跳过已成功执行的迁移。V2保留原医院、科室、两名医生的ID、资料、绑定和预约引用；新增医生编号沿用分配表，避免与人工新增医生冲突。已有人工目录数据不会清理，升级后的总数可以超过样例规模；迁移后管理员增删改目录的结果也不会在普通启动时被还原。后续变更从V3继续追加。历史迁移可从Git提交`eb84890`追溯。
+- **数据隔离** 三套环境使用相同的 Flyway 迁移和基础目录，各自维护业务数据。数据库账号、RabbitMQ 权限及 JWT 密钥独立，Redis 按前缀隔离。
+- **启动互斥** 脚本先检查托管进程和共用端口。脚本、Maven 和 IDE 使用同一套后端生命周期，由后端校验连接目标，并在初始化或重置前取得项目级 MySQL 运行锁。
 
 ## 首次准备
 
-以下脚本使用Linux进程信息与信号，支持Linux及WSL2。准备Git、JDK 21、Python 3、Docker和Compose v2；需要前端时准备Node 24（至少24.12）及npm。WSL中使用同一发行版内的Java、Python和Node，确保当前终端能执行`docker compose version`并访问Docker服务。
+依赖和命令见 [README 快速启动](../README.md#快速启动)。WSL 中的 Java、Python 和 Node.js 应来自当前发行版。项目使用 Maven Wrapper 下载 Maven。
 
-首次安装需要联网下载Docker镜像、Maven及应用依赖，无需预先安装Maven。以下从GitHub克隆开始，进入项目根目录后执行初始化：
+在项目根目录执行 `python3 scripts/local_env.py init` 时，脚本依次完成以下操作。
 
-```bash
-git clone "<仓库地址>"
-cd "<项目目录>"
-python3 scripts/local_env.py init
-```
+1. 用对应的 `.example` 模板补齐缺失的 `compose.env`、`.env.dev`、`.env.test` 和 `.env.demo`。新文件权限为 `600`，沿用模板中的配置。实际文件和模板均缺失时，脚本会在启动容器前报错。
+2. 启动共享容器，准备数据库、账号和 RabbitMQ vhost。重复执行会保留已有配置和业务数据，卷内凭据或权限不匹配时脚本会停止。
 
-init先从`compose.env.example`、`.env.dev.example`、`.env.test.example`和`.env.demo.example`复制缺失的实际配置，文件权限为600，已有文件保持原样。模板按本项目约定保存现有本地配置，初始化沿用模板中的账号、密码和密钥，不再随机生成新值；模板缺失且实际文件也不存在时，在启动共享服务前报错。
-
-随后启动共享Compose并创建缺少的数据库、账号和vhost。重复执行保留已有密码和业务数据；卷内凭据或权限不匹配时停止，不擅自改密码或删除数据卷。init不创建业务表，业务结构在后端启动时由Flyway初始化。
-
-完成初始化并安装前端依赖后，即可直接启动任一环境。首次使用 dev 执行 `python3 scripts/local_env.py start dev`，空库由 Flyway 在后端启动时初始化。
+业务表和预置应用账号在后端启动时初始化。安装前端依赖后即可启动所选环境，首次使用 dev 可直接运行 `python3 scripts/local_env.py start dev`。
 
 ## Compose 服务与数据卷
 
@@ -61,7 +47,49 @@ Compose 操作使用 `docker compose --env-file compose.env ...`。执行 `docke
 
 ## 启动和切换
 
-脚本托管的完整流程见[README](../README.md#首次克隆并启动)。`start` 默认选择 demo，`start dev`、`start test` 和 `start demo` 显式选择环境。两个进程均通过身份和就绪检查后，脚本才报告启动成功。切换环境时，先停止当前前后端，再启动目标环境。脚本的 `stop <环境>` 和 `status <环境>` 都需要环境参数，作用于脚本启动的进程。通过 IDE、JAR 或 npm 手动启动的进程从原入口停止。由旧版端口布局升级时，先停止旧版前后端，启动新版后刷新所有项目标签页。
+### 日常启动与停止
+
+完成初始化后，在项目根目录启动共享依赖和所选环境。以下以 demo 为例，`start` 也可以省略 `demo`。启动命令在前后端均通过身份和就绪检查后返回。
+
+```bash
+docker compose --env-file compose.env up -d --wait
+python3 scripts/local_env.py start demo
+```
+
+停止时先关闭当前前后端。若也需要关停共享依赖，再执行 Compose 命令。
+
+```bash
+python3 scripts/local_env.py stop demo
+docker compose --env-file compose.env stop
+```
+
+`stop <环境>` 只管理脚本启动的进程。通过 IDE、JAR 或 npm 单独启动的进程从原入口停止。前端依赖变更后，在项目根目录重新执行 `npm ci --prefix frontend`。
+
+### 切换环境
+
+一次运行一套环境。切换时先停当前前后端，共享容器可以继续运行。例如从 demo 切到 dev。
+
+```bash
+python3 scripts/local_env.py stop demo
+python3 scripts/local_env.py start dev
+```
+
+启动成功后刷新原来的 [项目页面](http://127.0.0.1:5173)。从使用独立端口的旧版本升级时，先关闭旧版前后端，启动新版后刷新所有项目标签页。
+
+### 状态和日志
+
+下面以 demo 为例。通过参数换成 dev 或 test 可查看对应环境。
+
+```bash
+python3 scripts/local_env.py status demo
+docker compose --env-file compose.env ps -a
+tail -n 100 .local-env/demo-backend.log
+tail -n 100 .local-env/demo-frontend.log
+```
+
+`status` 返回 `{}` 表示没有仍存活的脚本托管进程。手动启动的进程需从原入口核实。Compose 停止后容器状态应为 `Exited`。
+
+脚本首次启动最多等待后端 10 分钟，其中包含 Maven 下载和初始化。在另一个终端可运行 `tail -f .local-env/demo-backend.log` 跟踪启动日志。按 `Ctrl+C` 可退出日志跟踪。
 
 ### 单独启动后端或前端
 
@@ -166,6 +194,23 @@ python3 scripts/local_env.py clock test reset
 设置后时间继续走秒；偏移仅存当前进程，重启恢复实时。调时影响使用业务Clock的预约、支付截止、签到及相关任务，不修改系统、数据库、浏览器、JWT或注册验证码/票据的有效时间。回拨不撤销已完成事实。dev/demo不注册调时接口。
 
 MockPay继续保存在内存，应用重启后旧渠道支付查询和退款续接存在限制。demo是本地演示环境，不代表生产部署。
+
+## Flyway初始化基线
+
+由后端启动时执行 Flyway，无需手工导入 SQL。[V1](../src/main/resources/db/migration/V1__init_schema.sql) 合并了原 V1 至 V11 的迁移结果，创建 22 张业务表以及相应索引、约束和基础数据。[V2](../src/main/java/db/migration/V2__expand_sample_catalog.java) 追加样例目录，空库执行完成后默认包含 2 家医院、6 个科室和 18 名医生。应用启动流程随后创建[预置账号](#预置目录和账号)。
+
+以下按保留现有数据库的普通启动说明。demo 启动和 test 显式重置先[重建各自的数据](#demo自动重置与test显式重置)，再执行 V1 和 V2。
+
+| 数据库状态 | 启动结果 |
+| --- | --- |
+| 空库 | 依次执行 V1、V2 |
+| 已执行现行 V1 | 追加 V2，保留旧医院、科室、医生的 ID、资料、绑定、预约引用和人工添加的目录数据 |
+| 已执行现行 V1 和 V2 | 跳过已应用的迁移，保留管理员对目录的变更 |
+| 执行过旧版迁移链 | Flyway 历史和 V1 校验和与当前基线不兼容，需按下方说明处理 |
+
+旧版迁移历史可从 Git 提交 `eb84890` 追溯。需要保留旧数据时，继续使用兼容版本，并另行制定数据迁移方案。确认可以重新初始化后，使用空库。重复运行 `init` 或复制配置无法转换历史，`repair`、删除历史记录和 `baseline` 也不能替代数据迁移。
+
+V2 沿用医生编号分配表来避免与人工新增医生冲突，因此已维护过目录的数据库可能超过样例规模。历史示例场次保持可读，新场次仍按首次下单生成。后续迁移从 V3 追加。
 
 ## 自动化测试与常驻环境
 

@@ -2,6 +2,16 @@
 
 本文定义当前接口。业务规则见[业务流程](business-flow.md)。
 
+| 使用场景 | 接口章节 |
+| --- | --- |
+| 注册、登录和本人资料 | [账号与登录](#账号注册登录与当前用户) · [就诊人](#就诊人管理) |
+| 预约、支付和接诊 | [目录与场次](#目录与场次) · [创建预约](#创建预约) · [预约查询与取消](#预约查询和生命周期) · [支付](#支付尝试与通知) · [签到与接诊](#到院签到与门诊接诊) |
+| 管理工作台 | [医院、科室与医生目录](#管理员医院科室与医生目录) · [统一预约设置](#管理员统一预约设置) · [医生账号查询与绑定](#管理员医生账号) |
+| 本地联调 | [环境探测](#本地环境识别) · [test 调时](#test环境业务调时) |
+| 排查响应 | [主要错误](#主要错误) · [历史兼容](#历史兼容) |
+
+## 通用约定
+
 业务 API 使用统一响应结构。独立的状态探测格式见[本地环境识别](#本地环境识别)。
 
 ```json
@@ -12,7 +22,7 @@
 
 响应中的 Java `Long` 类型 ID 统一序列化为 JSON 字符串，例如 `"id":"201"`，避免浏览器整数精度丢失。客户端应按不透明标识保存；容量、就诊序号及 `expiresIn` 等数值字段仍为数字。金额的字符串形式以对应 DTO 为准，例如创建预约的 `amount` 和设置中的 `registrationFee` 为字符串，退款摘要中的 `amount` 为 JSON 数值。
 
-日期使用 `yyyy-MM-dd`，时间使用 `HH:mm:ss`；业务时间按 `Asia/Shanghai` 解释，`LocalDateTime` 响应不带时区偏移。以下响应字段均指统一包装内的 `data`；错误时 `data=null`，`code` 和 HTTP 状态见“主要错误”。
+日期使用 `yyyy-MM-dd`，时间使用 `HH:mm:ss`。业务时间按 `Asia/Shanghai` 解释，`LocalDateTime` 响应不带时区偏移。各节列出的业务响应字段位于统一包装的 `data` 中。错误时 `data=null`，详见[主要错误](#主要错误)。
 
 ## 账号注册、登录与当前用户
 
@@ -108,16 +118,229 @@
 }
 ```
 
-四种 `sessionType`：
+四种 `sessionType` 对应的[场次时间与下单截止](business-flow.md#场次设置与库存)由业务规则定义。
 
-| 类型 | 固定时间 |
+| 类型 | 场次 |
 | --- | --- |
-| `MORNING_FIRST` | 08:00–10:00 |
-| `MORNING_SECOND` | 10:30–12:00 |
-| `AFTERNOON_FIRST` | 14:00–16:00 |
-| `AFTERNOON_SECOND` | 16:30–18:00 |
+| `MORNING_FIRST` | 上午第一段 |
+| `MORNING_SECOND` | 上午第二段 |
+| `AFTERNOON_FIRST` | 下午第一段 |
+| `AFTERNOON_SECOND` | 下午第二段 |
 
-`bookingClosesAt` 为场次开始前 15 分钟。`availability` 按时间、库存顺序计算：已到场次开始为 `STARTED`，未开始但已到下单截止为 `CUTOFF_REACHED`，未截止且无余量为 `FULL`，其余为 `AVAILABLE`。`bookable` 仅在 `AVAILABLE` 时为 true。当天已截止场次继续返回，不因为不可预约从数组移除。响应不提供供用户下单的内部 `scheduleId` 或 `releaseAt`；查询结果是时间快照，创建仍须复验资格。
+`availability` 依次判断场次是否已开始（`STARTED`）、已到下单截止（`CUTOFF_REACHED`）、无余量（`FULL`），其余为 `AVAILABLE`。`bookable` 仅在 `AVAILABLE` 时为 `true`。已截止场次仍在数组中。查询返回时间快照，创建请求按医生、日期和场次类型提交，由服务端复验。
+
+## 创建预约
+
+`POST /api/v1/appointments`
+
+请求必须携带 UUID `Idempotency-Key`：
+
+```json
+{
+  "doctorId": "1",
+  "appointmentDate": "2026-11-11",
+  "sessionType": "MORNING_FIRST",
+  "patientId": "201"
+}
+```
+
+示例日期需换成实际可预约日期。服务端按[下单时间规则](business-flow.md#关键时间)复验，日期超范围或到达下单截止时返回 `409 / 4202`。场次由请求中的医生、日期和场次类型定位，价格、创建时间及支付截止由服务端确定。
+
+幂等键作用于当前账号，比较内容为规范化后的 `doctorId + appointmentDate + sessionType + patientId`。同键同内容且原请求已完成时返回重放回执。同键不同内容返回 `409 / 4103`，提示使用原键重试的并发冲突返回 `503 / 5001`。已取消或过期后重新预约须使用新键。
+
+首次创建失败时，该次写入一起回滚。创建事务和锁序见[模块设计](module-design.md#事务与锁序)。
+
+首次创建返回 **201**，data 字段为 `appointmentOrderId`、`paymentOrderId`、`appointmentStatus`、`paymentStatus`、`amount`、`currency`、`paymentExpiresAt`、`serverTime`。幂等重放返回 **200**，data 仅含 `appointmentOrderId`、`appointmentNo`、`replayed=true`；需查询详情获取最新支付状态，不能将重放回执当首次创建响应。详情仍可返回内部 `scheduleId` 以关联历史记录。
+
+创建响应的 `serverTime` 在结果组装时采样，预约和支付的创建时间使用本次下单的准入时刻。
+
+## 预约查询和生命周期
+
+| 方法与路径 | 用途 | 成功响应 |
+| --- | --- | --- |
+| `GET /api/v1/appointments/my?order=DESC` | 查询本人全部预约 | 200，详情对象数组 |
+| `GET /api/v1/appointments/{id}` | 查询本人预约详情 | 200，详情对象 |
+| `POST /api/v1/appointments/{id}/cancel` | 主动取消 | 200，或异步退款受理时返回 202。均返回详情对象 |
+
+列表按就诊日期、场次开始时间、预约 ID 同向排序，默认 `DESC`，可指定 `ASC`。列表各项共享同一个秒精度的 `serverTime`。
+
+取消进入或仍处于异步退款流程时，202 响应的 `message` 为「退款申请已受理」。继续查询详情确认退款是否完成。已完成退款的预约再次调用取消时返回 200，已关闭订单的重复取消不会再次释放名额。
+
+### 详情字段
+
+| 分组 | 字段 | 类型及说明 |
+| --- | --- | --- |
+| 标识 | `id`、`appointmentNo`、`scheduleId` | 字符串。依次为预约 ID、预约单号、内部场次 ID |
+| 场次 | `appointmentDate`、`startTime`、`endTime`、`sessionType` | 日期、时间与场次类型均为字符串。历史 `sessionType` 可能为空或为旧类型 |
+| 预约 | `status`、`visitNumber`、`createdAt` | 状态与创建时间为字符串。就诊序号为整数，确认前可为 `null`，取消后不复用 |
+| 凭证快照 | `patient`、`doctor` | 对象。包括就诊人脱敏证件号及医生所属科室、医院 |
+| 支付 | `paymentOrderId`、`paymentStatus`、`amount`、`currency` | 支付 ID、状态和币种为字符串。金额为 JSON 数值，单位元。首次创建预约回执中的金额为字符串 |
+| 支付尝试与退款 | `paymentAttemptCount`、`latestPaymentAttempt`、`refund` | 尝试次数为整数。最近尝试与退款各为一个摘要对象，尚未发生时为 `null` |
+| 流程状态 | `workflowStatus` | 预约和支付状态推导出的字符串。部分历史组合为 `null` |
+| 时间 | `paymentExpiresAt`、`closedAt`、`serverTime` | 日期时间字符串。尚未关闭时 `closedAt` 为 `null` |
+| 操作资格 | `paymentExpired`、`canPay`、`canCancel` | 布尔值。写入口仍会复验时间、状态及权限 |
+| 就诊进度 | `visit` | 仅已确认预约返回对象，其余为 `null`。未签到时进度为 `NOT_CHECKED_IN` |
+
+| 嵌套对象 | 字段备注 |
+| --- | --- |
+| `patient` | `id`、`name`、`documentType`、`documentNoMasked`、`contactPhone`、`contactEmail` 均为字符串 |
+| `doctor` | `id`、`doctorNo`、`name`、`title` 为字符串。`department` 包含 `id` 和 `name`，`hospital` 包含 `id`、`name` 和 `address` |
+| `latestPaymentAttempt` | `id`、`attemptNo`、`channel`、`status`、`providerOrderNo`、`failureCode`、`createdAt`、`completedAt` 均为字符串。渠道订单号、失败代码和处理中的完成时间可为 `null` |
+| `refund` | `id`、`refundNo`、`currency`、`channel`、`status`、`reason`、`lastFailureCode`、`completedAt` 为字符串。`amount` 为 JSON 数值（元），`attemptCount` 为整数。无失败或尚未成功退款时，相应的失败代码或完成时间可为 `null` |
+| `visit` | `status` 为字符串，`canCheckIn` 为布尔值。窗口及已发生的动作时间为日期时间字符串，未发生的动作时间为 `null`。见[签到与接诊](#到院签到与门诊接诊) |
+
+### 详情响应示例
+
+以下预约已支付并签到，当前处于候诊中。
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": "501",
+    "appointmentNo": "AP8fa5e6e1729a4d149c77a5e560aefbe0",
+    "scheduleId": "6",
+    "appointmentDate": "2026-11-17",
+    "startTime": "08:00:00",
+    "endTime": "10:00:00",
+    "status": "CONFIRMED",
+    "visitNumber": 1,
+    "createdAt": "2026-11-16T20:19:26",
+    "paymentOrderId": "601",
+    "paymentStatus": "PAID",
+    "workflowStatus": "CONFIRMED",
+    "amount": 10.00,
+    "currency": "CNY",
+    "paymentAttemptCount": 1,
+    "latestPaymentAttempt": {
+      "id": "701",
+      "attemptNo": "1722ad35-dd92-4129-a7ab-0548e3724506",
+      "channel": "MOCK",
+      "status": "SUCCEEDED",
+      "providerOrderNo": "mock-pay-1722ad35-dd92-4129-a7ab-0548e3724506",
+      "failureCode": null,
+      "createdAt": "2026-11-16T20:19:26",
+      "completedAt": "2026-11-16T20:19:26"
+    },
+    "refund": null,
+    "paymentExpiresAt": "2026-11-16T20:34:26",
+    "closedAt": null,
+    "serverTime": "2026-11-17T07:35:00",
+    "paymentExpired": false,
+    "canPay": false,
+    "canCancel": false,
+    "patient": {
+      "id": "201",
+      "name": "示例就诊人",
+      "documentType": "RESIDENT_ID_CARD",
+      "documentNoMasked": "110105********002X",
+      "contactPhone": "13800138000",
+      "contactEmail": "patient@example.com"
+    },
+    "doctor": {
+      "id": "1",
+      "doctorNo": "DOC000001",
+      "name": "张医生",
+      "title": "主任医师",
+      "department": { "id": "1", "name": "内科" },
+      "hospital": { "id": "1", "name": "示例市第一人民医院", "address": "示例市健康路 1 号" }
+    },
+    "sessionType": "MORNING_FIRST",
+    "visit": {
+      "status": "WAITING",
+      "checkedInAt": "2026-11-17T07:35:00",
+      "startedAt": null,
+      "completedAt": null,
+      "canCheckIn": false,
+      "checkInOpensAt": "2026-11-17T07:30:00",
+      "checkInClosesAt": "2026-11-17T10:00:00"
+    }
+  }
+}
+```
+
+### 流程状态与操作资格
+
+| status + paymentStatus | workflowStatus |
+| --- | --- |
+| PENDING_PAYMENT + UNPAID | WAITING_FOR_PAYMENT |
+| PENDING_PAYMENT + PAYING | PAYMENT_PROCESSING |
+| PENDING_PAYMENT + PAID | CONFIRMING_APPOINTMENT |
+| CONFIRMED + PAID | CONFIRMED |
+| CANCELLED / CANCELLED_BY_HOSPITAL / EXPIRED + REFUND_PENDING | CANCELLED_REFUNDING |
+| 同上 + REFUNDED | CANCELLED_REFUNDED |
+| EXPIRED + CLOSED | EXPIRED |
+| CANCELLED / CANCELLED_BY_HOSPITAL + CLOSED | null（历史兼容） |
+
+其他状态组合，或支付单缺失、归属不符时，返回 `500 / 1002`。详情先检查预约存在及归属，再检查支付完整性。退款执行状态用于展示摘要，流程状态由上表推导。
+
+| 展示标记 | 规则 |
+| --- | --- |
+| `paymentExpired` | 预约已过期，或待支付并已到支付截止时为 `true` |
+| `canPay` | 预约为未到期的 `PENDING_PAYMENT + UNPAID` 时为 `true` |
+| `canCancel` | 待支付且资金状态为 `UNPAID` 或 `PAYING` 时为 `true`，到期后写入口会按过期关闭。已收款待确认时显示为 `false`，取消接口仍可受理退款。已确认预约仅在距开诊严格超过 24 小时时可取消 |
+
+## 支付尝试与通知
+
+### 支付时间边界
+
+支付截止保存为`paymentExpiresAt`，等于截止即拒绝新支付；它与目录的`bookingClosesAt`分别表示支付和下单资格。收款时间判断、迟到退款及跨零点示例见[业务流程](business-flow.md#支付截止与异步确认)。
+
+### 发起支付尝试
+
+`POST /api/v1/payments/{id}/attempts` 中的 `id` 为**支付单 ID**。请求需要本人 Token，请求体为 `{"channel":"MOCK"}`。成功返回 **202**，`data` 包含 `paymentOrderId`、`paymentAttemptId`、`channel`、`paymentStatus`、`attemptStatus`、`providerOrderNo`、`checkoutUrl` 和 `expiresAt`。此时支付单通常为 `PAYING`，尝试为 `PROCESSING`。后续通过模拟渠道操作和详情查询确认结果。
+
+### 模拟支付
+
+dev/test/demo 注册以下 MockPay 接口，均需要登录，无请求体：
+
+| 方法与路径 | 用途 | 成功响应 |
+| --- | --- | --- |
+| `POST /api/v1/mock-pay/attempts/{attemptNo}/complete` | 模拟渠道成功 | 202，签名通知对象 |
+| `POST /api/v1/mock-pay/attempts/{attemptNo}/fail` | 模拟渠道失败 | 202，签名通知对象 |
+
+将 `/complete` 或 `/fail` 拼接到尝试响应中的 `checkoutUrl` 后发起 POST。响应对象字段与下文的渠道通知请求体一致。202 表示分发器已受理，后续异步验签并处理。
+
+### 渠道通知和结果查询
+
+渠道通知 `POST /api/v1/payment-notifications/{channel}` 不要求 Bearer Token，依靠渠道验签；body 为 `notificationId`、`providerOrderNo`、`providerTransactionNo`、`status`、`amount`、`currency`、`occurredAt`、`signature`。现有 MockPay 签名由 Adapter 生成，真实支付渠道尚未接入。响应 **200** 的 data 为 `notificationId`、`processingResult`、`paymentOrderId`、`paymentStatus`、`duplicate`、`eventId`；重复通知部分字段可为 null。未知订单、金额币种或状态拒绝会记录审计并通过 processingResult 表达，不能仅凭HTTP200认为已收款。
+
+客户端轮询预约详情：支付成功可先见 CONFIRMING_APPOINTMENT，再见 CONFIRMED；取消或迟到支付可先见 CANCELLED_REFUNDING，再见 CANCELLED_REFUNDED。轮询不延长支付截止，业务状态和库存以数据库事务为准。
+
+## 到院签到与门诊接诊
+
+所有成功响应为200。用户动作限定本人预约，医生动作限定本人已确认预约；写入口重新校验状态，成功后查询并返回最新详情。
+
+| 方法与路径 | 权限及输入 | 返回data |
+| --- | --- | --- |
+| `POST /api/v1/appointments/{appointmentId}/check-in` | 本人；无body | 完整用户预约详情 |
+| `GET /api/v1/doctor/sessions` | DOCTOR；可选date，默认业务今天 | 四场概览数组 |
+| `GET /api/v1/doctor/appointments` | DOCTOR；必填date、sessionType | 场次名单数组 |
+| `GET /api/v1/doctor/appointments/{appointmentId}` | DOCTOR | 医生只读详情 |
+| `POST /api/v1/doctor/appointments/{appointmentId}/start-visit` | DOCTOR；无body | 更新后的医生详情 |
+| `POST /api/v1/doctor/appointments/{appointmentId}/complete-visit` | DOCTOR；无body | 更新后的医生详情 |
+
+日期、场次和 ID 格式沿用通用约定。医生账号权限由[首次绑定](#首次绑定)授予。
+
+| 响应对象 | 字段 |
+| --- | --- |
+| 用户就诊进度 | `status`、`checkedInAt`、`startedAt`、`completedAt`、`canCheckIn`、`checkInOpensAt`、`checkInClosesAt` |
+| 医生场次概览 | `appointmentDate`、`sessionType`、`startTime`、`endTime`、`confirmedCount`、`notCheckedInCount`、`waitingCount`、`inProgressCount`、`completedCount` |
+| 医生人员名单项 | `appointmentId`、`visitNumber`、`patientName`、`visitStatus`、`checkedInAt`、`canStartVisit`、`canCompleteVisit` |
+| 医生只读详情 | `appointmentId`、`appointmentNo`、`visitNumber`、`appointmentDate`、`sessionType`、`startTime`、`endTime`、`patient`、`doctor`、`visit` |
+| 医生详情就诊人 | `id`、`name`、`documentType`、`documentNoMasked` |
+| 医生详情就诊进度 | `status`、`checkedInAt`、`startedAt`、`completedAt` |
+
+用户详情的`visit`仅已确认预约非null；无记录时推导NOT_CHECKED_IN，签到后WAITING，开始后IN_PROGRESS，完成后COMPLETED。未发生的时间为null。
+
+`visit.canCheckIn` 表示查询时的签到资格。窗口由预约快照计算，签到或完成接诊后仍返回 `checkInOpensAt` 和 `checkInClosesAt`。首次签到要求 `checkInOpensAt <= 当前时间 < checkInClosesAt`。例如 08:00–10:00 的场次从 07:30 起可签到，到 10:00 整即返回 `409 / 4504`。具体规则见[签到与接诊](business-flow.md#到院签到与接诊)。
+
+签到先检查不存在/归属，再检查预约与进度，最后检查开放和截止。重复动作4502优先于时间错误4503/4504，保留首次成功时间。开始仅允许WAITING，完成仅允许IN_PROGRESS，医生动作无额外日期限制。
+
+医生四场概览始终按开始时间返回四项，无预约时补零；confirmedCount为四种就诊进度人数之和。名单按visitNumber升序，查看始终可用，另外两个操作由对应can字段提示。医生详情只含脱敏凭证和就诊进度；doctor结构沿用预约快照，不提供支付渠道信息。
+
+普通用户调用医生接口返回403；其他医生的详情查询返回404，写操作归属不符返回403。非法日期、场次、排序或缺必填参数返回400/1001。页面在医生操作成功后重查名单与概览，用户刷新同一预约查看结果。
 
 ## 管理员医院、科室与医生目录
 
@@ -169,91 +392,64 @@
 
 旧 `/api/v1/admin/schedules` 创建、修改、库存调整和关闭路由已经移除，调用返回 404。管理员仍可通过目录接口维护医院、科室和医生。
 
-## 创建预约
+## 管理员医生账号
 
-`POST /api/v1/appointments`
+### 管理员医生账号查询
 
-请求必须携带 UUID `Idempotency-Key`：
+`GET /api/v1/admin/doctor-accounts`仅允许`ADMIN`访问，无请求参数，成功返回200。查询当前后端所连接环境的全部医生，按医院ID、科室ID、医生编号、医生ID排序；读取实际目录和账号绑定，不使用目录缓存，未绑定账号的医生也返回。无医生时`items=[]`。
+
+data为`environment`（当前环境名称）和`items`数组。每项字段如下，ID沿用字符串约定：
+
+| 字段 | 含义 |
+| --- | --- |
+| hospitalId、hospitalName | 所属医院ID及当前名称 |
+| departmentId、departmentName | 所属科室ID及当前名称 |
+| doctorId、doctorNo、doctorName | 医生ID、编号及当前姓名 |
+| userId、email | 绑定的账号ID和邮箱，未绑定时均为null |
+| bindingStatus | BOUND（已绑定）或UNBOUND（未绑定） |
+| passwordHint | 密码说明，不含密码或密码哈希 |
+
+例如test环境的一个列表项：
 
 ```json
 {
+  "hospitalId": "1",
+  "hospitalName": "示例市第一人民医院",
+  "departmentId": "1",
+  "departmentName": "内科",
   "doctorId": "1",
-  "appointmentDate": "2026-11-11",
-  "sessionType": "MORNING_FIRST",
-  "patientId": "201"
+  "doctorNo": "DOC000001",
+  "doctorName": "张医生",
+  "userId": "2",
+  "email": "test-doctor-001@example.local",
+  "bindingStatus": "BOUND",
+  "passwordHint": "初始密码见 .env.test 的 LOCAL_SEED_PASSWORD"
 }
 ```
 
-请求不接受 `scheduleId` 或客户端指定的价格、创建时间、截止。按服务端 `Asia/Shanghai` 日期，只允许为今天至后天（D 至 D+2）创建新订单，且必须严格早于场次开始前 15 分钟；恰好截止已不可创建。系统在场次、就诊人锁定后，实际占号前采样准入时间，Java 与条件 UPDATE 使用同一采样校验日期和时刻，并原子暂占库存、创建预约单和支付单。
+预置医生的 `passwordHint` 指向当前环境的 `.env.<环境>` 及 `LOCAL_SEED_PASSWORD`。自行注册后绑定的账号提示「使用注册时设置的密码」，未绑定时提示「未绑定账号」。初始密码的使用规则见[环境指南](environments.md#初始密码与重复启动)。未登录返回 `401 / 2001`，缺少 `ADMIN` 权限返回 `403 / 2002`。
 
-幂等摘要为规范化后的 `doctorId + appointmentDate + sessionType + patientId`。同键同内容返回原订单；同键不同内容返回冲突。已取消或过期后重新预约必须使用新键。
+### 首次绑定
 
-首次下单会按需生成场次并复制统一设置。并发首次下单依靠 `(doctor_id, appointment_date, session_type)` 唯一约束收敛到同一场次，条件更新防止超卖。失败事务不保留新场次、暂占或幂等键。
-
-首次创建返回 **201**，data 字段为 `appointmentOrderId`、`paymentOrderId`、`appointmentStatus`、`paymentStatus`、`amount`、`currency`、`paymentExpiresAt`、`serverTime`。幂等重放返回 **200**，data 仅含 `appointmentOrderId`、`appointmentNo`、`replayed=true`；需查询详情获取最新支付状态，不能将重放回执当首次创建响应。详情仍可返回内部 `scheduleId` 以关联历史记录。
-
-示例日期只用于说明；实际请求必须改为服务端今天、明天或后天，今天还须选择尚未到下单截止的场次。创建响应 `serverTime` 在结果组装时采样；预约、支付创建时间均为锁后准入时刻。
-
-## 支付时间边界
-
-支付截止保存为`paymentExpiresAt`，等于截止即拒绝新支付；它与目录的`bookingClosesAt`分别表示支付和下单资格。收款时间判断、迟到退款及跨零点示例见[业务流程](business-flow.md#支付截止与异步确认)。
-
-## 预约查询和生命周期
-
-| 方法与路径 | 用途 |
-| --- | --- |
-| `GET /api/v1/appointments/my?order=DESC` | 查询当前账号全部预约，支持 DESC/ASC 就诊时间排序 |
-| `GET /api/v1/appointments/{id}` | 查询预约详情 |
-| `POST /api/v1/appointments/{id}/cancel` | 主动取消 |
-| `POST /api/v1/payments/{id}/attempts` | 发起支付尝试 |
-
-查询返回 **200**。取消在无需退款时返回 **200**；进入或仍处于异步退款流程时返回 **202**，message 为“退款申请已受理”，data 仍是预约详情。202 不代表渠道已经退款。重复已关闭订单的取消不重复释放，退款已经完成时返回200。
-
-详情和列表元素字段为：`id`、`appointmentNo`、`scheduleId`、`appointmentDate`、`startTime`、`endTime`、`status`、`visitNumber`、`createdAt`、`paymentOrderId`、`paymentStatus`、`workflowStatus`、`amount`、`currency`、`paymentAttemptCount`、`latestPaymentAttempt`、`refund`、`paymentExpiresAt`、`closedAt`、`serverTime`、`paymentExpired`、`canPay`、`canCancel`、`patient`、`doctor`、`sessionType`、`visit`。尝试/退款摘要可为 null；退款状态用于摘要，不决定 workflow。列表按就诊日期、场次开始时间、预约 ID 同向排序，默认 DESC，可指定 ASC；列表各项共享截断到秒的 serverTime。
-
-嵌套对象字段：
-
-| 对象 | 字段 |
-| --- | --- |
-| `patient`（创建快照） | `id/name/documentType/documentNoMasked/contactPhone/contactEmail` |
-| `doctor`（创建快照） | `id/doctorNo/name/title/department/hospital`；`department` 为 `id/name`，`hospital` 为 `id/name/address` |
-| `latestPaymentAttempt` | `id/attemptNo/channel/status/providerOrderNo/failureCode/createdAt/completedAt` |
-| `refund` | `id/refundNo/amount/currency/channel/status/reason/attemptCount/lastFailureCode/completedAt` |
-| `visit` | `status/checkedInAt/startedAt/completedAt/canCheckIn/checkInOpensAt/checkInClosesAt`；仅已确认预约非 null，未签到时计算 NOT_CHECKED_IN |
-
-`visitNumber` 在确认前可为 null，按同场次确认顺序分配、取消后不复用；尝试处理中的 `completedAt`、尚未成功退款的 `completedAt` 和无失败时的失败代码可为 null。详情顶层及退款摘要的 `amount` 为 JSON 数值，区别于首次创建响应的字符串金额；单位均为元。`canPay/canCancel` 是展示标记，不代替操作入口的权限、时间和状态复验。
-
-| status + paymentStatus | workflowStatus |
-| --- | --- |
-| PENDING_PAYMENT + UNPAID | WAITING_FOR_PAYMENT |
-| PENDING_PAYMENT + PAYING | PAYMENT_PROCESSING |
-| PENDING_PAYMENT + PAID | CONFIRMING_APPOINTMENT |
-| CONFIRMED + PAID | CONFIRMED |
-| CANCELLED / CANCELLED_BY_HOSPITAL / EXPIRED + REFUND_PENDING | CANCELLED_REFUNDING |
-| 同上 + REFUNDED | CANCELLED_REFUNDED |
-| EXPIRED + CLOSED | EXPIRED |
-| CANCELLED / CANCELLED_BY_HOSPITAL + CLOSED | null（历史兼容） |
-
-其他组合或缺失/归属不符的支付单按 INTERNAL_ERROR 处理；详情先判断预约不存在/非本人，再检查支付完整性。canPay 只在未到期 PENDING_PAYMENT+UNPAID 为 true。保留既有差异：待支付 UNPAID/PAYING 即使到期仍 canCancel=true，取消入口按时刻关闭为 EXPIRED；待确认已付的 canCancel=false，但取消写入口仍可申请退款。已确认预约必须严格早于开诊前24小时才可取消。
-
-## 支付尝试与通知
-
-`POST /api/v1/payments/{id}/attempts` 需要本人 Token，body 为 `{"channel":"MOCK"}`，成功返回 **202**。data 为 `paymentOrderId`、`paymentAttemptId`、`channel`、`paymentStatus`、`attemptStatus`、`providerOrderNo`、`checkoutUrl`、`expiresAt`。此时一般为 PAYING/PROCESSING；调用 checkoutUrl 并不等于预约已经确认。
-
-dev/test/demo 注册以下 MockPay 接口，均需要登录，无请求体：
-
-| 方法与路径 | 用途 | 成功响应 |
+| 方法与路径 | 权限及请求 | 成功响应 |
 | --- | --- | --- |
-| `POST /api/v1/mock-pay/attempts/{attemptNo}/complete` | 模拟渠道成功 | 202，签名通知对象 |
-| `POST /api/v1/mock-pay/attempts/{attemptNo}/fail` | 模拟渠道失败 | 202，签名通知对象 |
+| `PUT /api/v1/admin/doctors/{doctorId}/account` | `ADMIN`，请求体为 `{"userId":"12"}` | 200，`data` 为 `doctorId` 和 `userId`，均为字符串 |
 
-响应对象字段与下文渠道通知 body 一致，通知通过异步分发器进入正式验签链路；202 不代表通知处理或预约确认已经完成。使用尝试响应中的 checkoutUrl 加 `/complete` 或 `/fail`；不直接构造同步成功请求。
+首次绑定同时授予账号 `DOCTOR` 角色，账号重新登录后即可使用医生接口。医生或账号已有绑定时返回 `409 / 4501`，包括对同一关系的重复绑定。当前接口只支持首次绑定。
 
-渠道通知 `POST /api/v1/payment-notifications/{channel}` 不要求 Bearer Token，依靠渠道验签；body 为 `notificationId`、`providerOrderNo`、`providerTransactionNo`、`status`、`amount`、`currency`、`occurredAt`、`signature`。现有 MockPay 签名由 Adapter 生成，真实支付渠道尚未接入。响应 **200** 的 data 为 `notificationId`、`processingResult`、`paymentOrderId`、`paymentStatus`、`duplicate`、`eventId`；重复通知部分字段可为 null。未知订单、金额币种或状态拒绝会记录审计并通过 processingResult 表达，不能仅凭HTTP200认为已收款。
+## 本地环境识别
 
-客户端轮询预约详情：支付成功可先见 CONFIRMING_APPOINTMENT，再见 CONFIRMED；取消或迟到支付可先见 CANCELLED_REFUNDING，再见 CANCELLED_REFUNDED。轮询不延长支付截止，业务状态和库存以数据库事务为准。
+`GET /api/v1/local-environment` 在常驻环境提供无需登录的探测。后端接受流量时返回 HTTP 200，已能响应请求且尚未就绪时返回 HTTP 503。响应直接返回状态对象。由 Python 脚本启动时，`launchId` 为当次启动标识。单独启动后端时通常为 `null`。
 
-新响应不包含 `scheduleClosed` 或 `hospitalClosureNotice`，新流程也不会产生停诊取消。历史 `CLOSED`、`CANCELLED_BY_HOSPITAL` 数据仍可查询。
+```json
+{ "profile": "demo", "ready": true, "launchId": null }
+```
+
+本地前端给 API 请求附带 `X-Appoint-Environment`。标识与正在运行的 profile 不匹配时返回 `409 / 1003`，提示刷新页面。直接调用 API 的客户端可省略此标识。
+
+## test环境业务调时
+
+常驻 `test` 环境注册调时接口，调用需要 `ADMIN` 角色。对 `/api/v1/test-control/clock` 发起 `GET` 查询，使用 `PUT` 设置业务时间，使用 `DELETE` 恢复实时。设置时传入带时区的 ISO 时间字符串 `instant`。响应包含 `businessTime` 和 `mode`（`realtime` 或 `adjusted`）。设置后时间继续走秒，重启后恢复真实时间。调时只作用于业务时钟，已发生的业务事实继续保留。
 
 ## 主要错误
 
@@ -287,93 +483,11 @@ dev/test/demo 注册以下 MockPay 接口，均需要登录，无请求体：
 | 医生档案或账号已绑定，不支持换绑 | `409 / 4501` |
 | 预约、就诊状态或重复动作不满足资格（优先于时间） | `409 / 4502` |
 | 尚未到签到开放时间 | `409 / 4503` |
-| 已超过预约场次签到截止时间 | `409 / 4504` |
+| 首次签到时已到达或超过场次签到截止时间 | `409 / 4504` |
 | 查询状态组合或关联完整性异常 | `500 / 1002` |
-
-## 管理员医生账号查询
-
-`GET /api/v1/admin/doctor-accounts`仅允许`ADMIN`访问，无请求参数，成功返回200。查询当前后端所连接环境的全部医生，按医院ID、科室ID、医生编号、医生ID排序；读取实际目录和账号绑定，不使用目录缓存，未绑定账号的医生也返回。无医生时`items=[]`。
-
-data为`environment`（当前环境名称）和`items`数组。每项字段如下，ID沿用字符串约定：
-
-| 字段 | 含义 |
-| --- | --- |
-| hospitalId、hospitalName | 所属医院ID及当前名称 |
-| departmentId、departmentName | 所属科室ID及当前名称 |
-| doctorId、doctorNo、doctorName | 医生ID、编号及当前姓名 |
-| userId、email | 绑定的账号ID和邮箱，未绑定时均为null |
-| bindingStatus | BOUND（已绑定）或UNBOUND（未绑定） |
-| passwordHint | 密码说明，不含密码或密码哈希 |
-
-例如test环境的一个列表项：
-
-```json
-{
-  "hospitalId": "1",
-  "hospitalName": "示例市第一人民医院",
-  "departmentId": "1",
-  "departmentName": "内科",
-  "doctorId": "1",
-  "doctorNo": "DOC000001",
-  "doctorName": "张医生",
-  "userId": "2",
-  "email": "test-doctor-001@example.local",
-  "bindingStatus": "BOUND",
-  "passwordHint": "初始密码见 .env.test 的 LOCAL_SEED_PASSWORD"
-}
-```
-
-预置医生账号通过`local_environment_seed_accounts`归属记录识别，不根据邮箱格式推断。dev/test/demo的提示分别指向`.env.dev`、`.env.test`、`.env.demo`；自行注册后绑定的账号提示“使用注册时设置的密码”，未绑定时提示“未绑定账号”。配置中的初始密码只用于首次创建，修改配置不会更新已有账号密码。该接口不读取密码配置，也不提供修改密码、解绑或换绑操作。未登录返回`401 / 2001`，已登录但没有ADMIN返回`403 / 2002`。
-
-## 到院签到与门诊接诊
-
-所有成功响应为200。用户动作限定本人预约，医生动作限定本人已确认预约；写入口重新校验状态，成功后查询并返回最新详情。
-
-| 方法与路径 | 权限及输入 | 返回data |
-| --- | --- | --- |
-| `PUT /api/v1/admin/doctors/{doctorId}/account` | ADMIN；`{"userId":"12"}` | doctorId、userId |
-| `POST /api/v1/appointments/{appointmentId}/check-in` | 本人；无body | 完整用户预约详情 |
-| `GET /api/v1/doctor/sessions` | DOCTOR；可选date，默认业务今天 | 四场概览数组 |
-| `GET /api/v1/doctor/appointments` | DOCTOR；必填date、sessionType | 场次名单数组 |
-| `GET /api/v1/doctor/appointments/{appointmentId}` | DOCTOR | 医生只读详情 |
-| `POST /api/v1/doctor/appointments/{appointmentId}/start-visit` | DOCTOR；无body | 更新后的医生详情 |
-| `POST /api/v1/doctor/appointments/{appointmentId}/complete-visit` | DOCTOR；无body | 更新后的医生详情 |
-
-日期、场次和ID格式沿用通用约定。医生或账号已绑定返回4501，不提供重复绑定成功、解绑或换绑；绑定并授权后须重新登录。
-
-| 响应对象 | 字段 |
-| --- | --- |
-| 用户就诊进度 | `status`、`checkedInAt`、`startedAt`、`completedAt`、`canCheckIn`、`checkInOpensAt`、`checkInClosesAt` |
-| 医生场次概览 | `appointmentDate`、`sessionType`、`startTime`、`endTime`、`confirmedCount`、`notCheckedInCount`、`waitingCount`、`inProgressCount`、`completedCount` |
-| 医生人员名单项 | `appointmentId`、`visitNumber`、`patientName`、`visitStatus`、`checkedInAt`、`canStartVisit`、`canCompleteVisit` |
-| 医生只读详情 | `appointmentId`、`appointmentNo`、`visitNumber`、`appointmentDate`、`sessionType`、`startTime`、`endTime`、`patient`、`doctor`、`visit` |
-| 医生详情就诊人 | `id`、`name`、`documentType`、`documentNoMasked` |
-| 医生详情就诊进度 | `status`、`checkedInAt`、`startedAt`、`completedAt` |
-
-用户详情的`visit`仅已确认预约非null；无记录时推导NOT_CHECKED_IN，签到后WAITING，开始后IN_PROGRESS，完成后COMPLETED。未发生的时间为null。
-
-`visit.canCheckIn`为当前查询时的展示资格；`visit.checkInOpensAt`和`visit.checkInClosesAt`由预约快照计算，已签到或完成仍返回窗口，首次签到要求开放时间<=当前时间<截止。具体时间规则见[签到与接诊](business-flow.md#到院签到与接诊)。
-
-签到先检查不存在/归属，再检查预约与进度，最后检查开放和截止。重复动作4502优先于时间错误4503/4504，保留首次成功时间。开始仅允许WAITING，完成仅允许IN_PROGRESS，医生动作无额外日期限制。
-
-医生四场概览始终按开始时间返回四项，无预约时补零；confirmedCount为四种就诊进度人数之和。名单按visitNumber升序，查看始终可用，另外两个操作由对应can字段提示。医生详情只含脱敏凭证和就诊进度；doctor结构沿用预约快照，不提供支付渠道信息。
-
-普通用户调用医生接口返回403；其他医生的详情查询返回404，写操作归属不符返回403。非法日期、场次、排序或缺必填参数返回400/1001。页面在医生操作成功后重查名单与概览，用户刷新同一预约查看结果。
 
 ## 历史兼容
 
 旧半日场次、历史关闭终态及空场次类型继续可读，不用于新预约。历史订单按自身快照和持久化截止处理，不补写就诊事实。
 
-## 本地环境识别
-
-`GET /api/v1/local-environment` 在常驻环境提供无需登录的探测。后端接受流量时返回 HTTP 200，已能响应请求且尚未就绪时返回 HTTP 503。响应直接返回状态对象。由 Python 脚本启动时，`launchId` 为当次启动标识。单独启动后端时通常为 `null`。
-
-```json
-{ "profile": "demo", "ready": true, "launchId": null }
-```
-
-本地前端给 API 请求附带 `X-Appoint-Environment`。标识与正在运行的 profile 不匹配时返回 `409 / 1003`，提示刷新页面。直接调用 API 的客户端可省略此标识。
-
-## test环境业务调时
-
-常驻 `test` 环境注册调时接口，调用需要 `ADMIN` 角色。对 `/api/v1/test-control/clock` 发起 `GET` 查询，使用 `PUT` 设置业务时间，使用 `DELETE` 恢复实时。设置时传入带时区的 ISO 时间字符串 `instant`。响应包含 `businessTime` 和 `mode`（`realtime` 或 `adjusted`）。设置后时间继续走秒，重启后恢复真实时间。调时只作用于业务时钟，已发生的业务事实继续保留。
+新响应不包含 `scheduleClosed` 或 `hospitalClosureNotice`，新流程也不会产生停诊取消。历史 `CLOSED`、`CANCELLED_BY_HOSPITAL` 数据仍可查询。

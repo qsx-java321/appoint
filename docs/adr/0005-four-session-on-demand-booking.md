@@ -1,10 +1,8 @@
 # ADR 0005：四预约场次按需生成并使用统一设置
 
-## 状态
+**状态** 已接受，部分被取代 · **记录日期** 2026-11-05
 
-已接受，2026-11-05；日期与截止规则已由 [ADR 0007](0007-three-day-booking-and-session-cutoffs.md) 于 2026-11-11 部分取代。
-
-以下保留原始决策：D+1～D+7、禁止当天创建、创建后十五分钟支付截止和未来二十八项展示属于当时规则。当前采用今天至后天十二项、场次开始前十五分钟停止下单，支付截止取创建后配置时限与场次开始的较早者。四场、按需生成、统一设置及快照决定继续有效。
+> 下文保留原决策中的 D+1～D+7、禁止当天创建、创建后十五分钟支付截止和未来二十八项展示。现行日期与截止规则见 [ADR 0007](0007-three-day-booking-and-session-cutoffs.md) 和[业务流程](../business-flow.md#场次设置与库存)。四场、按需生成、统一设置及快照仍适用。
 
 ## 背景
 
@@ -22,7 +20,7 @@
 
 ## 历史兼容
 
-V9 只新增统一设置表并扩展 `schedules` 约束。历史 `MORNING`、`AFTERNOON`、空时段、`CLOSED` 和 `CANCELLED_BY_HOSPITAL` 数据继续可读；旧半日场次不拆分，也不接受新预约。ADR 0003 的统一库存、有效预约唯一占用和锁顺序继续有效，其半日排班定义由本 ADR 取代。ADR 0004 的可靠支付事件和退款补偿继续有效，其中停诊相关描述仅适用于历史版本。
+原迁移链的 V9 新增统一设置表并扩展 `schedules` 约束。历史 `MORNING`、`AFTERNOON`、空时段、`CLOSED` 和 `CANCELLED_BY_HOSPITAL` 数据继续可读。旧半日场次保持原样，新预约使用四个固定时段。[ADR 0003](0003-unified-schedule-inventory-and-safe-migration.md) 的库存及唯一占用原则和 [ADR 0004](0004-independent-payment-and-reliable-events.md) 的可靠支付事件、退款补偿继续适用。
 
 ## 结果
 

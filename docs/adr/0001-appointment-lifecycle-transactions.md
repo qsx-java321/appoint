@@ -1,10 +1,8 @@
----
-status: superseded by ADR-0004, ADR-0005 and ADR-0007
----
-
 # ADR 0001：预约生命周期采用数据库截止时间与统一事务锁顺序
 
-本文记录最初的同步支付与半日排班设计。ADR 0004 已取代同步支付实现，ADR 0005 已取代当时的日期窗口、支付截止与手工关闭场次规则；当前日期、下单及支付截止以 [ADR 0007](0007-three-day-booking-and-session-cutoffs.md) 为准。数据库截止时间、统一锁顺序、条件更新和库存守恒仍然适用。
+**状态** 已接受，部分被取代 · **记录日期** 2026-10-26
+
+> 本文记录早期同步支付与半日排班。同步支付由 [ADR 0004](0004-independent-payment-and-reliable-events.md) 取代，手工关闭场次由 [ADR 0005](0005-four-session-on-demand-booking.md) 取消，当前下单和支付截止规则见 [ADR 0007](0007-three-day-booking-and-session-cutoffs.md)。持久化支付截止、统一锁顺序、条件更新和库存守恒的原则仍适用。各用例的现行锁顺序见[模块设计](../module-design.md#事务与锁序)。
 
 ## 背景
 

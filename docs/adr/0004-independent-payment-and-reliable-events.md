@@ -1,10 +1,8 @@
----
-status: accepted
----
-
 # ADR 0004：支付独立为模块，并以可靠事件协调预约确认
 
-> ADR 0005 取消了新流程中的排班关闭和停诊操作；本文停诊相关描述仅用于历史版本。可靠事件、支付截止、迟到收款退款和对账决策继续有效。
+**状态** 已接受，部分被取代 · **记录日期** 2026-10-29
+
+> 支付独立、可靠事件、迟到收款退款和对账仍适用。[ADR 0005](0005-four-session-on-demand-booking.md) 取消新流程的停诊操作，[ADR 0006](0006-late-payment-and-consumer-retries.md) 补充迟到支付与重试规则，[ADR 0007](0007-three-day-booking-and-session-cutoffs.md) 更新支付截止的计算。现行实现见[模块设计](../module-design.md)。
 
 ## 决策时背景与方案
 
@@ -18,7 +16,7 @@ status: accepted
 
 四模块深度化已完成。`AppointmentLifecycle` 内部封装场次→预约锁定、确认库存/序号及关闭释放；`PaymentLifecycle` 封装支付锁定及关闭。锁与生命周期写操作要求 MANDATORY，锁定 Case 只在获取它的事务内使用。coordination 通过完整操作和纯 Policy 编排，不再传库存更新或下一序号；支付内部统一 payment 父锁先于子记录。查询使用只读 Projector/Assembler。
 
-迟到支付释放和有界重试按 [ADR 0006](0006-late-payment-and-consumer-retries.md) 落实。旧 dev/test 同步模拟入口及兼容尝试已删除。以上是既有模块化单体和可靠事件决定的实现收口，没有新增部署架构或领域术语；最终 interface、事务及事件契约见 [四模块代码设计](../module-design.md)，实际验证见 [测试报告](../testing/latest-report.md)。
+迟到支付释放和有界重试按 [ADR 0006](0006-late-payment-and-consumer-retries.md) 落实。此阶段删除了旧 dev/test 同步模拟入口及兼容尝试。该阶段的验收保存在 Git 提交 `acc2bd0` 的 `docs/verification-report.md`，现行接口、事务及事件契约见[模块设计](../module-design.md)。
 
 ## 当前接口与恢复边界（2026-11-10）
 
