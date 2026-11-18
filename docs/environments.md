@@ -24,7 +24,7 @@
 
 当前以[src/main/resources/db/migration/V1__init_schema.sql](../src/main/resources/db/migration/V1__init_schema.sql)初始化完整结构。它合并原V1至V11的SQL和Java迁移结果，一次创建22张业务表、索引、约束和原有基础数据；V1保持不变。随后由[V2迁移](../src/main/java/db/migration/V2__expand_sample_catalog.java)追加医疗目录，使全新环境具有2家医院、6个科室和18名医生。环境账号由应用启动生命周期创建。历史示例场次保留，当前四场预约继续按首次下单生成。
 
-这是面向重新部署的首版整理，不提供旧库原地升级。已经执行旧迁移链的数据库，其Flyway历史和V1校验和与当前代码不兼容；重复运行init、执行cutover-dev或复制配置均不会转换这些历史。需要保留旧数据时应继续使用整理前的代码，并另行制定数据迁移方案；确认放弃旧数据后，使用空库重新初始化，不通过repair、删除历史记录或baseline跳过校验。
+这是面向重新部署的首版整理，不提供旧库原地升级。已经执行旧迁移链的数据库，其Flyway历史和V1校验和与当前代码不兼容；重复运行init或复制配置均不会转换这些历史。需要保留旧数据时应继续使用整理前的代码，并另行制定数据迁移方案；确认放弃旧数据后，使用空库重新初始化，不通过repair、删除历史记录或baseline跳过校验。
 
 应用启动时由Flyway执行迁移，不需要手工导入SQL。空库依次执行V1和V2，现行V1数据库只追加V2，成功后版本为2；普通重启跳过已成功执行的迁移。V2保留原医院、科室、两名医生的ID、资料、绑定和预约引用；新增医生编号沿用分配表，避免与人工新增医生冲突。已有人工目录数据不会清理，升级后的总数可以超过样例规模；迁移后管理员增删改目录的结果也不会在普通启动时被还原。后续变更从V3继续追加。历史迁移可从Git提交`eb84890`追溯。
 
@@ -44,13 +44,7 @@ init先从`compose.env.example`、`.env.dev.example`、`.env.test.example`和`.e
 
 随后启动共享Compose并创建缺少的数据库、账号和vhost。重复执行保留已有密码和业务数据；卷内凭据或权限不匹配时停止，不擅自改密码或删除数据卷。init不创建业务表，业务结构在后端启动时由Flyway初始化。
 
-首次使用dev需要执行启动预检，执行时确保当前前后端均已停止。
-
-```bash
-python3 scripts/local_env.py cutover-dev
-```
-
-`cutover-dev` 先确认三套环境都没有脚本托管的运行进程，且前端 `5173`、后端 `8080` 均空闲，再只读查询 dev 库表清单。空库可通过预检，非空库必须包含 `payment_outbox_events`、`payment_orders`、`payment_refunds`、`payment_attempts` 和 `appointment_orders`。通过后写入 `.local-env/dev-cutover-ready`。后端启动时由 Flyway 校验完整结构和迁移历史。
+完成初始化并安装前端依赖后，即可直接启动任一环境。首次使用 dev 执行 `python3 scripts/local_env.py start dev`，空库由 Flyway 在后端启动时初始化。
 
 Compose操作始终使用`docker compose --env-file compose.env ...`。停止共享依赖用`docker compose --env-file compose.env stop`，保留卷。
 
@@ -60,7 +54,7 @@ Compose操作始终使用`docker compose --env-file compose.env ...`。停止共
 
 ### 单独启动后端或前端
 
-在项目根目录启动后端。直接运行 IDE 中的 `AppointApplication.main`、`./mvnw spring-boot:run` 或打包后的 JAR 时，默认加载 demo 和 `.env.demo`。需要切换时在 IDE、`SPRING_PROFILES_ACTIVE` 环境变量或命令行显式设置 profile。首次使用 dev 时先完成预检。
+在项目根目录启动后端。直接运行 IDE 中的 `AppointApplication.main`、`./mvnw spring-boot:run` 或打包后的 JAR 时，默认加载 demo 和 `.env.demo`。需要切换时在 IDE、`SPRING_PROFILES_ACTIVE` 环境变量或命令行显式设置 profile。
 
 可以用 Maven 启动 test。
 

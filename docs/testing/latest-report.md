@@ -1,15 +1,15 @@
 # 测试报告
 
-更新日期为 2026-11-18。本轮验证默认 demo、端口复用和跨环境互斥。相关命令见[自动化测试](../../README.md#自动化测试)。
+更新日期为 2026-11-18。本报告记录默认 demo、端口复用、跨环境互斥及 dev 首次启动的验证结果。相关命令见[自动化测试](../../README.md#自动化测试)。
 
 | 检查 | 通过 | 失败 / 错误 / 跳过 |
 | --- | --- | --- |
 | 后端单元、Mock 和 H2/MockMvc | 340（39 类） | 0 / 0 / 0 |
 | Testcontainers MySQL 集成 | 12（4 类） | 0 / 0 / 0 |
 | 前端 Vitest | 31（8 文件） | 0 / 0 / 0 |
-| Python 环境脚本 | 3 | 0 / 0 / 0 |
+| Python 环境脚本 | 4 | 0 / 0 / 0 |
 
-`./mvnw -Pmysql-it clean verify`、前端类型检查、默认及 demo 模式构建、改动文件的 Prettier 检查和 Python 脚本测试均通过。分组和类级统计见 [JSON 报告](latest-report.json)。后端自动化使用 H2、临时 MySQL 和测试替身。
+dev 首次启动改造后执行 `./mvnw -Pmysql-it clean verify` 和 Python 脚本测试，均通过。前端 Vitest、类型检查、默认及 demo 模式构建、改动文件的 Prettier 检查结果来自共用端口验收。分组和类级统计见 [JSON 报告](latest-report.json)。后端自动化使用 H2、临时 MySQL 和测试替身。
 
 ## 三环境人工验收
 
@@ -26,3 +26,7 @@
 | demo 业务链路 | 直接启动 JAR 选择 demo，手动启动不匹配的 test 前端被拒绝。通过 Vite 代理完成挂号、MockPay 付款、到院签到、开始接诊和完成接诊。Chrome 页面显示已就诊。 |
 
 demo 的预约和接诊时段通过临时调整隔离验收 JVM 的时钟覆盖。业务操作通过真实 HTTP 执行，Chrome 核验登录、最后的就诊页面和环境切换。本轮覆盖本地脚本和 JAR 入口。历史注册、权限及业务异常见[邮箱注册报告](email-signup-report.md)、[医生账号报告](2026-11-17-doctor-accounts-report.md)和[历史 API 主流程报告](api-flow-report.md)。
+
+## dev 首次启动补充验收
+
+在新的独立 Compose 数据卷上完成 `init`，确认 dev 数据库为空后直接执行 `start dev`。Flyway 成功执行 V1 和 V2，初始化 19 个账号，前后端均报告就绪。用 dev 预置管理员登录并创建就诊人，停机后直接运行指定 dev profile 的 JAR，后端就绪且原就诊人仍可在库中查到。两次启动均无需预检标记。

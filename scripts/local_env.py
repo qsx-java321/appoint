@@ -108,7 +108,6 @@ def init():
         if any(line.split()[0] != vhost for line in grants.splitlines() if line.startswith('/')):
             raise RuntimeError('环境RabbitMQ账号还拥有其他vhost权限，请人工核对')
         print(f'{name}: 资源准备完成；未清理业务表、缓存或消息')
-    print('dev首次启动前必须执行cutover-dev启动预检；已有环境配置及数据卷保持原样。')
 
 
 def clean_env(name):
@@ -267,8 +266,6 @@ def stop_groups(records, verify_owner):
 
 def start(name):
     require_idle()
-    if name == 'dev' and not (STATE / 'dev-cutover-ready').exists():
-        raise RuntimeError('请先执行cutover-dev启动预检')
     processes = []
     records = {}
     launch_id = uuid.uuid4().hex
@@ -308,19 +305,6 @@ def stop(name):
     print(f'{name}: 前后端已停止，共享Compose继续运行')
 
 
-def cutover():
-    require_idle()
-    tables = set(mysql("SELECT table_name FROM information_schema.tables WHERE table_schema='appoint';").splitlines())
-    if tables:
-        required = {'payment_outbox_events', 'payment_orders', 'payment_refunds',
-                    'payment_attempts', 'appointment_orders'}
-        if not required.issubset(tables):
-            raise RuntimeError('dev库非空且业务表不完整，请先核对结构及迁移历史；预检未通过')
-    STATE.mkdir(exist_ok=True)
-    (STATE/'dev-cutover-ready').write_text('dev启动预检通过；端口未占用，数据库为空或必要业务表齐全\n')
-    print('dev启动预检通过；未修改业务数据或清理资源')
-
-
 def clock(action, instant):
     try:
         report = environment_status(BACKEND_URL + '/local-environment')
@@ -346,7 +330,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
     sub.add_parser('init')
-    sub.add_parser('cutover-dev')
     sub.add_parser('start').add_argument('environment', choices=ENVIRONMENTS, nargs='?', default='demo')
     for command in ('stop', 'status'):
         sub.add_parser(command).add_argument('environment', choices=ENVIRONMENTS)
@@ -365,9 +348,7 @@ def main():
         clock(args.action, args.instant)
     else:
         with operation_lock():
-            if args.command == 'cutover-dev':
-                cutover()
-            elif args.command == 'start':
+            if args.command == 'start':
                 start(args.environment)
             elif args.command == 'stop':
                 stop(args.environment)

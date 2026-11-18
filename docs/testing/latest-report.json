@@ -5,7 +5,7 @@
       "tested_on": "2026-11-18",
       "command": "./mvnw -Pmysql-it clean verify",
       "build_exit_code": 0,
-      "source_revision": "本轮端口复用与默认 demo 改造工作树",
+      "source_revision": "基于 6143b3c 的 dev 首次启动改造工作树",
       "status": "通过",
       "totals": {
         "tests": 340,
@@ -334,7 +334,7 @@
       "tested_on": "2026-11-18",
       "command": "./mvnw -Pmysql-it clean verify",
       "build_exit_code": 0,
-      "source_revision": "本轮端口复用与默认 demo 改造工作树",
+      "source_revision": "基于 6143b3c 的 dev 首次启动改造工作树",
       "status": "通过",
       "totals": {
         "tests": 12,
@@ -397,9 +397,9 @@
     {
       "title": "环境脚本回归",
       "tested_on": "2026-11-18",
-      "tests": 3,
+      "tests": 4,
       "status": "通过",
-      "evidence": "python3 -B -m unittest discover -s src/test/python，覆盖默认环境、并发拒绝及启动身份。"
+      "evidence": "python3 -B -m unittest discover -s src/test/python，覆盖默认环境、dev 首次启动、并发拒绝及启动身份。"
     },
     {
       "title": "三环境端口与启动验收",
@@ -414,10 +414,17 @@
       "tests": null,
       "status": "通过",
       "evidence": "真实 HTTP 经 Vite 代理完成挂号、模拟付款、签到和接诊。Chrome 验证登录和完成状态。"
+    },
+    {
+      "title": "dev 首次启动验收",
+      "tested_on": "2026-11-18",
+      "tests": null,
+      "status": "通过",
+      "evidence": "独立 Compose 空库完成 init 后直接 start dev，确认 Flyway V1/V2、19 个预置账号、前后端就绪及就诊人创建。停机后直接启动 dev JAR，确认就诊人保留。"
     }
   ],
   "report_date": "2026-11-18",
-  "basis": "本轮默认 demo、端口复用和互斥改造实测。历史注册和 API 验收保留当时的日期及结果。",
+  "basis": "默认 demo、端口复用、互斥及 dev 首次启动实测。前端结果来自端口复用验收，后端与脚本结果来自 dev 首次启动改造。",
   "limitations": [
     "demo 时段验证使用隔离验收 JVM 的临时时钟。",
     "浏览器核验覆盖登录、结果页和切换环境，核心业务操作通过实际 HTTP 执行。"

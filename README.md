@@ -48,7 +48,7 @@ python3 scripts/local_env.py start
 | 环境 | 启动命令 | 数据生命周期 |
 | --- | --- | --- |
 | demo（默认） | `python3 scripts/local_env.py start` | 每次后端启动恢复演示数据，旧登录失效 |
-| dev | `python3 scripts/local_env.py start dev` | 保留开发数据，首次启动前执行 `cutover-dev` |
+| dev | `python3 scripts/local_env.py start dev` | 保留开发数据 |
 | test | `python3 scripts/local_env.py start test` | 默认保留数据，支持显式重置和业务调时 |
 
 ### 日常启动
@@ -60,7 +60,7 @@ docker compose --env-file compose.env up -d --wait
 python3 scripts/local_env.py start
 ```
 
-首次使用 dev 时，在整套应用停止、共享依赖已就绪的情况下执行 `python3 scripts/local_env.py cutover-dev`。前端依赖变化时重新执行 `npm ci --prefix frontend`。
+初始化完成后，首次使用 dev 也可直接执行 `python3 scripts/local_env.py start dev`。前端依赖变化时重新执行 `npm ci --prefix frontend`。
 
 ### 停止前后端和Docker容器
 
@@ -75,7 +75,7 @@ docker compose --env-file compose.env stop
 
 ### 切换环境
 
-先停当前整套应用，再启动目标环境，随后在同一网页地址刷新。共享依赖可保持运行。以从 demo 切到已完成首次预检的 dev 为例。
+先停当前整套应用，再启动目标环境，随后在同一网页地址刷新。共享依赖可保持运行。以下以从 demo 切到 dev 为例。
 
 ```bash
 python3 scripts/local_env.py stop demo
