@@ -431,7 +431,7 @@
     }
   ],
   "report_date": "2026-11-18",
-  "basis": "默认 demo、端口复用、互斥及 dev 首次启动实测。前端结果来自端口复用验收，后端与脚本结果来自 dev 首次启动改造。",
+  "basis": "默认 demo、端口复用、跨环境互斥、dev 首次启动及 Mailpit 持久化实测。前端结果来自端口复用验收，后端与脚本结果来自 dev 首次启动改造。",
   "limitations": [
     "demo 时段验证使用隔离验收 JVM 的临时时钟。",
     "浏览器核验覆盖登录、结果页和切换环境，核心业务操作通过实际 HTTP 执行。"
@@ -466,6 +466,7 @@
     "build_exit_code": 0
   },
   "email_signup": {
+    "tested_on": "2026-11-17",
     "report": "email-signup-report.md",
     "details": "email-signup-report.json",
     "environment_order": [

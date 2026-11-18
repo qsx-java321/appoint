@@ -6,10 +6,11 @@ dev 用于日常开发，test 用于手动验收和业务调时，demo 用于初
 
 ## 环境对应关系
 
+dev、test 和 demo 共用同一对应用端口，同一时间运行一套。前端从 [`127.0.0.1:5173`](http://127.0.0.1:5173) 提供页面，将 `/api` 请求代理到后端 `127.0.0.1:8080`。切换环境时选择对应 profile 和[前端命令](../frontend/README.md#开发与构建)。
+
 | 项目 | dev | test | demo |
 | --- | --- | --- | --- |
 | Spring profile | dev | test | demo（默认） |
-| 前端 → 后端 | `5173` → `8080` | `5173` → `8080` | `5173` → `8080` |
 | MySQL 数据库 | `appoint`（原库） | `appoint_test` | `appoint_demo` |
 | Redis namespace | `dev` | `test` | `demo` |
 | RabbitMQ vhost | `/appoint-dev` | `/appoint-test` | `/appoint-demo` |
@@ -108,7 +109,7 @@ tail -n 100 .local-env/demo-frontend.log
 java -jar target/appoint-0.0.1-SNAPSHOT.jar
 ```
 
-后端监听 `127.0.0.1:8080`。在对应后端就绪后，从 `frontend` 目录分别使用 `npm run dev`、`npm run dev:test` 或 `npm run dev:demo` 启动前端。前端验证后端的实际 profile，并从 `127.0.0.1:5173` 代理请求到 `8080`。切换后刷新旧标签页，浏览器会按环境读取登录和预约草稿。
+后端就绪后，从 `frontend` 目录运行与后端 profile 匹配的[前端命令](../frontend/README.md#开发与构建)。切换后刷新旧标签页，浏览器会按环境读取登录和预约草稿。
 
 ## 账号及重置
 
@@ -199,7 +200,7 @@ MockPay继续保存在内存，应用重启后旧渠道支付查询和退款续�
 
 由后端启动时执行 Flyway，无需手工导入 SQL。[V1](../src/main/resources/db/migration/V1__init_schema.sql) 合并了原 V1 至 V11 的迁移结果，创建 22 张业务表以及相应索引、约束和基础数据。[V2](../src/main/java/db/migration/V2__expand_sample_catalog.java) 追加样例目录，空库执行完成后默认包含 2 家医院、6 个科室和 18 名医生。应用启动流程随后创建[预置账号](#预置目录和账号)。
 
-以下按保留现有数据库的普通启动说明。demo 启动和 test 显式重置先[重建各自的数据](#demo自动重置与test显式重置)，再执行 V1 和 V2。
+下表适用于保留数据库的启动。demo 启动和 test 显式重置会先[清理各自的环境数据](#demo自动重置与test显式重置)，再执行 V1、V2 重建业务表和样例目录，最后创建预置账号。
 
 | 数据库状态 | 启动结果 |
 | --- | --- |

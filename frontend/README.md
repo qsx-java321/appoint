@@ -11,7 +11,13 @@ npm ci
 npm run dev:demo
 ```
 
-`npm run dev`、`npm run dev:test` 和 `npm run dev:demo` 分别要求后端使用 `dev`、`test` 和 `demo` profile。三套环境共用 `127.0.0.1:5173`。Vite 确认后端就绪且 profile 匹配后，再提供页面并将 `/api` 代理到 `127.0.0.1:8080`。整体初始化、账号及环境切换见[环境说明](../docs/environments.md)。
+| 前端命令 | 对应的后端 profile |
+| --- | --- |
+| `npm run dev` | `dev` |
+| `npm run dev:test` | `test` |
+| `npm run dev:demo` | `demo` |
+
+三条命令使用同一对[本地端口](../docs/environments.md#环境对应关系)。Vite 确认后端就绪且 profile 匹配后才提供页面。首次启动无需复制 [`.env.example`](.env.example)。如果旧环境配置或 Shell 仍设置了 `API_PROXY_TARGET`，可移除该设置或改为 `http://127.0.0.1:8080`。
 
 ```bash
 npm run typecheck

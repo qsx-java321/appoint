@@ -4,7 +4,7 @@
 
 ## 快速启动
 
-在 Linux 或 WSL2 中准备 Git、JDK 21、Python 3、Node.js 24（`>=24.12.0 <25`）、npm 和 Docker Compose v2。启动 Docker，并确认当前终端可以访问 Docker。Windows 使用 Docker Desktop 时，需启用当前 WSL 发行版的集成。首次运行需要联网下载镜像和依赖。
+在 Linux 或 WSL2 中准备 Git、JDK 21、Python 3、Node.js 24（`>=24.12.0 <25`）、npm 和 Docker。确认当前终端可以访问 Docker，且 `docker compose up` 支持 `--wait`。Windows 使用 Docker Desktop 时，需启用当前 WSL 发行版的集成。首次运行需要联网下载镜像和依赖。
 
 ### 首次克隆并启动
 
