@@ -1,19 +1,29 @@
 #!/usr/bin/env python3
 """从模板初始化并管理常驻dev/test/demo；此入口不用于自动化回归。"""
 import argparse
+import fcntl
 import json
 import os
 import signal
 import socket
 import subprocess
+import tempfile
 import time
 import urllib.request
+import uuid
+from contextlib import contextmanager
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 STATE = ROOT / '.local-env'
 COMPOSE = ['docker', 'compose', '--env-file', 'compose.env']
-PORTS = {'dev': (8080, 5173), 'test': (8081, 5174), 'demo': (8082, 5175)}
+ENVIRONMENTS = ('dev', 'test', 'demo')
+BACKEND_PORT = 8080
+FRONTEND_PORT = 5173
+BACKEND_URL = f'http://127.0.0.1:{BACKEND_PORT}/api/v1'
+FRONTEND_URL = f'http://127.0.0.1:{FRONTEND_PORT}'
+ENVIRONMENT_HEADER = 'X-Appoint-Environment'
+HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 def read_properties(path):
@@ -62,7 +72,7 @@ def init():
     for name in ('compose.env', '.env.dev', '.env.test', '.env.demo'):
         ensure_config(name)
     run(COMPOSE + ['up', '-d', '--wait'])
-    for name in PORTS:
+    for name in ENVIRONMENTS:
         path = ROOT / ('.env.' + name)
         values = read_properties(path)
         if name != 'dev' and values['MYSQL_USER'] != 'appoint_' + name:
@@ -116,81 +126,190 @@ def command_for(name, reset=False):
     return args
 
 
-def alive(pid):
-    try: os.kill(pid, 0); return True
-    except ProcessLookupError: return False
+@contextmanager
+def operation_lock():
+    STATE.mkdir(exist_ok=True)
+    with (STATE / 'runtime.lock').open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RuntimeError('已有启停或维护操作正在执行，请等待当前操作结束') from None
+        yield
+
+
+def process_info(pid):
+    try:
+        fields = (Path('/proc') / str(pid) / 'stat').read_text().rsplit(')', 1)[1].split()
+        return fields[0], int(fields[2]), int(fields[3]), int(fields[19])
+    except (FileNotFoundError, ProcessLookupError):
+        return None
+
+
+def group_members(record):
+    pid = record['pid']
+    start_ticks = int(record['startTicks'])
+    leader = process_info(pid)
+    if leader:
+        if leader[1:] != (pid, pid, start_ticks):
+            return []
+        if leader[0] != 'Z':
+            return [pid]
+
+    # Maven/npm可能先于同组的Java/Node退出，孤留的子进程仍属于原会话。
+    members = []
+    for proc in Path('/proc').iterdir():
+        if proc.name.isdecimal():
+            info = process_info(proc.name)
+            if info and info[0] != 'Z' and info[1:3] == (pid, pid) and info[3] >= start_ticks:
+                members.append(int(proc.name))
+    return members
+
+
+def read_record(name):
+    path = STATE / (name + '.json')
+    try:
+        return json.loads(path.read_text())
+    except FileNotFoundError:
+        return {}
+
+
+def write_record(name, record):
+    path = STATE / (name + '.json')
+    with tempfile.NamedTemporaryFile(mode='w', dir=STATE, delete=False) as temp:
+        temporary = Path(temp.name)
+        try:
+            json.dump(record, temp)
+            temp.close()
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
 def status(name):
-    path = STATE / (name + '.json')
-    record = json.loads(path.read_text()) if path.exists() else {}
-    active = {}
-    for key, value in record.items():
-        if isinstance(value, dict) and alive(value['pid']):
-            current = Path('/proc') / str(value['pid']) / 'stat'
-            if current.exists() and current.read_text().split()[21] == value['startTicks']:
-                active[key] = value['pid']
-    return active
+    return {role: record['pid'] for role, record in read_record(name).items() if group_members(record)}
+
+
+def check_port(port):
+    with socket.socket() as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind(('127.0.0.1', port))
+        except OSError as error:
+            raise RuntimeError(f'端口{port}被占用或不可用，请从原入口停止相关进程并检查端口') from error
+
+
+def require_idle():
+    for name in ENVIRONMENTS:
+        if status(name):
+            raise RuntimeError(f'{name}仍有托管进程，请先执行stop {name}')
+    check_port(BACKEND_PORT)
+    check_port(FRONTEND_PORT)
+
+
+def environment_status(url):
+    with HTTP.open(url, timeout=2) as response:
+        report = json.load(response)
+        if not isinstance(report, dict):
+            raise ValueError('无效的环境状态响应')
+        return report
+
+
+def wait_ready(process, url, name, launch_id, role, timeout):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            raise RuntimeError(f'{role}启动失败，请查看{name}的日志')
+        try:
+            report = environment_status(url)
+        except (OSError, ValueError):
+            time.sleep(.25)
+            continue
+        if report.get('profile') != name or report.get('launchId') != launch_id:
+            raise RuntimeError(f'{role}响应来自其他运行实例，请从原入口停止相关进程')
+        if report.get('ready') is True and process.poll() is None:
+            return
+        time.sleep(.25)
+    raise RuntimeError(f'{role}启动超时，请查看{name}的日志')
+
+
+def stop_groups(records, verify_owner):
+    groups = []
+    for role, record in records.items():
+        members = group_members(record)
+        if not members:
+            continue
+        if verify_owner:
+            directory = ROOT if role == 'backend' else ROOT / 'frontend'
+            proc = Path('/proc') / str(members[0])
+            try:
+                cwd = (proc / 'cwd').resolve(strict=True)
+                command = (proc / 'cmdline').read_bytes()
+            except (FileNotFoundError, ProcessLookupError):
+                continue
+            markers = (b'maven', b'mvnw', b'com.qsx.appoint.AppointApplication') if role == 'backend' else (b'npm', b'vite')
+            if cwd != directory or not any(marker in command for marker in markers):
+                raise RuntimeError('进程归属变化，保留记录以供核查')
+        groups.append(record)
+
+    for record in groups:
+        if group_members(record):
+            try:
+                os.killpg(record['pid'], signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+
+    deadline = time.monotonic() + 25
+    while any(group_members(record) for record in records.values()):
+        if time.monotonic() >= deadline:
+            raise RuntimeError('进程组尚未退出，保留记录以供核查')
+        time.sleep(.2)
 
 
 def start(name):
-    if status(name): raise RuntimeError('脚本已记录运行实例')
+    require_idle()
     if name == 'dev' and not (STATE / 'dev-cutover-ready').exists():
         raise RuntimeError('请先执行cutover-dev启动预检')
-    for port in PORTS[name]:
-        with socket.socket() as sock:
-            if sock.connect_ex(('127.0.0.1', port)) == 0: raise RuntimeError(f'端口{port}已占用')
-    STATE.mkdir(exist_ok=True)
-    processes = {}
+    processes = []
+    records = {}
+    launch_id = uuid.uuid4().hex
+
+    def launch(role, command, directory, env):
+        env['APPOINT_LOCAL_LAUNCH_ID'] = launch_id
+        with (STATE / f'{name}-{role}.log').open('a') as log:
+            process = subprocess.Popen(command, cwd=directory, env=env, stdout=log,
+                                       stderr=subprocess.STDOUT, start_new_session=True)
+        processes.append(process)
+        info = process_info(process.pid)
+        if info is None:
+            raise RuntimeError(f'{role}提前退出，请查看{name}的日志')
+        records[role] = {'pid': process.pid, 'startTicks': info[3]}
+        write_record(name, records)
+        return process
+
     try:
-        with (STATE / (name + '-backend.log')).open('a') as log:
-            app = subprocess.Popen(command_for(name), cwd=ROOT, env=clean_env(name), stdout=log,
-                                   stderr=subprocess.STDOUT, start_new_session=True)
-        processes['backend'] = app.pid
-        # 首次克隆后Maven需要联网下载依赖，给下载和应用初始化留出时间。
-        deadline = time.monotonic() + 600
-        while True:
-            if app.poll() is not None: raise RuntimeError('后端启动失败，请查看该环境日志')
-            with socket.socket() as sock:
-                if sock.connect_ex(('127.0.0.1', PORTS[name][0])) == 0: break
-            if time.monotonic() > deadline: raise RuntimeError('后端启动超时')
-            time.sleep(.5)
-        with (STATE / (name + '-frontend.log')).open('a') as log:
-            front = subprocess.Popen(['npm', 'run', 'dev' if name == 'dev' else 'dev:' + name], cwd=ROOT/'frontend',
-                                     stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
-        processes['frontend'] = front.pid
-        time.sleep(2)
-        if front.poll() is not None: raise RuntimeError('前端启动失败，请检查Node环境与日志')
-        (STATE / (name + '.json')).write_text(json.dumps({key:{'pid':pid,'startTicks':(Path('/proc')/str(pid)/'stat').read_text().split()[21]} for key,pid in processes.items()}))
+        backend = launch('backend', command_for(name), ROOT, clean_env(name))
+        # 首次克隆时为Maven下载依赖及后端初始化预留时间。
+        wait_ready(backend, BACKEND_URL + '/local-environment', name, launch_id, '后端', 600)
+        npm_script = 'dev' if name == 'dev' else 'dev:' + name
+        frontend = launch('frontend', ['npm', 'run', npm_script], ROOT / 'frontend', os.environ.copy())
+        wait_ready(frontend, FRONTEND_URL + '/__local/ready', name, launch_id, '前端', 30)
     except BaseException:
-        for pid in processes.values():
-            if alive(pid): os.killpg(pid, signal.SIGTERM)
+        stop_groups(records, verify_owner=False)
+        (STATE / (name + '.json')).unlink(missing_ok=True)
+        for process in processes:
+            process.poll()
         raise
-    print(f'{name}: http://127.0.0.1:{PORTS[name][1]}')
+    print(f'{name}: {FRONTEND_URL}')
 
 
 def stop(name):
-    owned = list(status(name).values())
-    for pid in owned:
-        # 防止PID复用：必须是本项目工作目录及预期启动命令。
-        proc = Path('/proc') / str(pid)
-        cwd = (proc/'cwd').resolve()
-        command = (proc/'cmdline').read_bytes()
-        if cwd not in (ROOT, ROOT/'frontend') or not any(x in command for x in (b'maven', b'npm', b'mvnw')):
-            raise RuntimeError('PID归属变化，拒绝停止')
-        os.killpg(pid, signal.SIGTERM)
-    deadline = time.monotonic() + 25
-    while any(alive(pid) and (Path('/proc')/str(pid)/'stat').read_text().split()[2] != 'Z' for pid in owned) and time.monotonic() < deadline:
-        time.sleep(.2)
-    if any(alive(pid) and (Path('/proc')/str(pid)/'stat').read_text().split()[2] != 'Z' for pid in owned):
-        raise RuntimeError('进程尚未停止，保留PID记录以供核查')
-    (STATE/(name+'.json')).unlink(missing_ok=True)
-    print(f'{name}: 已发送停止信号；共享Compose保持运行')
+    stop_groups(read_record(name), verify_owner=True)
+    (STATE / (name + '.json')).unlink(missing_ok=True)
+    print(f'{name}: 前后端已停止，共享Compose继续运行')
 
 
 def cutover():
-    with socket.socket() as sock:
-        if sock.connect_ex(('127.0.0.1',8080)) == 0: raise RuntimeError('后端端口8080已占用，请先停止dev；预检未通过')
+    require_idle()
     tables = set(mysql("SELECT table_name FROM information_schema.tables WHERE table_schema='appoint';").splitlines())
     if tables:
         required = {'payment_outbox_events', 'payment_orders', 'payment_refunds',
@@ -203,35 +322,58 @@ def cutover():
 
 
 def clock(action, instant):
-    values = read_properties(ROOT/'.env.test')
-    base = 'http://127.0.0.1:8081/api/v1'
-    data = json.dumps({'email':'test-admin@example.local','password':values['LOCAL_SEED_PASSWORD']}).encode()
-    req = urllib.request.Request(base+'/auth/login',data=data,headers={'Content-Type':'application/json'})
-    with urllib.request.urlopen(req) as response: token = json.load(response)['data']['accessToken']
-    method = {'get':'GET','set':'PUT','reset':'DELETE'}[action]
-    data = json.dumps({'instant':instant}).encode() if action == 'set' else None
-    req = urllib.request.Request(base+'/test-control/clock',data=data,method=method,
-                                 headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'})
-    with urllib.request.urlopen(req) as response: print(json.dumps(json.load(response)['data'],ensure_ascii=False))
+    try:
+        report = environment_status(BACKEND_URL + '/local-environment')
+    except (OSError, ValueError):
+        raise RuntimeError('请先启动已就绪的test后端') from None
+    if report.get('profile') != 'test' or report.get('ready') is not True:
+        raise RuntimeError('调时只适用于运行中的test环境')
+    values = read_properties(ROOT / '.env.test')
+    headers = {'Content-Type': 'application/json', ENVIRONMENT_HEADER: 'test'}
+    data = json.dumps({'email': 'test-admin@example.local', 'password': values['LOCAL_SEED_PASSWORD']}).encode()
+    req = urllib.request.Request(BACKEND_URL + '/auth/login', data=data, headers=headers)
+    with HTTP.open(req, timeout=15) as response:
+        token = json.load(response)['data']['accessToken']
+    method = {'get': 'GET', 'set': 'PUT', 'reset': 'DELETE'}[action]
+    data = json.dumps({'instant': instant}).encode() if action == 'set' else None
+    headers['Authorization'] = 'Bearer ' + token
+    req = urllib.request.Request(BACKEND_URL + '/test-control/clock', data=data, method=method, headers=headers)
+    with HTTP.open(req, timeout=15) as response:
+        print(json.dumps(json.load(response)['data'], ensure_ascii=False))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    sub = parser.add_subparsers(dest='command',required=True)
-    sub.add_parser('init'); sub.add_parser('cutover-dev')
-    for command in ('start','stop','status','reset'):
-        p = sub.add_parser(command); p.add_argument('environment',choices=('test',) if command == 'reset' else PORTS)
-    p = sub.add_parser('clock');p.add_argument('environment',choices=('test',));p.add_argument('action',choices=('get','set','reset'));p.add_argument('--instant')
+    sub = parser.add_subparsers(dest='command', required=True)
+    sub.add_parser('init')
+    sub.add_parser('cutover-dev')
+    sub.add_parser('start').add_argument('environment', choices=ENVIRONMENTS, nargs='?', default='demo')
+    for command in ('stop', 'status'):
+        sub.add_parser(command).add_argument('environment', choices=ENVIRONMENTS)
+    sub.add_parser('reset').add_argument('environment', choices=('test',))
+    p = sub.add_parser('clock')
+    p.add_argument('environment', choices=('test',))
+    p.add_argument('action', choices=('get', 'set', 'reset'))
+    p.add_argument('--instant')
     args = parser.parse_args()
-    if args.command == 'init': init()
-    elif args.command == 'cutover-dev': cutover()
-    elif args.command == 'start': start(args.environment)
-    elif args.command == 'stop': stop(args.environment)
-    elif args.command == 'status': print(json.dumps(status(args.environment)))
-    elif args.command == 'reset':
-        if status('test'): raise RuntimeError('先停止test')
-        subprocess.run(command_for('test',True),cwd=ROOT,env=clean_env('test'),check=True)
-    elif args.command == 'clock': clock(args.action,args.instant)
+
+    if args.command == 'init':
+        init()
+    elif args.command == 'status':
+        print(json.dumps(status(args.environment)))
+    elif args.command == 'clock':
+        clock(args.action, args.instant)
+    else:
+        with operation_lock():
+            if args.command == 'cutover-dev':
+                cutover()
+            elif args.command == 'start':
+                start(args.environment)
+            elif args.command == 'stop':
+                stop(args.environment)
+            elif args.command == 'reset':
+                require_idle()
+                subprocess.run(command_for('test', True), cwd=ROOT, env=clean_env('test'), check=True)
 
 
 if __name__ == '__main__':

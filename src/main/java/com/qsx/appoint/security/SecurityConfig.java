@@ -1,8 +1,13 @@
 package com.qsx.appoint.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.qsx.appoint.localenv.LocalEnvironmentLifecycle;
+import com.qsx.appoint.localenv.LocalEnvironmentRequestFilter;
+import com.qsx.appoint.localenv.LocalEnvironmentStatusController;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -27,7 +32,8 @@ public class SecurityConfig {
     private final RestAccessDeniedHandler accessDeniedHandler;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, LocalEnvironmentLifecycle lifecycle,
+                                                   ObjectMapper objectMapper) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -35,12 +41,18 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/api/v1/payment-notifications/**").permitAll()
-                        .anyRequest().authenticated())
+                .authorizeHttpRequests(auth -> {
+                    if (lifecycle.flag("enabled")) {
+                        auth.requestMatchers(HttpMethod.GET, LocalEnvironmentStatusController.PATH).permitAll();
+                    }
+                    auth.requestMatchers("/api/v1/auth/**", "/api/v1/payment-notifications/**")
+                            .permitAll().anyRequest().authenticated();
+                })
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        if (lifecycle.flag("enabled")) {
+            http.addFilterBefore(new LocalEnvironmentRequestFilter(lifecycle, objectMapper), JwtAuthenticationFilter.class);
+        }
         return http.build();
     }
 

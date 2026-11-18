@@ -1,4 +1,5 @@
 server:
+  address: 127.0.0.1
   port: 8080
   error:
     include-message: never
@@ -15,7 +16,7 @@ spring:
       "[mail.smtp.timeout]": 3000
       "[mail.smtp.writetimeout]": 5000
   profiles:
-    default: dev
+    default: demo
   application:
     name: appoint
   datasource:

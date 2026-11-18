@@ -23,7 +23,7 @@ class LocalEnvironmentPolicyTest {
         var env=new MockEnvironment();env.setActiveProfiles(name);
         return env.withProperty("spring.datasource.url","jdbc:mysql://127.0.0.1:3306/"+(name.equals("dev")?"appoint":"appoint_"+name))
                 .withProperty("spring.datasource.username","appoint_"+name).withProperty("spring.datasource.password","fixture")
-                .withProperty("server.port",name.equals("dev")?"8080":name.equals("test")?"8081":"8082")
+                .withProperty("server.port","8080")
                 .withProperty("server.address","127.0.0.1").withProperty("appoint.catalog-cache.namespace",name)
                 .withProperty("spring.rabbitmq.virtual-host","/appoint-"+name).withProperty("spring.rabbitmq.host","127.0.0.1")
                 .withProperty("spring.rabbitmq.username","appoint_"+name).withProperty("spring.rabbitmq.password","fixture")
@@ -145,7 +145,7 @@ class LocalEnvironmentPolicyTest {
         var loader = new YamlPropertySourceLoader();
         var shared = loader.load("shared", new ClassPathResource("application.yml"));
         assertThat(shared.getFirst().containsProperty("spring.config.import")).isFalse();
-        assertThat(shared.getFirst().getProperty("spring.profiles.default")).isEqualTo("dev");
+        assertThat(shared.getFirst().getProperty("spring.profiles.default")).isEqualTo("demo");
         for (String name : java.util.List.of("dev", "test", "demo")) {
             var env = new MockEnvironment();
             env.setActiveProfiles(name);

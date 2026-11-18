@@ -2,13 +2,13 @@
 
 本文定义当前接口。业务规则见[业务流程](business-flow.md)。
 
-所有响应使用统一结构：
+业务 API 使用统一响应结构。独立的状态探测格式见[本地环境识别](#本地环境识别)。
 
 ```json
 { "code": 0, "message": "success", "data": {} }
 ```
 
-除注册、登录和支付渠道通知入口外，所有接口都需要 Bearer Token；管理员接口还需要 `ADMIN`。
+注册、登录、支付渠道通知和本地环境探测可免 Bearer Token。业务接口使用 Bearer Token，管理员接口同时要求 `ADMIN` 角色。
 
 响应中的 Java `Long` 类型 ID 统一序列化为 JSON 字符串，例如 `"id":"201"`，避免浏览器整数精度丢失。客户端应按不透明标识保存；容量、就诊序号及 `expiresIn` 等数值字段仍为数字。金额的字符串形式以对应 DTO 为准，例如创建预约的 `amount` 和设置中的 `registrationFee` 为字符串，退款摘要中的 `amount` 为 JSON 数值。
 
@@ -260,6 +260,7 @@ dev/test/demo 注册以下 MockPay 接口，均需要登录，无请求体：
 | 场景 | HTTP / code |
 | --- | --- |
 | 参数、容量、金额或时段非法 | `400 / 1001` |
+| 本地请求的环境标识与当前 profile 冲突 | `409 / 1003` |
 | 未登录 | `401 / 2001` |
 | 账号或密码错误 | `401 / 2003` |
 | 注册邮箱重复 | `409 / 3001` |
@@ -363,6 +364,16 @@ data为`environment`（当前环境名称）和`items`数组。每项字段如�
 
 旧半日场次、历史关闭终态及空场次类型继续可读，不用于新预约。历史订单按自身快照和持久化截止处理，不补写就诊事实。
 
+## 本地环境识别
+
+`GET /api/v1/local-environment` 在常驻环境提供无需登录的探测。后端接受流量时返回 HTTP 200，已能响应请求且尚未就绪时返回 HTTP 503。响应直接返回状态对象。由 Python 脚本启动时，`launchId` 为当次启动标识。单独启动后端时通常为 `null`。
+
+```json
+{ "profile": "demo", "ready": true, "launchId": null }
+```
+
+本地前端给 API 请求附带 `X-Appoint-Environment`。标识与正在运行的 profile 不匹配时返回 `409 / 1003`，提示刷新页面。直接调用 API 的客户端可省略此标识。
+
 ## test环境业务调时
 
-仅常驻test且具备ADMIN角色时注册：`GET /api/v1/test-control/clock`查询，`PUT /api/v1/test-control/clock`设置（JSON字段`instant`为带时区的ISO瞬时时间），`DELETE /api/v1/test-control/clock`恢复实时。返回`businessTime`与`mode`（realtime/adjusted）。设时后持续走秒，重启恢复真实时间，不调整JWT/系统时间，不回滚业务事实。dev/demo/prod无此路由。
+常驻 `test` 环境注册调时接口，调用需要 `ADMIN` 角色。对 `/api/v1/test-control/clock` 发起 `GET` 查询，使用 `PUT` 设置业务时间，使用 `DELETE` 恢复实时。设置时传入带时区的 ISO 时间字符串 `instant`。响应包含 `businessTime` 和 `mode`（`realtime` 或 `adjusted`）。设置后时间继续走秒，重启后恢复真实时间。调时只作用于业务时钟，已发生的业务事实继续保留。

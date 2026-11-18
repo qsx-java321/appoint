@@ -1,11 +1,12 @@
 import type { Login, User } from "../api/types";
+import { environmentStorageKey } from "./environment";
 
 export interface Session {
   token: string;
   expiresAt: number;
   user: User;
 }
-const key = "appoint.session.v1";
+const key = environmentStorageKey("session");
 export function readSession(): Session | null {
   try {
     const value: Session = JSON.parse(sessionStorage.getItem(key) || "null");
@@ -34,7 +35,7 @@ export function writeSession(login: Login): Session {
 export function clearSession(expectedToken?: string) {
   if (expectedToken && readSession()?.token !== expectedToken) return;
   sessionStorage.removeItem(key);
-  sessionStorage.removeItem("appoint.submission.v1");
+  sessionStorage.removeItem(environmentStorageKey("submission"));
   window.dispatchEvent(new Event("appoint:logout"));
 }
 export function safeReturn(value: unknown): string {

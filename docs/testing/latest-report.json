@@ -2,17 +2,17 @@
   "groups": {
     "backend": {
       "title": "后端单元/Mock与H2/MockMvc",
-      "tested_on": "2026-11-17",
-      "command": "./mvnw clean test；./mvnw -Pmysql-it verify",
+      "tested_on": "2026-11-18",
+      "command": "./mvnw -Pmysql-it clean verify",
       "build_exit_code": 0,
-      "source_revision": "本报告所在提交（基于6a321a5开发；验收后仅复核文档）",
+      "source_revision": "本轮端口复用与默认 demo 改造工作树",
       "status": "通过",
       "totals": {
-        "tests": 337,
+        "tests": 340,
         "failures": 0,
         "errors": 0,
         "skipped": 0,
-        "passed": 337
+        "passed": 340
       },
       "suites": [
         {
@@ -318,15 +318,23 @@
           "errors": 0,
           "skipped": 0,
           "passed": 1
+        },
+        {
+          "name": "com.qsx.appoint.localenv.LocalEnvironmentHttpTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 3
         }
       ]
     },
     "mysql": {
       "title": "MySQL集成测试",
-      "tested_on": "2026-11-17",
-      "command": "./mvnw -Pmysql-it verify",
+      "tested_on": "2026-11-18",
+      "command": "./mvnw -Pmysql-it clean verify",
       "build_exit_code": 0,
-      "source_revision": "本报告所在提交（基于6a321a5开发；验收后仅复核文档）",
+      "source_revision": "本轮端口复用与默认 demo 改造工作树",
       "status": "通过",
       "totals": {
         "tests": 12,
@@ -374,45 +382,45 @@
   "recorded_checks": [
     {
       "title": "前端单元/Mock",
-      "tested_on": "2026-11-17",
-      "tests": 30,
+      "tested_on": "2026-11-18",
+      "tests": 31,
       "status": "通过",
-      "evidence": "npm test，7文件、30项通过；API使用Mock。"
+      "evidence": "npm test，8 文件、31 项通过，包含同源环境会话与草稿隔离。"
     },
     {
-      "title": "前端类型检查与生产构建",
-      "tested_on": "2026-11-17",
+      "title": "前端类型检查、构建和格式",
+      "tested_on": "2026-11-18",
       "tests": null,
       "status": "通过",
-      "evidence": "npm run build退出0，含TypeScript检查。"
+      "evidence": "npm run typecheck、npm run build、Vite demo 模式构建和改动文件的 Prettier 检查均通过。"
     },
     {
-      "title": "环境脚本单元/Mock",
-      "tested_on": "2026-11-16",
-      "tests": 13,
-      "status": "通过（脚本精简前复验）",
-      "evidence": "精简脚本前复验13项通过，仅使用临时目录和Mock，未连接Docker或常驻资源。单元测试脚本现已移除，结果保留为历史验证证据。"
+      "title": "环境脚本回归",
+      "tested_on": "2026-11-18",
+      "tests": 3,
+      "status": "通过",
+      "evidence": "python3 -B -m unittest discover -s src/test/python，覆盖默认环境、并发拒绝及启动身份。"
     },
     {
-      "title": "三环境目录、账号及权限",
-      "tested_on": "2026-11-15",
+      "title": "三环境端口与启动验收",
+      "tested_on": "2026-11-18",
       "tests": null,
-      "status": "通过（人工验收历史记录）",
-      "evidence": "原测试文档中的“预置目录与账号验证”。真实MySQL、Redis和RabbitMQ逐套核验；未重跑完整预约付款签到接诊流程。"
+      "status": "通过",
+      "evidence": "独立 Compose 数据卷验证首次启动、进程互斥、前端失败清理、环境切换、重置和调时。Chrome 实测旧页面请求 409 / 1003 及会话、草稿隔离。"
     },
     {
-      "title": "三环境业务流程",
-      "tested_on": "2026-11-15",
+      "title": "demo 业务验收",
+      "tested_on": "2026-11-18",
       "tests": null,
-      "status": "通过（人工验收历史记录）",
-      "evidence": "原测试文档中的“三环境历史验收”。test覆盖注册至接诊及异常分支，dev/demo覆盖注册至付款预约成功；使用MockPay，原被测提交未知。"
+      "status": "通过",
+      "evidence": "真实 HTTP 经 Vite 代理完成挂号、模拟付款、签到和接诊。Chrome 验证登录和完成状态。"
     }
   ],
-  "report_date": "2026-11-17",
-  "basis": "本轮邮箱注册改造自动化实测；历史人工业务验收见各独立报告。",
+  "report_date": "2026-11-18",
+  "basis": "本轮默认 demo、端口复用和互斥改造实测。历史注册和 API 验收保留当时的日期及结果。",
   "limitations": [
-    "Redis/SMTP在自动化中使用测试替身，真实链路见email-signup-report.md",
-    "未新增限流、防刷、并发、故障恢复或真实邮箱投递测试"
+    "demo 时段验证使用隔离验收 JVM 的临时时钟。",
+    "浏览器核验覆盖登录、结果页和切换环境，核心业务操作通过实际 HTTP 执行。"
   ],
   "api_main_flow": {
     "tested_on": "2026-11-16",
@@ -437,10 +445,10 @@
     "report": "api-flow-report.md"
   },
   "frontend": {
-    "tested_on": "2026-11-17",
-    "files": 7,
-    "tests": 30,
-    "passed": 30,
+    "tested_on": "2026-11-18",
+    "files": 8,
+    "tests": 31,
+    "passed": 31,
     "build_exit_code": 0
   },
   "email_signup": {

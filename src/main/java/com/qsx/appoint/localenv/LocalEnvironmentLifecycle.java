@@ -7,10 +7,12 @@ import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
-import java.net.InetAddress;
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Base64;
 import java.util.Map;
 import java.security.SecureRandom;
@@ -34,16 +36,10 @@ public class LocalEnvironmentLifecycle implements BeanFactoryPostProcessor, Disp
             if ("dev".equals(name) && !"classpath:/regression/".equals(environment.getProperty("spring.config.location"))
                     && !java.nio.file.Files.exists(java.nio.file.Path.of(".local-env/dev-cutover-ready")))
                 throw new IllegalStateException("dev启动预检尚未完成");
+            acquireRunLock();
             int port = environment.getRequiredProperty("server.port", Integer.class);
-            try (var probe = new ServerSocket(port, 0, InetAddress.getByName("127.0.0.1"))) { /* 清理前检查端口 */ }
-            lock = DriverManager.getConnection(environment.getRequiredProperty("spring.datasource.url"),
-                    environment.getRequiredProperty("spring.datasource.username"), environment.getRequiredProperty("spring.datasource.password"));
-            try (var statement = lock.prepareStatement("SELECT GET_LOCK(?, 0)")) {
-                statement.setString(1, "appoint.local." + name);
-                try (var result = statement.executeQuery()) {
-                    if (!result.next() || result.getInt(1) != 1) throw new IllegalStateException("环境已有运行实例或正在重置");
-                }
-            }
+            checkPort(port);
+            checkPort(LocalEnvironmentPolicy.FRONTEND_PORT);
             if (reset()) {
                 byte[] bytes = new byte[48]; new SecureRandom().nextBytes(bytes);
                 String secret = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
@@ -52,10 +48,36 @@ public class LocalEnvironmentLifecycle implements BeanFactoryPostProcessor, Disp
                 environment.getPropertySources().addFirst(new MapPropertySource("localResetJwt", Map.of("appoint.jwt.secret", secret)));
             }
             System.out.printf("常驻环境=%s，后端端口=%d，业务时钟=实时；MockPay渠道状态仅存于内存%n", name, port);
-        } catch (Exception error) {
+        } catch (RuntimeException error) {
             destroy();
-            // 驱动异常可能包含连接串和凭据，不传播原始message。
-            throw new IllegalStateException("常驻环境预检失败：检查目标配置、端口、实例锁和本地凭据（未执行业务初始化）");
+            throw error;
+        }
+    }
+
+    private void acquireRunLock() {
+        try {
+            lock = DriverManager.getConnection(environment.getRequiredProperty("spring.datasource.url"),
+                    environment.getRequiredProperty("spring.datasource.username"),
+                    environment.getRequiredProperty("spring.datasource.password"));
+            try (var statement = lock.prepareStatement("SELECT GET_LOCK(?, 0)")) {
+                statement.setString(1, "appoint.local.runtime");
+                try (var result = statement.executeQuery()) {
+                    if (result.next() && result.getInt(1) == 1) return;
+                }
+            }
+        } catch (SQLException error) {
+            // 驱动异常可能包含连接串和凭据。
+            throw new IllegalStateException("无法取得常驻环境运行锁，请检查MySQL及本地配置");
+        }
+        throw new IllegalStateException("已有常驻环境正在启动、运行或重置，请先停止当前环境");
+    }
+
+    private void checkPort(int port) {
+        try (var probe = new ServerSocket()) {
+            probe.setReuseAddress(true);
+            probe.bind(new InetSocketAddress("127.0.0.1", port));
+        } catch (IOException error) {
+            throw new IllegalStateException("端口" + port + "被占用，请从原入口停止当前前后端");
         }
     }
 

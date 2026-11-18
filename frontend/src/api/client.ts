@@ -1,5 +1,6 @@
 import axios, { type AxiosRequestConfig } from "axios";
 import { clearSession, readSession } from "../lib/session";
+import { currentEnvironment } from "../lib/environment";
 
 export class ApiError extends Error {
   constructor(
@@ -15,6 +16,8 @@ export class ApiError extends Error {
 }
 export const http = axios.create({ baseURL: "/api/v1", timeout: 15000 });
 http.interceptors.request.use((config) => {
+  if (currentEnvironment)
+    config.headers["X-Appoint-Environment"] = currentEnvironment;
   const token = readSession()?.token;
   if (token && !config.url?.startsWith("/auth/"))
     config.headers.Authorization = `Bearer ${token}`;

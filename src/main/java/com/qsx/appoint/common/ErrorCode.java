@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
     VALIDATION_ERROR(1001, "请求参数不合法", HttpStatus.BAD_REQUEST),
     INTERNAL_ERROR(1002, "服务暂时不可用", HttpStatus.INTERNAL_SERVER_ERROR),
+    LOCAL_ENVIRONMENT_MISMATCH(1003, "运行环境已切换，请刷新页面", HttpStatus.CONFLICT),
     UNAUTHORIZED(2001, "请先登录或重新登录", HttpStatus.UNAUTHORIZED),
     FORBIDDEN(2002, "没有权限执行此操作", HttpStatus.FORBIDDEN),
     LOGIN_FAILED(2003, "邮箱或密码错误", HttpStatus.UNAUTHORIZED),

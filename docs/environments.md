@@ -6,8 +6,8 @@
 
 | 项目 | dev | test | demo |
 | --- | --- | --- | --- |
-| Spring profile | dev（默认） | test | demo |
-| 前端→后端 | 5173→8080 | 5174→8081 | 5175→8082 |
+| Spring profile | dev | test | demo（默认） |
+| 前端→后端 | 5173→8080 | 5173→8080 | 5173→8080 |
 | MySQL数据库 | appoint（原库） | appoint_test | appoint_demo |
 | Redis namespace | dev | test | demo |
 | RabbitMQ vhost | /appoint-dev | /appoint-test | /appoint-demo |
@@ -16,9 +16,9 @@
 | 数据生命周期 | 一直保留 | 默认保留，显式重置 | 每次后端启动恢复初始状态 |
 | 业务时间 | 上海真实时间 | 默认实时，可运行中调时 | 上海真实时间 |
 
-三个数据库使用同一套Flyway迁移与基础目录，不复制dev业务数据。数据库账号、RabbitMQ权限和JWT密钥独立，Redis按前缀隔离。启动时校验最终连接目标；同环境锁和端口检查先于重置，脚本、Maven、IDE使用同一生命周期。
+三个数据库使用同一套Flyway迁移与基础目录，不复制dev业务数据。数据库账号、RabbitMQ权限和JWT密钥独立，Redis按前缀隔离。启动时校验最终连接目标；项目级MySQL运行锁和共用端口检查先于重置，脚本、Maven、IDE使用同一生命周期。
 
-电脑资源有限，使用时按需启动一套，切换前停止上一套；程序只保留同环境重复实例与重置保护，不增加跨环境互斥。
+前后端一次只能运行一套。切换前先停止当前前后端。脚本在启动前检查三环境的托管进程和两个共用端口，后端在初始化前取得项目级运行锁。
 
 ## Flyway初始化基线
 
@@ -35,8 +35,8 @@
 首次安装需要联网下载Docker镜像、Maven及应用依赖，无需预先安装Maven。以下从GitHub克隆开始，进入项目根目录后执行初始化：
 
 ```bash
-git clone <仓库地址>
-cd <项目目录>
+git clone "<仓库地址>"
+cd "<项目目录>"
 python3 scripts/local_env.py init
 ```
 
@@ -44,33 +44,38 @@ init先从`compose.env.example`、`.env.dev.example`、`.env.test.example`和`.e
 
 随后启动共享Compose并创建缺少的数据库、账号和vhost。重复执行保留已有密码和业务数据；卷内凭据或权限不匹配时停止，不擅自改密码或删除数据卷。init不创建业务表，业务结构在后端启动时由Flyway初始化。
 
-首次使用dev需要执行启动预检，执行时确保dev后端已停止：
+首次使用dev需要执行启动预检，执行时确保当前前后端均已停止。
 
 ```bash
 python3 scripts/local_env.py cutover-dev
 ```
 
-`cutover-dev`保留命令名，仅执行dev启动预检：检查后端8080端口是否占用；查询数据库表清单，空库直接通过，非空库必须包含`payment_outbox_events`、`payment_orders`、`payment_refunds`、`payment_attempts`和`appointment_orders`。端口占用、查询失败或必要业务表缺失时中止，通过后保存本机启动标记。预检不查询支付、退款或Outbox业务状态，也不访问RabbitMQ；未完成业务和队列消息不作为阻断条件。预检不修改业务数据、清理资源或转换旧数据库历史，完整结构与迁移版本由后端启动时的Flyway继续校验。
+`cutover-dev` 先确认三套环境都没有脚本托管的运行进程，且前端 `5173`、后端 `8080` 均空闲，再只读查询 dev 库表清单。空库可通过预检，非空库必须包含 `payment_outbox_events`、`payment_orders`、`payment_refunds`、`payment_attempts` 和 `appointment_orders`。通过后写入 `.local-env/dev-cutover-ready`。后端启动时由 Flyway 校验完整结构和迁移历史。
 
 Compose操作始终使用`docker compose --env-file compose.env ...`。停止共享依赖用`docker compose --env-file compose.env stop`，保留卷。
 
 ## 启动和切换
 
-脚本托管前后端的完整命令统一维护在README：[首次克隆并启动](../README.md#首次克隆并启动)、[日常启动](../README.md#日常启动)、[完整停止](../README.md#停止前后端和docker容器)、[环境切换](../README.md#切换环境)及[状态和日志](../README.md#状态和日志)。初始化与安装前端依赖只需按首次流程完成；日常按需运行一套前后端，共享容器停止后先启动容器。使用`start dev/test/demo`会显式选择对应profile，无需修改application.yml。
+脚本托管的完整流程见[README](../README.md#首次克隆并启动)。`start` 默认选择 demo，`start dev`、`start test` 和 `start demo` 显式选择环境。两个进程均通过身份和就绪检查后，脚本才报告启动成功。切换环境时，先停止当前前后端，再启动目标环境。脚本的 `stop <环境>` 和 `status <环境>` 都需要环境参数，作用于脚本启动的进程。通过 IDE、JAR 或 npm 手动启动的进程从原入口停止。由旧版端口布局升级时，先停止旧版前后端，启动新版后刷新所有项目标签页。
 
-下列方式适用于只启动后端或在IDE中调试。基础资源仍需先通过上述首次准备完成；脚本的`stop`和`status`只管理脚本托管的进程，不管理IDE或手动启动的实例。
+### 单独启动后端或前端
 
-IDE启动时，可在src/main/resources/application.yml中将`spring.profiles.default`从`dev`改为`test`或`demo`，然后运行`AppointApplication.main`；工作目录设为项目根目录，并留空IDE的Active profiles、`--spring.profiles.active`参数和`SPRING_PROFILES_ACTIVE`环境变量，让文件中的默认值生效。Spring自动叠加对应application-dev/test/demo.yml并导入对应私密配置。
+在项目根目录启动后端。直接运行 IDE 中的 `AppointApplication.main`、`./mvnw spring-boot:run` 或打包后的 JAR 时，默认加载 demo 和 `.env.demo`。需要切换时在 IDE、`SPRING_PROFILES_ACTIVE` 环境变量或命令行显式设置 profile。首次使用 dev 时先完成预检。
 
-只启动Spring Boot时不需要Node或npm，在完成init和dev预检后，也可用Maven显式选择环境：
+可以用 Maven 启动 test。
 
 ```bash
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+./mvnw spring-boot:run -Dspring-boot.run.profiles=test
 ```
 
-将dev替换为test或demo即可；这两套环境无需dev预检标记。显式选择的profile优先于文件中的默认值。两种启动方式使用同一套环境配置，每次只选一个profile。dev后端监听127.0.0.1:8080，根路径没有网页；需要页面时，前端在frontend目录分别使用`npm run dev`、`npm run dev:test`、`npm run dev:demo`。
+也可以先打包，再直接启动默认的 demo。改用 test 时，在 JAR 启动命令后加 `--spring.profiles.active=test`。
 
-前端代理固定到同环境后端；API_PROXY_TARGET或命令行端口与环境冲突时拒绝启动。后端在连接和重置前校验最终数据库、消息、缓存与端口目标，拒绝独立Flyway/Hikari连接覆盖等会绕开目标配置的方式。
+```bash
+./mvnw -DskipTests package
+java -jar target/appoint-0.0.1-SNAPSHOT.jar
+```
+
+后端监听 `127.0.0.1:8080`。在对应后端就绪后，从 `frontend` 目录分别使用 `npm run dev`、`npm run dev:test` 或 `npm run dev:demo` 启动前端。前端验证后端的实际 profile，并从 `127.0.0.1:5173` 代理请求到 `8080`。切换后刷新旧标签页，浏览器会按环境读取登录和预约草稿。
 
 ## 账号及重置
 
@@ -111,11 +116,11 @@ dev/test启动时只补充缺失的预置账号及空医生绑定，保留已有
 
 ### demo自动重置与test显式重置
 
-demo清理仅针对自身数据库、缓存和消息；脚本、Maven、IDE入口共用Spring启动生命周期。同环境第二实例或后端端口占用时，在清理前拒绝。刷新页面或重启前端不会重置数据。每次后端启动使用新的JWT密钥，旧Token失效。
+demo清理仅针对自身数据库、缓存和消息；脚本、Maven、IDE入口共用Spring启动生命周期。已有环境在启动、运行或重置，或任一共用端口被占用时，在清理前拒绝。刷新页面或重启前端不会重置数据。每次后端启动使用新的JWT密钥，旧Token失效。
 
 demo每次后端启动重新执行V1和V2，再按当前`.env.demo`的`LOCAL_SEED_PASSWORD`创建上述20个用户及医生绑定。
 
-test普通重启保留数据，只有显式重置才清空自己的业务数据（包括自行注册的用户和预约），重建表和样例目录、清理目录缓存、注册验证码/票据及应用消息队列。确保共享容器运行，先停止test，再重置并重新启动：
+test普通重启保留数据，只有显式重置才清空自己的业务数据（包括自行注册的用户和预约），重建表和样例目录、清理目录缓存、注册验证码/票据及应用消息队列。保持共享容器运行，先停止当前整套应用，再重置并启动test。以下以当前运行test为例。
 
 ```bash
 docker compose --env-file compose.env up -d --wait
@@ -124,7 +129,7 @@ python3 scripts/local_env.py reset test
 python3 scripts/local_env.py start test
 ```
 
-reset和正常启动共用同环境锁，重置后按当前`.env.test`的`LOCAL_SEED_PASSWORD`重新初始化管理员和18名医生账号，原子轮换.env.test中的JWT密钥；旧Token失效，普通重启继续使用轮换后的密钥。reset完成后退出，最后的start才会持续运行前后端。IDE启动的实例也持有锁，需在IDE中先停止，不能只凭脚本无PID就认为可以重置。dev没有自动重置入口，保留其数据。
+reset和正常启动共用项目级运行锁，重置后按当前`.env.test`的`LOCAL_SEED_PASSWORD`重新初始化管理员和18名医生账号，原子轮换.env.test中的JWT密钥；旧Token失效，普通重启继续使用轮换后的密钥。reset完成后退出，最后的start才会持续运行前后端。IDE启动的实例也持有锁，需在IDE中先停止，不能只凭脚本无PID就认为可以重置。dev没有自动重置入口，保留其数据。
 
 ## dev管理员授权
 
@@ -165,6 +170,6 @@ MockPay继续保存在内存，应用重启后旧渠道支付查询和退款续�
 
 四个共享服务由同一Compose统一管理。Mailpit使用已有 `axllent/mailpit:v1.31` 镜像，容器名 `appoint-mailpit`，复用镜像健康检查。宿主后端通过 `127.0.0.1:1025` SMTP发信，浏览器打开[Mailpit](http://127.0.0.1:8025)查看验证码。默认无认证/TLS、无外部投递；邮件仅为本地测试使用，临时存储不保证退出后保留。
 
-已有项目更新后执行 `docker compose --env-file compose.env up -d --wait` 即会创建Mailpit，不必重新init。脚本start/stop仍只管理前后端；Compose stop停止全部四个共享服务。
+已完成初始化时，使用 `docker compose --env-file compose.env up -d --wait` 启动四个共享服务。脚本的 `start` 和 `stop` 管理前后端，Compose 的 `stop` 管理共享服务。
 
 三环境共用收件页面，邮件标题通过 `[dev]`、`[test]`、`[demo]` 区分。SMTP配置位于application.yml；注册namespace位于对应profile配置。验证码和票据在Redis按环境前缀隔离，demo每次后端启动与test显式重置会清理自身auth键；普通dev/test重启保留并自然过期。已有账号及预置账号仍直接邮箱密码登录，新公开注册必须验证邮箱。

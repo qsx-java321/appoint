@@ -10,6 +10,7 @@ import type {
 import { api } from "../api";
 import { ApiError } from "../api/client";
 import { readSession } from "../lib/session";
+import { environmentStorageKey } from "../lib/environment";
 export interface Selection {
   hospital: Hospital;
   department: Department;
@@ -21,7 +22,7 @@ export interface Submission {
   key: string;
   body: BookingInput;
 }
-const key = "appoint.submission.v1";
+const key = environmentStorageKey("submission");
 export function readSubmission(): Submission | null {
   try {
     const p = JSON.parse(

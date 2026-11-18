@@ -13,7 +13,7 @@
 | coordination | 创建、取消、过期、支付确认和对账 | BookingCoordinator、BookingLifecycleCoordinator、PaymentSucceededProcessor |
 | bookingquery | 用户详情和医生概览、名单、详情只读组合 | AppointmentService、DoctorVisitQueryService |
 | visit | 签到、开始和完成接诊 | VisitService、VisitRules |
-| localenv | 环境目标校验、实例锁、初始化及test调时 | LocalEnvironmentLifecycle |
+| localenv | 环境目标校验、跨环境运行锁、初始化、就绪探测及 test 调时 | LocalEnvironmentLifecycle、[本地环境识别](api.md#本地环境识别) |
 
 appointment与payment写模块互不引用，coordination通过稳定应用接口和事实协调，不直接访问其他模块Mapper或Entity。bookingquery可以只读联查，写模块不反向依赖查询模块。Controller不直接访问Mapper。
 

@@ -4,14 +4,14 @@
 
 ## 开发与构建
 
-使用Node 24（至少24.12）和npm。WSL开发使用WSL内的Node/npm，避免混用依赖目录。在frontend目录执行：
+使用 Node 24（`>=24.12.0 <25`）和 npm。WSL 开发使用同一发行版内的 Node 和 npm。整套前后端按[项目快速启动](../README.md#快速启动)运行。单独启动 Vite 时，先启动对应的后端。以下以已就绪的 demo 后端为例，在 `frontend` 目录执行。
 
 ```bash
 npm ci
-npm run dev
+npm run dev:demo
 ```
 
-`dev`为5173→8080，`dev:test`为5174→8081，`dev:demo`为5175→8082。浏览器使用127.0.0.1；每个mode的端口与`/api`代理固定，冲突覆盖会拒绝启动。整体初始化、账号及环境切换见[环境说明](../docs/environments.md)。前端刷新或重启不重置demo数据。
+`npm run dev`、`npm run dev:test` 和 `npm run dev:demo` 分别要求后端使用 `dev`、`test` 和 `demo` profile。三套环境共用 `127.0.0.1:5173`。Vite 确认后端就绪且 profile 匹配后，再提供页面并将 `/api` 代理到 `127.0.0.1:8080`。整体初始化、账号及环境切换见[环境说明](../docs/environments.md)。
 
 ```bash
 npm run typecheck
@@ -21,13 +21,13 @@ npm run build
 
 测试使用Vitest单元/Mock用例，API由Mock提供，不连接后端。已有结果见[测试报告](../docs/testing/latest-report.md)。
 
-构建输出dist，前后端分别构建。静态服务器需将`/api`反向代理到后端，并为history路由提供index.html回退；后端凭据不进入VITE变量。三套本地模式显示MockPay操作，生产构建关闭模拟按钮，真实支付尚未接入。
+构建输出dist，前后端分别构建。静态服务器需将`/api`反向代理到后端，并为history路由提供index.html回退；后端凭据不进入VITE变量。三套本地模式显示 MockPay 操作。默认生产构建关闭模拟按钮，生成保留模拟支付的 demo 静态产物时使用 `npm run build -- --mode demo`。
 
 ## 代码与状态
 
 - `api/`保存HTTP客户端、接口封装与DTO；`views/`为账号、预约、医生和管理页面。
 - `stores/`管理会话、预约选择和同次提交身份，`composables/`管理请求与有限轮询，`lib/`处理展示和时间。
-- 会话保存在当前标签页sessionStorage；过期或认证401回登录，退出只清理客户端会话，后端没有Token撤销与续签。角色变更后重新登录。
+- 会话和预约草稿按环境保存在当前标签页的 sessionStorage；过期或认证401回登录，退出只清理客户端会话，后端没有Token撤销与续签。角色变更后重新登录。
 - 预约结果未知时保留原提交内容及幂等键用于核实；证件原文、密码和支付签名不进入持久化草稿。
 - ID按字符串传递，金额和操作资格以服务端为准。异步付款后查询正式结果；医生动作后刷新名单和概览，用户手动刷新同一预约查看进度。
 

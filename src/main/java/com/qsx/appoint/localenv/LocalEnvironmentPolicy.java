@@ -8,7 +8,6 @@ import org.springframework.core.env.ConfigurableEnvironment;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.net.URI;
 import java.nio.file.Files;
@@ -19,6 +18,9 @@ import org.springframework.boot.context.properties.source.ConfigurationPropertyS
 
 /** 不能用Shell关闭常驻保护；独立回归通过明确配置根完全绕开主profile文件。 */
 public class LocalEnvironmentPolicy implements EnvironmentPostProcessor, Ordered {
+    static final int BACKEND_PORT = 8080;
+    static final int FRONTEND_PORT = 5173;
+
     @Override
     public int getOrder() { return ConfigDataEnvironmentPostProcessor.ORDER + 1; }
 
@@ -43,10 +45,9 @@ public class LocalEnvironmentPolicy implements EnvironmentPostProcessor, Ordered
         if (!List.of("dev", "test", "demo").contains(name)) throw new IllegalArgumentException("未知环境");
         String[] profiles = env.getActiveProfiles().length == 0 ? env.getDefaultProfiles() : env.getActiveProfiles();
         if (profiles.length != 1 || !profiles[0].equals(name)) throw new IllegalArgumentException("只允许单个常驻profile");
-        int expectedPort = Map.of("dev", 8080, "test", 8081, "demo", 8082).get(name);
         boolean isolated = "classpath:/regression/".equals(env.getProperty("spring.config.location"));
         int actualPort = env.getRequiredProperty("server.port", Integer.class);
-        if (isolated && List.of(8080, 8081, 8082, 5173, 5174, 5175).contains(actualPort)) throw new IllegalArgumentException("隔离验证不能占用常驻端口");
+        if (isolated && List.of(BACKEND_PORT, FRONTEND_PORT).contains(actualPort)) throw new IllegalArgumentException("隔离验证不能占用常驻端口");
         String db = name.equals("dev") ? "appoint" : "appoint_" + name;
         for (String override : List.of("spring.flyway.url", "spring.flyway.user", "spring.flyway.password",
                 "spring.flyway.schemas", "spring.flyway.default-schema", "spring.datasource.hikari.jdbc-url",
@@ -76,7 +77,7 @@ public class LocalEnvironmentPolicy implements EnvironmentPostProcessor, Ordered
         }
         if (uri.getUserInfo() != null || !("/" + db).equals(uri.getPath())
                 || !List.of("localhost", "127.0.0.1").contains(uri.getHost()) || (!isolated && uri.getPort() != 3306) || (isolated && uri.getPort() == 3306)
-                || (!isolated && actualPort != expectedPort)
+                || (!isolated && actualPort != BACKEND_PORT)
                 || !name.equals(env.getRequiredProperty("appoint.catalog-cache.namespace"))
                 || !("/appoint-" + name).equals(env.getRequiredProperty("spring.rabbitmq.virtual-host"))
                 || !List.of("localhost", "127.0.0.1").contains(env.getProperty("spring.rabbitmq.host"))
