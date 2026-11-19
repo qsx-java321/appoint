@@ -38,22 +38,21 @@ public interface ScheduleMapper extends BaseMapper<Schedule> {
                                                 @Param("sessionType") String sessionType);
 
     @Insert("""
-            INSERT IGNORE INTO schedules (
+            INSERT INTO schedules (
                 doctor_id, appointment_date, start_time, end_time, status, session_type,
                 total_capacity, available_capacity, held_capacity, confirmed_capacity,
                 next_visit_number, registration_fee, fee_currency)
-            VALUES (
-                #{doctorId}, #{appointmentDate}, #{startTime}, #{endTime}, 'OPEN', #{sessionType},
-                #{capacity}, #{capacity}, 0, 0, 1, #{registrationFee}, #{currency})
+            SELECT #{doctorId}, #{appointmentDate}, #{startTime}, #{endTime}, 'OPEN', #{sessionType},
+                   capacity_per_session, capacity_per_session, 0, 0, 1, registration_fee, currency
+            FROM booking_settings
+            WHERE booking_settings.id = 1
+            ON DUPLICATE KEY UPDATE id = schedules.id
             """)
-    int insertGenerated(@Param("doctorId") Long doctorId,
-                        @Param("appointmentDate") java.time.LocalDate appointmentDate,
-                        @Param("startTime") java.time.LocalTime startTime,
-                        @Param("endTime") java.time.LocalTime endTime,
-                        @Param("sessionType") String sessionType,
-                        @Param("capacity") int capacity,
-                        @Param("registrationFee") java.math.BigDecimal registrationFee,
-                        @Param("currency") String currency);
+    int insertGeneratedFromSettings(@Param("doctorId") Long doctorId,
+                                    @Param("appointmentDate") LocalDate appointmentDate,
+                                    @Param("startTime") java.time.LocalTime startTime,
+                                    @Param("endTime") java.time.LocalTime endTime,
+                                    @Param("sessionType") String sessionType);
 
     @Update("""
             UPDATE schedules
@@ -70,14 +69,18 @@ public interface ScheduleMapper extends BaseMapper<Schedule> {
             SET available_capacity = available_capacity - 1,
                 held_capacity = held_capacity + 1,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = #{scheduleId} AND session_type IN (
-                    'MORNING_FIRST', 'MORNING_SECOND', 'AFTERNOON_FIRST', 'AFTERNOON_SECOND')
+            WHERE id = #{scheduleId} AND doctor_id = #{doctorId}
+              AND appointment_date = #{appointmentDate} AND session_type = #{sessionType}
+              AND session_type IN ('MORNING_FIRST', 'MORNING_SECOND', 'AFTERNOON_FIRST', 'AFTERNOON_SECOND')
               AND status = 'OPEN' AND available_capacity > 0
               AND appointment_date BETWEEN #{firstBookableDate} AND #{lastBookableDate}
               AND (appointment_date > #{earliestStartDate}
                    OR (appointment_date = #{earliestStartDate} AND start_time > #{earliestStartTime}))
             """)
     int holdOneBookableSession(@Param("scheduleId") Long scheduleId,
+                              @Param("doctorId") Long doctorId,
+                              @Param("appointmentDate") LocalDate appointmentDate,
+                              @Param("sessionType") String sessionType,
                               @Param("firstBookableDate") LocalDate firstBookableDate,
                               @Param("lastBookableDate") LocalDate lastBookableDate,
                               @Param("earliestStartDate") LocalDate earliestStartDate,

@@ -221,12 +221,11 @@ class OnDemandBookingHttpTest {
     void sqlAdmissionRejectsExactCutoffAndAcceptsBeforeIt() {
         var date = LocalDate.of(2026, 11, 5);
         var session = AppointmentSession.AFTERNOON_FIRST;
-        scheduleMapper.insertGenerated(1L, date, session.startTime(), session.endTime(), session.name(),
-                20, new java.math.BigDecimal("10.00"), "CNY");
+        scheduleMapper.insertGeneratedFromSettings(1L, date, session.startTime(), session.endTime(), session.name());
         var id = scheduleMapper.selectByDoctorDateSession(1L, date, session.name()).getId();
-        assertThat(scheduleMapper.holdOneBookableSession(id, date, date.plusDays(2), date,
+        assertThat(scheduleMapper.holdOneBookableSession(id, 1L, date, session.name(), date, date.plusDays(2), date,
                 java.time.LocalTime.of(14, 0))).isZero();
-        assertThat(scheduleMapper.holdOneBookableSession(id, date, date.plusDays(2), date,
+        assertThat(scheduleMapper.holdOneBookableSession(id, 1L, date, session.name(), date, date.plusDays(2), date,
                 java.time.LocalTime.of(13, 59, 59))).isEqualTo(1);
         assertThat(scheduleMapper.selectById(id).getHeldCapacity()).isEqualTo(1);
     }

@@ -77,8 +77,12 @@ class SessionCatalogHttpTest {
     void timeStateTakesPrecedenceOverFullInventory() throws Exception {
         var date = LocalDate.of(2026, 11, 5);
         var session = AppointmentSession.MORNING_SECOND;
-        scheduleMapper.insertGenerated(1L, date, session.startTime(), session.endTime(), session.name(),
-                1, new java.math.BigDecimal("10.00"), "CNY");
+        mockMvc.perform(put("/api/v1/admin/booking-settings")
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"capacityPerSession\":1,\"registrationFee\":10.00}"))
+                .andExpect(status().isOk());
+        scheduleMapper.insertGeneratedFromSettings(1L, date, session.startTime(), session.endTime(), session.name());
         var schedule = scheduleMapper.selectByDoctorDateSession(1L, date, session.name());
         assertThat(scheduleMapper.holdOne(schedule.getId())).isEqualTo(1);
 

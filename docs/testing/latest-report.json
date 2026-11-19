@@ -2,10 +2,10 @@
   "groups": {
     "backend": {
       "title": "后端单元/Mock与H2/MockMvc",
-      "tested_on": "2026-11-18",
+      "tested_on": "2026-11-19",
       "command": "./mvnw -Pmysql-it clean verify",
       "build_exit_code": 0,
-      "source_revision": "基于 6143b3c 的 dev 首次启动改造工作树",
+      "source_revision": "基于 e983207 的预约按场次占号工作树",
       "status": "通过",
       "totals": {
         "tests": 340,
@@ -331,26 +331,26 @@
     },
     "mysql": {
       "title": "MySQL集成测试",
-      "tested_on": "2026-11-18",
+      "tested_on": "2026-11-19",
       "command": "./mvnw -Pmysql-it clean verify",
       "build_exit_code": 0,
-      "source_revision": "基于 6143b3c 的 dev 首次启动改造工作树",
+      "source_revision": "基于 e983207 的预约按场次占号工作树",
       "status": "通过",
       "totals": {
-        "tests": 12,
+        "tests": 15,
         "failures": 0,
         "errors": 0,
         "skipped": 0,
-        "passed": 12
+        "passed": 15
       },
       "suites": [
         {
           "name": "com.qsx.appoint.mysql.BookingConcurrencyMySqlIT",
-          "tests": 4,
+          "tests": 7,
           "failures": 0,
           "errors": 0,
           "skipped": 0,
-          "passed": 4
+          "passed": 7
         },
         {
           "name": "com.qsx.appoint.mysql.PaymentConsistencyMySqlIT",
@@ -380,6 +380,13 @@
     }
   },
   "recorded_checks": [
+    {
+      "title": "预约按场次占号",
+      "tested_on": "2026-11-19",
+      "tests": 7,
+      "status": "通过",
+      "evidence": "MySQL 验证已有及首次生成的不同场次可先后独立提交。同场次并发首次下单只建一行，抢最后一个号只成功一单。"
+    },
     {
       "title": "前端单元/Mock",
       "tested_on": "2026-11-18",
@@ -430,8 +437,8 @@
       "evidence": "Compose 配置校验通过。隔离项目通过 SMTP 写入测试邮件，保留数据卷强制重建容器后，通过 API 读到同一封邮件。"
     }
   ],
-  "report_date": "2026-11-18",
-  "basis": "默认 demo、端口复用、跨环境互斥、dev 首次启动及 Mailpit 持久化实测。前端结果来自端口复用验收，后端与脚本结果来自 dev 首次启动改造。",
+  "report_date": "2026-11-19",
+  "basis": "预约按场次占号改造的后端回归。前端、环境脚本及环境人工验收记录来自 2026-11-18。",
   "limitations": [
     "demo 时段验证使用隔离验收 JVM 的临时时钟。",
     "浏览器核验覆盖登录、结果页和切换环境，核心业务操作通过实际 HTTP 执行。"
