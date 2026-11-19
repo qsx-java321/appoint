@@ -19,3 +19,17 @@
 - 使用 `scripts/local_env.py` 初始化、启停、重置和调时。IDE、Maven 或 JAR 启动时，工作目录为项目根目录。
 - 三套环境共用前后端端口，切换前先停止当前应用。操作 Compose 时指定 `--env-file compose.env`。
 - 默认启动 demo，启动会重建 demo 数据。dev 保留数据，test 通过显式重置清理。重置或调时前查[环境指南](docs/environments.md)，私密配置保存在忽略文件中。
+
+## Agent skills
+
+### Issue tracker
+
+Issue 和规格使用本地 Markdown，见 [跟踪约定](docs/agents/issue-tracker.md)。
+
+### Triage labels
+
+使用五个默认分类标签，见 [标签定义](docs/agents/triage-labels.md)。
+
+### Domain docs
+
+采用单一领域布局，见 [领域文档约定](docs/agents/domain.md)。

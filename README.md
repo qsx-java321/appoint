@@ -22,14 +22,18 @@ python3 scripts/local_env.py start demo
 
 ## 文档
 
+### 了解项目
+
+先看[业务流程](docs/business-flow.md)了解下单、支付、过期、签到和接诊，再看[模块设计](docs/module-design.md)定位代码、事务和数据关系。业务术语见[术语表](GLOSSARY.md)。
+
+### 按任务查阅
+
 | 想做什么 | 阅读入口 |
 | --- | --- |
-| 理解预约、支付、过期、签到和接诊 | [业务流程](docs/business-flow.md) |
-| 找核心代码、事务和数据关系 | [模块设计](docs/module-design.md) |
+| 填写演示就诊人 | [就诊人示例](docs/patient-examples.md) |
 | 联调 HTTP 接口 | [REST API](docs/api.md) |
 | 切换环境、重置 test、调时或查日志 | [本地环境指南](docs/environments.md) |
-
-业务术语见[术语表](GLOSSARY.md)。前端单独开发和构建见[前端说明](frontend/README.md)。
+| 单独开发或构建前端 | [前端说明](frontend/README.md) |
 
 ## 自动化测试
 
