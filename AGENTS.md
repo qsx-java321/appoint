@@ -1,27 +1,21 @@
 # Agent 协作说明
 
-本项目是医院预约系统。默认使用中文沟通、编写文档和描述业务概念；技术框架、类名、接口名保持原文。
+项目是医院预约系统。默认使用中文沟通和撰写文档，技术框架、类名和接口名沿用原名。
 
-## 工作方式
+## 开发与验证
 
-- 实现前说明目标、关键假设和完成条件。会改变业务结果的歧义先澄清，常规实现细节沿用项目约定。
-- 采用满足本次需求的简单方案，控制改动范围，清理本次产生的无用代码；无关问题单独说明。
-- 按变更运行有意义的检查，报告实际结果与未验证范围；文档检查不代表业务测试已执行。
-- 自动化测试维护单元/Mock、独立H2的MockMvc及按需运行的Testcontainers MySQL集成测试；均不连接dev/test/demo常驻资源。命令见[README](README.md#自动化测试)；`docs/testing/`仅存放测试报告，测试后按实际执行范围覆盖更新结果和日期。
-- 多步骤任务给出简短计划。过程记录按需放在`.scratch/`，普通任务无需固定的spec/map/issues或归档清单。
+- 先说明多步骤任务的目标、关键假设和完成条件。涉及业务结果的歧义先澄清，常规实现沿用项目约定。
+- 按变更范围运行相关检查，并报告执行结果和未验证范围。[测试命令](README.md#自动化测试)包含单元、MockMvc、Testcontainers MySQL、前端和脚本测试，均使用独立测试资源。手动联调用 test 环境。
 
-## 文档维护
+## 文档
 
-- 业务术语查阅[GLOSSARY.md](GLOSSARY.md)，相关设计原因查阅[docs/adr/](docs/adr/)；规则冲突要明确说明。
-- 业务行为、API和实现边界分别维护在[业务流程](docs/business-flow.md)、[API](docs/api.md)、[模块设计](docs/module-design.md)，避免重复描述。
-- 运行配置维护在[环境说明](docs/environments.md)，测试命令维护在[README](README.md#自动化测试)。
-- README作为阅读入口，文档结构或使用方式变化时同步更新。每项业务规则优先维护一个主要说明位置。
-- 完成的过程资料通过Git追溯，`.scratch/`临时内容默认不纳入Git。当前文档说明现行行为，整理后核对链接、JSON示例及API契约。
+- 改业务行为时查[术语表](GLOSSARY.md)和[业务流程](docs/business-flow.md)。
+- 改接口时查 [REST API](docs/api.md)，改模块职责或事务时查[模块设计](docs/module-design.md)。
+- 改启动、配置或数据保留规则时更新[环境指南](docs/environments.md)。对外入口或快速启动变化时更新 [README](README.md)。
+- 以源码和配置核对现行行为。每条规则在主要文档中讲清，其他位置使用链接。检查受影响的链接、接口契约和示例。
 
 ## 本地环境
 
-- 本地环境初始化、启停及维护统一使用 `scripts/local_env.py`。
-- dev/test/demo共用Compose中的MySQL、Redis、RabbitMQ和Mailpit；数据库、Redis namespace、RabbitMQ vhost及凭据独立，测试邮件按标题环境和收件人区分。前端共用5173，后端共用8080。一次启动一套，切换前停止当前前后端。
-- dev保留原appoint数据；test默认保留，显式重置；demo每次后端启动恢复初始状态。后端在初始化与重置前取得项目级MySQL运行锁。
-- Compose操作显式使用`--env-file compose.env`；对应profile加载`.env.dev/.env.test/.env.demo`。私密配置不提交、不输出；保留密码和数据卷。
-- 脚本和后端默认demo，显式指定一个profile可切换环境。IDE/Maven/JAR工作目录为项目根目录。test可调业务Clock，dev/demo使用上海真实时间。
+- 使用 `scripts/local_env.py` 初始化、启停、重置和调时。IDE、Maven 或 JAR 启动时，工作目录为项目根目录。
+- 三套环境共用前后端端口，切换前先停止当前应用。操作 Compose 时指定 `--env-file compose.env`。
+- 默认启动 demo，启动会重建 demo 数据。dev 保留数据，test 通过显式重置清理。重置或调时前查[环境指南](docs/environments.md)，私密配置保存在忽略文件中。

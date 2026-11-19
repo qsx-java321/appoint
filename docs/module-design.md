@@ -1,70 +1,38 @@
-# 模块设计与维护
+# 模块设计
 
-项目采用模块化单体，后端由一个 Spring Boot 应用运行，前端独立构建。MySQL 保存业务记录，Redis 用于目录缓存和注册验证，RabbitMQ 作为本地基础服务运行。业务规则见[业务流程](business-flow.md)，接口契约见 [REST API](api.md)，设计原因见 [ADR](adr/)。
-
-[模块职责](#模块职责与依赖) · [核心链路](#预约与支付链路) · [事务与锁序](#事务与锁序) · [历史支付数据与环境](#历史支付数据与环境)
-
-## 模块职责与依赖
+项目采用模块化单体，一套 Spring Boot 后端提供 REST API，Vue 前端通过 `/api` 访问。MySQL 保存业务数据，Redis 用于目录缓存与注册验证，Mailpit 接收本地注册邮件。RabbitMQ 随环境启动，预约、支付和过期链路在 MySQL 内完成。
 
 | 模块 | 职责 |
 | --- | --- |
-| `auth`、`user`、`patient` | 注册、登录、角色和本人就诊人 |
-| `catalog` | 医疗目录、统一预约设置、场次查询和医生账号绑定 |
-| `appointment` | 暂占、有效占用、库存、预约凭证和就诊序号 |
-| `payment` | 支付单创建和资金状态更新 |
-| `coordination` | 协调创建、付款确认、取消和过期 |
-| `bookingquery` | 只读组合用户预约与医生工作台所需的数据 |
-| `visit` | 到院签到、开始接诊和完成接诊 |
-| `localenv` | 本地环境校验、互斥、初始化、[就绪探测](api.md#本地环境识别)和 test 调时 |
+| `auth`、`user`、`patient` | 邮箱注册、JWT 登录、角色和就诊人 |
+| `catalog` | 医疗目录、场次查询、统一预约设置和医生账号绑定 |
+| `appointment`、`payment` | 暂占与库存、预约凭证、支付单 |
+| `coordination` | 创建预约、付款确认、取消和过期的事务编排 |
+| `visit`、`bookingquery` | 签到与接诊写入、用户预约详情和医生工作台查询 |
+| `localenv` | 环境就绪探测、启动互斥、数据初始化、重置和 test 调时 |
 
-`appointment` 和 `payment` 的写入通过各自的应用接口完成，由 `coordination` 编排。跨模块联查集中在只读查询路径。HTTP 控制器通过应用层访问业务数据。
+## 核心数据
 
-## 预约与支付链路
-
-1. 用户提交预约。[创建协调器](../src/main/java/com/qsx/appoint/coordination/application/DefaultBookingCoordinator.java)在一个事务内登记幂等键、暂占号源并创建预约单和支付单。重复键冲突回滚后查询已提交的登记，同键同内容返回原预约回执。
-2. 用户点击模拟支付。[生命周期协调器](../src/main/java/com/qsx/appoint/coordination/application/DefaultBookingLifecycleCoordinator.java)锁后验证资格，在同一事务写支付时间、确认预约、转换库存并分配序号。详情接口读取事务提交后的结果。
-3. 未付款的预约可以取消。过期任务按截止时间和预约 ID 分批扫描待支付记录，逐单锁后复验。仅当当前时间严格晚于最晚支付时间且支付单未收款时，才关闭两张单并释放暂占。扫描日志分别统计关单、跳过和失败。
-
-## 数据关系
-
-| 数据 | 关系与写入点 |
-| --- | --- |
-| 账号与医生 | `users` 通过 `user_roles` 获得角色，`patients` 属于账号。医生账号绑定具有唯一约束，角色授予与首次绑定同事务 |
-| 预约场次 | `schedules` 按医生、日期和场次类型唯一，保存容量、费用快照、库存和下一就诊序号 |
-| 预约单 | `appointment_orders` 保存凭证、支付截止和序号。有效占用与账号内幂等登记分别记录在 `appointment_active_claims` 与 `appointment_create_requests` |
-| 支付单 | `payment_orders` 与预约一对一，记录应付金额和支付时间 |
-| 就诊记录 | `visit_records` 在签到时创建，与预约一对一，保存进度与动作时间 |
-
-初始化和旧库兼容范围见 [Flyway 基线](environments.md#flyway初始化基线)。环境账号见[预置目录和账号](environments.md#预置目录和账号)。
+- `schedules` 按医生、日期和场次类型唯一，保存库存、费用快照和下一个就诊序号。
+- `appointment_orders` 保存预约凭证和最晚支付时间，与 `payment_orders` 一对一。
+- `appointment_create_requests` 按账号记录幂等键和创建回执。`appointment_active_claims` 用唯一约束限制同场次同就诊人和同证件的有效占用。
+- `visit_records` 在签到时创建，一张预约至多一条，保存就诊进度和动作时间。
 
 ## 事务与锁序
 
-| 用例 | 事务与锁序 |
+| 操作 | 写入和并发处理 |
 | --- | --- |
-| 创建预约 | 幂等登记 → 首次才读取统一设置并建场 → 条件更新锁定场次并暂占 → 锁就诊人、复验准入 → 预约、支付及回执 |
-| 支付、取消、过期 | 场次 → 预约 → 支付单 → 锁后校验并提交库存和订单变化 |
-| 医生绑定 | 医生 → 用户，与授予角色同事务 |
-| 签到与接诊 | 读取预约事实，只写就诊记录。唯一约束与状态条件更新保护首次动作时间 |
+| 创建 | 先登记幂等键，再按需建场并用条件更新暂占名额。锁定就诊人后复验下单资格，创建预约单、支付单并保存回执。失败时整笔回滚。同键冲突在回滚后查询已提交回执。 |
+| 付款 | 按场次 → 预约单 → 支付单加锁。锁后采样业务时间，在同一事务记录付款、确认名额并分配序号。已付款请求重试沿用原支付时间和序号。 |
+| 取消与过期 | 沿用付款锁序。过期处理锁后复核待支付状态、截止时间和支付单。关单、释放暂占和删除有效占用在同一事务提交。 |
+| 签到与接诊 | 按预约归属和当前进度校验资格，仅写就诊记录。唯一约束和条件更新保护首次成功的动作时间。 |
 
-[暂占服务](../src/main/java/com/qsx/appoint/appointment/application/AppointmentHoldServiceImpl.java)按医生、日期和场次定位库存。已有场次由条件更新获得该行排他锁并暂占名额。首次下单通过 `INSERT … SELECT` 读取统一设置并复制快照，用场次唯一键处理重复建场。MySQL 默认隔离级别下，建场语句以共享锁读取设置，不同场次可并行读取。锁定场次和就诊人后重新采样准入时间，超过截止或窗口时回滚暂占。生命周期锁定与写入要求已有事务。写操作使用本事务锁定取得的对象，后续再次写入前须重新锁定。
+[创建事务](../src/main/java/com/qsx/appoint/coordination/application/BookingCreationTransaction.java) · [预约生命周期协调器](../src/main/java/com/qsx/appoint/coordination/application/DefaultBookingLifecycleCoordinator.java) · [就诊服务](../src/main/java/com/qsx/appoint/visit/application/DefaultVisitService.java)
 
-## 历史支付数据与环境
+[过期任务](../src/main/java/com/qsx/appoint/appointment/job/AppointmentExpirationJob.java)默认在每轮结束 30 秒后开始下一轮，按支付截止时间和预约 ID 每批查询最多 100 条，逐单开启事务处理。单笔失败记日志，其余订单继续处理。支付接口独立校验截止时间，查询也可在扫描关单前显示过期。
 
-Flyway 继续使用现有初始化迁移。旧支付尝试、退款、Outbox 与 Inbox 表保留历史记录，新支付入口只操作预约单、支付单及场次库存。历史过渡单的检查见[同步模拟支付决策](adr/0009-synchronous-simulated-payment.md)。
+## 注册与缓存
 
-RabbitMQ 由本地启动流程启动并等待健康，Compose、环境账号、vhost 和 AMQP 基础配置留待其他功能接入。预约、付款、取消和过期均在 MySQL 内完成。
+注册流程向 Mailpit 发出验证码，Redis 按环境保存验证码和一次性注册票据。目录读取优先查 Redis，失败时回源 MySQL，目录写入提交后定向失效缓存。test 调时作用于预约和就诊使用的业务时钟，Redis 过期仍按真实时间计算。
 
-## 就诊与查询
-
-[就诊服务](../src/main/java/com/qsx/appoint/visit/application/DefaultVisitService.java)读取预约事实并核对归属，按状态、开放时间、截止时间的顺序校验签到。写入使用同一采样时刻计算资格和保存动作时间。查询只读组合预约、支付和就诊记录，已确认且无就诊记录时推导为待签到。
-
-管理员医生账号查询联查目录、绑定与 `local_environment_seed_accounts` 中的预置归属记录。密码说明由账号来源和环境生成，预置账号仅显示配置位置。接口字段见[医生账号查询](api.md#管理员医生账号查询)。
-
-## 缓存与邮箱注册
-
-| 用途 | 维护规则 |
-| --- | --- |
-| 医疗目录缓存 | 仅缓存医院、科室、医生列表。读取失败时回源 MySQL，目录变更提交后定向失效。医院和科室默认 5 分钟，医生 2 分钟，空列表 30 秒 |
-| 注册验证码与票据 | 按环境写入 Redis，默认各 5 分钟。验码成功后签发一次性票据，注册时原子读取并删除。票据消费独立于 MySQL 用户和角色的写入事务 |
-
-注册邮件同步发送到本地 [Mailpit](environments.md#本地注册邮件)。Redis 使用自身的过期时间，test 的业务调时只影响使用业务时钟的功能。
+业务时间与状态见[业务流程](business-flow.md)，本地配置与 Flyway 初始化见[环境指南](environments.md)。
