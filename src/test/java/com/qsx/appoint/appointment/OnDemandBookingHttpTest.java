@@ -10,7 +10,6 @@ import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
 import com.qsx.appoint.catalog.model.AppointmentSession;
 import com.qsx.appoint.support.MutableAppointmentClock;
-import com.qsx.appoint.support.FormalPaymentTestSupport;
 import com.qsx.appoint.user.entity.User;
 import com.qsx.appoint.user.mapper.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("regression")
 @Transactional
-@Import({AppointmentClockTestConfiguration.class, FormalPaymentTestSupport.class})
+@Import(AppointmentClockTestConfiguration.class)
 class OnDemandBookingHttpTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
@@ -58,7 +57,6 @@ class OnDemandBookingHttpTest {
     @Autowired private AppointmentOrderMapper appointmentMapper;
     @Autowired private PaymentOrderMapper paymentMapper;
     @Autowired private MutableAppointmentClock clock;
-    @Autowired private FormalPaymentTestSupport formalPayments;
 
     private Long userId;
     private Long patientId;
@@ -175,14 +173,27 @@ class OnDemandBookingHttpTest {
     }
 
     @Test
-    void allFourSessionsUseStrictNewOrderCutoffs() throws Exception {
+    void allFourSessionsUseStrictBookingAndInclusivePaymentCutoffs() throws Exception {
         var date = LocalDate.of(2026, 11, 5);
         for (var session : AppointmentSession.values()) {
             var cutoff = date.atTime(session.startTime()).minusMinutes(15);
             clock.set(cutoff.minusSeconds(1).toString());
-            createAppointment(date.toString(), session.name(), UUID.randomUUID().toString());
+            var created = objectMapper.readTree(createAppointment(date.toString(), session.name(),
+                    UUID.randomUUID().toString())).path("data");
             clock.set(cutoff.toString());
             expectDateRejected(date.toString(), session.name());
+
+            String lastPaymentSecond = date.atTime(session.startTime()).minusSeconds(1).toString();
+            assertThat(created.path("paymentExpiresAt").asText()).isEqualTo(lastPaymentSecond);
+            clock.set(lastPaymentSecond);
+            assertThat(detail(created).path("canPay").asBoolean()).isTrue();
+            var candidates = appointmentMapper.selectExpirationCandidates(
+                    LocalDateTime.parse(lastPaymentSecond), null, null, 100);
+            assertThat(candidates).noneMatch(candidate -> candidate.getId().equals(
+                    created.path("appointmentOrderId").asLong()));
+            var confirmed = pay(created);
+            assertThat(confirmed.path("paidAt").asText()).isEqualTo(lastPaymentSecond);
+            assertThat(confirmed.path("status").asText()).isEqualTo("CONFIRMED");
         }
     }
 
@@ -250,14 +261,12 @@ class OnDemandBookingHttpTest {
         assertThat(expiresAt).isEqualTo("2026-11-05T10:29:00");
         clock.set("2026-11-05T10:20:00");
         expectDateRejected("2026-11-05", "MORNING_SECOND");
-        var attempt = startPayment(created);
-        assertThat(attempt.path("expiresAt").asText()).isEqualTo(expiresAt);
         var detail = detail(created);
         assertThat(detail.path("paymentExpiresAt").asText()).isEqualTo(expiresAt);
-        var confirmed = formalPayments.pay(userId, created.path("paymentOrderId").asLong());
-        assertThat(confirmed.getStatus()).isEqualTo("CONFIRMED");
-        assertThat(confirmed.getPaymentStatus()).isEqualTo("PAID");
-        assertThat(confirmed.getVisitNumber()).isPositive();
+        var confirmed = pay(created);
+        assertThat(confirmed.path("status").asText()).isEqualTo("CONFIRMED");
+        assertThat(confirmed.path("paymentStatus").asText()).isEqualTo("PAID");
+        assertThat(confirmed.path("visitNumber").asInt()).isPositive();
         assertThat(detail(created).path("paymentExpiresAt").asText()).isEqualTo(expiresAt);
     }
 
@@ -268,8 +277,7 @@ class OnDemandBookingHttpTest {
                 UUID.randomUUID().toString())).path("data");
         assertThat(created.path("paymentExpiresAt").asText()).isEqualTo("2026-11-06T00:10:00");
         clock.set("2026-11-06T00:05:00");
-        assertThat(startPayment(created).path("expiresAt").asText()).isEqualTo("2026-11-06T00:10:00");
-        formalPayments.pay(userId, created.path("paymentOrderId").asLong());
+        assertThat(pay(created).path("paymentExpiresAt").asText()).isEqualTo("2026-11-06T00:10:00");
         assertThat(detail(created).path("status").asText()).isEqualTo("CONFIRMED");
     }
 
@@ -289,27 +297,25 @@ class OnDemandBookingHttpTest {
     }
 
     @Test
-    void reachingPaymentDeadlineDisablesPaymentWithoutWaitingForExpirationScan() throws Exception {
+    void passingPaymentDeadlineDisablesPaymentWithoutWaitingForExpirationScan() throws Exception {
         clock.set("2026-11-05T10:14:00");
         var created = objectMapper.readTree(createAppointment("2026-11-05", "MORNING_SECOND",
                 UUID.randomUUID().toString())).path("data");
-        clock.set("2026-11-05T10:29:00");
+        clock.set("2026-11-05T10:29:01");
         var detail = detail(created);
         assertThat(detail.path("status").asText()).isEqualTo("PENDING_PAYMENT");
         assertThat(detail.path("paymentExpired").asBoolean()).isTrue();
         assertThat(detail.path("canPay").asBoolean()).isFalse();
-        mockMvc.perform(post("/api/v1/payments/{id}/attempts", created.path("paymentOrderId").asText())
-                        .with(authentication(auth())).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"channel\":\"MOCK\"}"))
+        mockMvc.perform(post("/api/v1/appointments/{id}/pay", created.path("appointmentOrderId").asText())
+                        .with(authentication(auth())))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4004));
         assertThat(detail(created).path("paymentExpiresAt")).isEqualTo(created.path("paymentExpiresAt"));
     }
 
-    private JsonNode startPayment(JsonNode created) throws Exception {
-        var response = mockMvc.perform(post("/api/v1/payments/{id}/attempts", created.path("paymentOrderId").asText())
-                        .with(authentication(auth())).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"channel\":\"MOCK\"}"))
-                .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString();
+    private JsonNode pay(JsonNode created) throws Exception {
+        var response = mockMvc.perform(post("/api/v1/appointments/{id}/pay", created.path("appointmentOrderId").asText())
+                        .with(authentication(auth())))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(response).path("data");
     }
 

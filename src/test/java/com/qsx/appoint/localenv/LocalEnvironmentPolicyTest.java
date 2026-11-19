@@ -28,7 +28,7 @@ class LocalEnvironmentPolicyTest {
                 .withProperty("spring.rabbitmq.virtual-host","/appoint-"+name).withProperty("spring.rabbitmq.host","127.0.0.1")
                 .withProperty("spring.rabbitmq.username","appoint_"+name).withProperty("spring.rabbitmq.password","fixture")
                 .withProperty("spring.data.redis.host","127.0.0.1").withProperty("appoint.jwt.secret","fixture-"+name+"-a-distinct-long-secret-of-at-least-48-characters")
-                .withProperty("appoint.mock-pay.signing-key","fixture-key").withProperty("appoint.local-environment.seed-password","fixture-password-123");
+                .withProperty("appoint.local-environment.seed-password","fixture-password-123");
     }
     @Test void rejectsCrossEnvironmentDatabaseNamespaceVhostPortAndMixedProfilesBeforeAnyConnection() {
         for(String name:java.util.List.of("dev","test","demo")) {
@@ -152,7 +152,6 @@ class LocalEnvironmentPolicyTest {
             env.withProperty("MYSQL_USER", "appoint_" + name).withProperty("MYSQL_PASSWORD", "fixture")
                     .withProperty("RABBITMQ_USER", "appoint_" + name).withProperty("RABBITMQ_PASSWORD", "fixture")
                     .withProperty("JWT_SECRET", "fixture-" + name + "-a-distinct-secret-of-at-least-48-characters")
-                    .withProperty("MOCK_PAY_SIGNING_KEY", "fixture-key")
                     .withProperty("LOCAL_SEED_PASSWORD", "fixture-password-123");
             loader.load(name, new ClassPathResource("application-" + name + ".yml"))
                     .forEach(env.getPropertySources()::addLast);

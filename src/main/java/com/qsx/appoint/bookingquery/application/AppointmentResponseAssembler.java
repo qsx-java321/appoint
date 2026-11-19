@@ -5,6 +5,7 @@ import com.qsx.appoint.appointment.domain.AppointmentStatus;
 import com.qsx.appoint.appointment.dto.*;
 import com.qsx.appoint.bookingquery.model.WorkflowStatus;
 import com.qsx.appoint.bookingquery.persistence.BookingQueryRecord;
+import com.qsx.appoint.catalog.model.BookingTimeRules;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.patient.service.ResidentIdCard;
@@ -27,10 +28,10 @@ class AppointmentResponseAssembler {
     private final BookingWorkflowProjector projector;
 
     /**
-     * 校验支付归属后，组装预约凭证、流程状态、尝试/退款摘要和操作标记。
+     * 校验支付归属后，组装预约凭证、流程状态、支付结果和操作标记。
      * @param record Mapper联查的完整预约行，归属已由查询用例校验
      * @param serverTime 本次请求统一采样的秒精度业务时间
-     * @return 详情DTO；未发起尝试或退款时对应摘要为null
+     * @return 预约详情DTO
      * @throws com.qsx.appoint.common.BusinessException 支付缺失、归属不符或状态组合不合法
      */
     AppointmentResponse assemble(BookingQueryRecord record, LocalDateTime serverTime) {
@@ -46,38 +47,21 @@ class AppointmentResponseAssembler {
                 record.getPatientName(), record.getPatientDocumentType(),
                 ResidentIdCard.mask(record.getPatientDocumentNo()), record.getPatientContactPhone(),
                 record.getPatientContactEmail());
-        boolean paymentExpired = (appointment == AppointmentStatus.EXPIRED)
-                || ((appointment == AppointmentStatus.PENDING_PAYMENT)
-                && record.getPaymentExpiresAt() != null
-                && !serverTime.isBefore(record.getPaymentExpiresAt()));
-        boolean pendingAndUnpaid = (appointment == AppointmentStatus.PENDING_PAYMENT)
-                && (payment == PaymentOrderStatus.UNPAID);
-        // 保留既有展示契约：到期但尚未扫描的UNPAID/PAYING仍显示可取消；写入口会按时刻过期关闭。
-        boolean pendingAndCancellable = (appointment == AppointmentStatus.PENDING_PAYMENT)
-                && ((payment == PaymentOrderStatus.UNPAID) || (payment == PaymentOrderStatus.PAYING));
-        boolean confirmedAndPaid = (appointment == AppointmentStatus.CONFIRMED)
-                && (payment == PaymentOrderStatus.PAID);
-        // 流程状态由预约+支付组合决定，退款摘要只展示执行细节，不参与重定义workflow。
+        boolean paymentExpired = appointment == AppointmentStatus.EXPIRED
+                || (appointment == AppointmentStatus.PENDING_PAYMENT
+                && BookingTimeRules.isPaymentExpired(record.getPaymentExpiresAt(), serverTime));
+        boolean pendingAndPayable = appointment == AppointmentStatus.PENDING_PAYMENT && payment.isUnpaid()
+                && record.getPaymentExpiresAt() != null && !paymentExpired;
         WorkflowStatus workflow = projector.project(record);
-        LocalDateTime cancellationDeadline = LocalDateTime.of(
-                record.getAppointmentDate(), record.getStartTime()).minusHours(24);
-        PaymentAttemptSummaryResponse attempt = record.getAttemptId() == null ? null
-                : new PaymentAttemptSummaryResponse(record.getAttemptId(), record.getAttemptNo(),
-                record.getAttemptChannel(), record.getAttemptStatus(), record.getProviderOrderNo(),
-                record.getAttemptFailureCode(), record.getAttemptCreatedAt(), record.getAttemptCompletedAt());
-        PaymentRefundSummaryResponse refund = record.getRefundId() == null ? null
-                : new PaymentRefundSummaryResponse(record.getRefundId(), record.getRefundNo(),
-                record.getRefundAmount(), record.getRefundCurrency(), record.getRefundChannel(),
-                record.getRefundStatus(), record.getRefundReason(), record.getRefundAttemptCount(),
-                record.getRefundLastFailureCode(), record.getRefundCompletedAt());
+        if (paymentExpired && payment.isUnpaid()) workflow = WorkflowStatus.EXPIRED;
         return new AppointmentResponse(record.getId(), record.getAppointmentNo(), record.getScheduleId(),
                 record.getAppointmentDate(), record.getStartTime(), record.getEndTime(), record.getStatus(),
                 record.getVisitNumber(), record.getCreatedAt(), record.getPaymentOrderId(),
                 record.getPaymentStatus(), workflow == null ? null : workflow.name(),
-                record.getAmount(), record.getCurrency(), record.getPaymentAttemptCount(), attempt, refund,
+                record.getAmount(), record.getCurrency(), record.getPaidAt(),
                 record.getPaymentExpiresAt(), record.getClosedAt(), serverTime, paymentExpired,
-                pendingAndUnpaid && !paymentExpired,
-                pendingAndCancellable || (confirmedAndPaid && serverTime.isBefore(cancellationDeadline)),
+                pendingAndPayable,
+                pendingAndPayable,
                 patient, doctor, record.getSessionType(), visit(record, appointment, serverTime));
     }
     private AppointmentVisitResponse visit(BookingQueryRecord record, AppointmentStatus status, LocalDateTime now) {

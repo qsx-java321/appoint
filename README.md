@@ -1,6 +1,6 @@
 # 医院预约系统
 
-医院预约系统包含 Spring Boot 后端和 Vue 3 前端，支持预约挂号、MockPay 模拟支付、到院签到和医生接诊。管理员可以维护医院、科室、医生档案和统一预约设置，并查询或首次绑定医生账号。
+医院预约系统包含 Spring Boot 后端和 Vue 3 前端，支持预约挂号、同步模拟支付、到院签到和医生接诊。管理员可以维护医院、科室、医生档案和统一预约设置，并查询或首次绑定医生账号。
 
 ## 快速启动
 
@@ -68,6 +68,6 @@ python3 -B -m unittest discover -s src/test/python
 | 本地依赖 | MySQL 8.4、Redis、RabbitMQ、Mailpit（通过 JavaMailSender 发送注册邮件） |
 | 测试 | JUnit 5、Mockito、MockMvc、H2、Testcontainers、Vitest |
 
-项目面向本地演示、开发和测试。支付使用 MockPay，渠道状态只保存在后端进程内，重启后查询旧渠道订单和续接退款受限。当前邮件用于注册验证码。退款结果队列的消费和人工恢复边界见[模块设计](docs/module-design.md#维护与恢复)。
+项目面向本地演示、开发和测试。模拟支付和预约确认在同一个 MySQL 事务中完成。RabbitMQ 随本地环境启动，供后续功能使用。当前邮件用于注册验证码。
 
 业务范围见[体验路线与边界](docs/business-flow.md#体验路线与边界)。项目按医院、科室和医生每天正常工作设计，管理员通过统一预约设置管理之后首次生成的场次。

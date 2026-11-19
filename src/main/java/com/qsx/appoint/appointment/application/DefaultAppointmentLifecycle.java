@@ -90,20 +90,6 @@ class DefaultAppointmentLifecycle implements AppointmentLifecycle {
     }
 
     /**
-     * {@inheritDoc}
-     * <p>仅释放confirmed名额，不倒退nextVisitNumber，避免取消后复用序号。
-     */
-    @Override
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void cancelConfirmed(AppointmentLifecycleCase appointment, LocalDateTime cancelledAt) {
-        Schedule schedule = requireLocked(appointment, AppointmentStatus.CONFIRMED);
-        requireOne(scheduleMapper.releaseConfirmedOne(schedule.getId()));
-        requireOne(appointmentOrderMapper.cancelIfConfirmed(appointment.id(), cancelledAt));
-        requireOne(activeClaimMapper.deleteByAppointmentOrderId(appointment.id()));
-        context(false).locked.remove(appointment);
-    }
-
-    /**
      * 校验Case的对象身份和预期状态，返回当前事务锁住的场次。
      * <p>不按record值相等匹配，防止复制或伪造Case绕过锁定前置条件。
      * @return 与该Case绑定的已锁场次；不满足契约时抛INTERNAL_ERROR

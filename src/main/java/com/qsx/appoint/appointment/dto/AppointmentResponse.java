@@ -8,7 +8,7 @@ import java.time.LocalTime;
 import java.math.BigDecimal;
 
 /**
- * 本人预约详情及列表元素，组合历史凭证与当前支付/退款摘要。
+ * 本人预约详情及列表元素，组合历史凭证与当前支付结果。
  * <p>操作标记是展示提示，写入口仍复验时间与状态；历史合法组合允许workflow为null。
  */
 @Getter @AllArgsConstructor
@@ -31,7 +31,7 @@ public class AppointmentResponse {
     private final Integer visitNumber;
     /** 本地创建时间，业务时钟采用Asia/Shanghai。 */
     private final LocalDateTime createdAt;
-    /** 关联支付单ID，区别于预约单及支付尝试ID。 */
+    /** 关联支付单ID，区别于预约单ID。 */
     private final Long paymentOrderId;
     /** 支付单稳定状态，不等同预约status或展示workflowStatus。 */
     private final String paymentStatus;
@@ -41,23 +41,18 @@ public class AppointmentResponse {
     private final BigDecimal amount;
     /** 金额币种稳定代码，当前新流程使用CNY。 */
     private final String currency;
-    /** 支付尝试总数，包含失败历史尝试。 */
-    private final Integer paymentAttemptCount;
-    /** 最近本地尝试摘要；尚未发起时为null。 */
-    private final PaymentAttemptSummaryResponse latestPaymentAttempt;
-    /** 退款摘要；尚无退款申请时为null。 */
-    private final PaymentRefundSummaryResponse refund;
-    /** 持久化支付截止；等于截止即失去及时支付资格，扫描延迟不延长。 */
+    private final LocalDateTime paidAt;
+    /** 最晚可支付时刻，包含该时刻。 */
     private final LocalDateTime paymentExpiresAt;
     /** 预约或支付关闭时间，尚未关闭可为null。 */
     private final LocalDateTime closedAt;
     /** 本次查询统一的秒精度服务端时间，列表各行共享。 */
     private final LocalDateTime serverTime;
-    /** 是否已过期或待支付且达到截止，不依赖扫描是否已更新终态。 */
+    /** 是否已过期或待支付且超过最晚支付时刻，不依赖扫描是否已更新终态。 */
     private final boolean paymentExpired;
-    /** 仅未到期且PENDING_PAYMENT+UNPAID为true，写入口仍需复验。 */
+    /** 仅未到期的待支付订单可付款。 */
     private final boolean canPay;
-    /** 兼容展示权限；待支付UNPAID/PAYING到期仍可为true，已付待确认则为false。 */
+    /** 仅未到期的待支付订单可取消。 */
     private final boolean canCancel;
     /** 创建时就诊人凭证，证件号已经脱敏。 */
     private final AppointmentPatientResponse patient;

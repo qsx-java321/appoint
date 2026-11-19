@@ -12,8 +12,6 @@ import com.qsx.appoint.catalog.mapper.HospitalMapper;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.payment.entity.PaymentOrder;
 import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
-import com.qsx.appoint.payment.mapper.PaymentRefundMapper;
-import com.qsx.appoint.payment.entity.PaymentRefund;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.appointment.entity.AppointmentOrder;
 import org.junit.jupiter.api.Test;
@@ -50,7 +48,6 @@ class AppointmentQueryIntegrationTest {
     @Autowired private DoctorMapper doctorMapper;
     @Autowired private HospitalMapper hospitalMapper;
     @Autowired private PaymentOrderMapper paymentOrderMapper;
-    @Autowired private PaymentRefundMapper paymentRefundMapper;
     @Autowired private AppointmentOrderMapper appointmentOrderMapper;
     @Autowired private JdbcTemplate jdbcTemplate;
 
@@ -62,84 +59,13 @@ class AppointmentQueryIntegrationTest {
         assertAppointmentDetail(user, appointment, "PENDING_PAYMENT", "UNPAID");
         assertAppointmentList(user, appointment, "PENDING_PAYMENT", "UNPAID");
 
-        assertThat(formalPayments.payWithToken(user.token(), appointment.paymentOrderId())).satisfies(paid -> {
+        assertThat(formalPayments.payWithToken(user.token(), appointment.appointmentOrderId())).satisfies(paid -> {
             assertThat(paid.getStatus()).isEqualTo("CONFIRMED");
             assertThat(paid.getPaymentStatus()).isEqualTo("PAID");
         });
 
         assertAppointmentDetail(user, appointment, "CONFIRMED", "PAID");
         assertAppointmentList(user, appointment, "CONFIRMED", "PAID");
-    }
-
-    @Test
-    void paidAppointmentWaitingForEventIsShownAsConfirming() throws Exception {
-        AuthenticatedUser user = registerAndLogin();
-        CreatedAppointment appointment = createAppointment(user, createAvailableSchedule().getId());
-        PaymentOrder payment = paymentOrderMapper.selectById(appointment.paymentOrderId());
-        payment.setStatus("PAID");
-        paymentOrderMapper.updateById(payment);
-
-        mockMvc.perform(get("/api/v1/appointments/{id}", appointment.appointmentOrderId())
-                        .header("Authorization", bearer(user)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.workflowStatus").value("CONFIRMING_APPOINTMENT"));
-    }
-
-    @Test
-    void queryShowsAmountAndLatestProcessingAttemptSummary() throws Exception {
-        AuthenticatedUser user = registerAndLogin();
-        CreatedAppointment appointment = createAppointment(user, createAvailableSchedule().getId());
-
-        mockMvc.perform(post("/api/v1/payments/{id}/attempts", appointment.paymentOrderId())
-                        .header("Authorization", bearer(user))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"channel\":\"MOCK\"}"))
-                .andExpect(status().isAccepted());
-
-        mockMvc.perform(get("/api/v1/appointments/{id}", appointment.appointmentOrderId())
-                        .header("Authorization", bearer(user)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.amount").value(50.00))
-                .andExpect(jsonPath("$.data.currency").value("CNY"))
-                .andExpect(jsonPath("$.data.workflowStatus").value("PAYMENT_PROCESSING"))
-                .andExpect(jsonPath("$.data.paymentAttemptCount").value(1))
-                .andExpect(jsonPath("$.data.latestPaymentAttempt.id").isString())
-                .andExpect(jsonPath("$.data.latestPaymentAttempt.channel").value("MOCK"))
-                .andExpect(jsonPath("$.data.latestPaymentAttempt.status").value("PROCESSING"))
-                .andExpect(jsonPath("$.data.refund").doesNotExist())
-                .andExpect(jsonPath("$.data.canCancel").value(true));
-    }
-
-    @Test
-    void queryShowsRefundingAndRefundedSummaries() throws Exception {
-        AuthenticatedUser user = registerAndLogin();
-        CreatedAppointment appointment = createAppointment(user, createAvailableSchedule().getId());
-        assertThat(formalPayments.payWithToken(user.token(), appointment.paymentOrderId())).satisfies(paid -> {
-            assertThat(paid.getStatus()).isEqualTo("CONFIRMED");
-            assertThat(paid.getPaymentStatus()).isEqualTo("PAID");
-        });
-        mockMvc.perform(post("/api/v1/appointments/{id}/cancel", appointment.appointmentOrderId())
-                        .header("Authorization", bearer(user)))
-                .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.data.workflowStatus").value("CANCELLED_REFUNDING"))
-                .andExpect(jsonPath("$.data.refund.status").value("PENDING"))
-                .andExpect(jsonPath("$.data.refund.amount").value(50.00))
-                .andExpect(jsonPath("$.data.refund.currency").value("CNY"));
-
-        PaymentRefund refund = paymentRefundMapper.selectByPaymentOrderIdForUpdate(appointment.paymentOrderId());
-        refund.setStatus("SUCCEEDED");
-        refund.setCompletedAt(java.time.LocalDateTime.now());
-        paymentRefundMapper.updateById(refund);
-        PaymentOrder payment = paymentOrderMapper.selectById(appointment.paymentOrderId());
-        payment.setStatus("REFUNDED");
-        paymentOrderMapper.updateById(payment);
-
-        mockMvc.perform(get("/api/v1/appointments/{id}", appointment.appointmentOrderId())
-                        .header("Authorization", bearer(user)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.workflowStatus").value("CANCELLED_REFUNDED"))
-                .andExpect(jsonPath("$.data.refund.status").value("SUCCEEDED"))
-                .andExpect(jsonPath("$.data.refund.completedAt").isNotEmpty());
     }
 
     @Test
@@ -237,7 +163,6 @@ class AppointmentQueryIntegrationTest {
                 .andExpect(jsonPath("$.data.paymentStatus").value(paymentStatus))
                 .andExpect(jsonPath("$.data.amount").value(50.00))
                 .andExpect(jsonPath("$.data.currency").value("CNY"))
-                .andExpect(jsonPath("$.data.paymentAttemptCount").isNumber())
                 .andExpect(jsonPath("$.data.workflowStatus").value(
                         "CONFIRMED".equals(appointmentStatus) ? "CONFIRMED" : "WAITING_FOR_PAYMENT"))
                 .andExpect(jsonPath("$.data.appointmentDate").value(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(2).toString()))

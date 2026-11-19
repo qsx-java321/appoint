@@ -2,7 +2,7 @@
 
 **状态** 已接受，部分被取代 · **记录日期** 2026-10-29
 
-> 支付独立、可靠事件、迟到收款退款和对账仍适用。[ADR 0005](0005-four-session-on-demand-booking.md) 取消新流程的停诊操作，[ADR 0006](0006-late-payment-and-consumer-retries.md) 补充迟到支付与重试规则，[ADR 0007](0007-three-day-booking-and-session-cutoffs.md) 更新支付截止的计算。现行实现见[模块设计](../module-design.md)。
+> 本文保留异步支付的历史设计。现行支付流程见 [ADR 0009](0009-synchronous-simulated-payment.md)。
 
 ## 决策时背景与方案
 

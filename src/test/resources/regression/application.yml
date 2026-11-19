@@ -18,8 +18,6 @@ appoint:
     namespace: regression
   catalog-cache:
     enabled: false
-  messaging:
-    enabled: false
   jwt:
     secret: test-secret-key-must-be-at-least-thirty-two-characters-long-12345
     expiration-seconds: 7200
@@ -29,10 +27,6 @@ appoint:
     enabled: false
     scan-delay: 30s
     batch-size: 100
-  reconciliation:
-    enabled: false
-  outbox:
-    enabled: false
 
   local-environment:
     enabled: false

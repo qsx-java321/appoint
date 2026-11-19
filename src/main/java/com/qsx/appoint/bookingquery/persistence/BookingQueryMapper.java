@@ -24,25 +24,10 @@ public interface BookingQueryMapper {
                    v.id AS visit_record_id, v.status AS visit_status,
                    v.checked_in_at, v.started_at, v.completed_at,
                    p.id AS payment_order_id, p.user_id AS payment_user_id, p.status AS payment_status,
-                   p.amount, p.currency,
-                   (SELECT COUNT(*) FROM payment_attempts pac WHERE pac.payment_order_id = p.id)
-                       AS payment_attempt_count,
-                   pa.id AS attempt_id, pa.attempt_no, pa.channel AS attempt_channel,
-                   pa.status AS attempt_status, pa.provider_order_no,
-                   pa.failure_code AS attempt_failure_code, pa.created_at AS attempt_created_at,
-                   pa.completed_at AS attempt_completed_at,
-                   r.id AS refund_id, r.refund_no, r.amount AS refund_amount,
-                   r.currency AS refund_currency, r.channel AS refund_channel,
-                   r.status AS refund_status, r.reason AS refund_reason,
-                   r.attempt_count AS refund_attempt_count,
-                   r.last_failure_code AS refund_last_failure_code,
-                   r.completed_at AS refund_completed_at
+                   p.amount, p.currency, p.paid_at
             FROM appointment_orders a
             LEFT JOIN payment_orders p ON p.appointment_order_id = a.id
             LEFT JOIN schedules s ON s.id = a.schedule_id
-            LEFT JOIN payment_attempts pa ON pa.id = (
-                SELECT MAX(pa2.id) FROM payment_attempts pa2 WHERE pa2.payment_order_id = p.id)
-            LEFT JOIN payment_refunds r ON r.payment_order_id = p.id
             LEFT JOIN visit_records v ON v.appointment_order_id = a.id
             """;
 

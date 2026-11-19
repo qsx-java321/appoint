@@ -23,5 +23,3 @@ appoint:
     namespace: demo
   jwt:
     secret: ${JWT_SECRET}
-  mock-pay:
-    signing-key: ${MOCK_PAY_SIGNING_KEY}

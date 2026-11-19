@@ -45,7 +45,7 @@ public class SecurityConfig {
                     if (lifecycle.flag("enabled")) {
                         auth.requestMatchers(HttpMethod.GET, LocalEnvironmentStatusController.PATH).permitAll();
                     }
-                    auth.requestMatchers("/api/v1/auth/**", "/api/v1/payment-notifications/**")
+                    auth.requestMatchers("/api/v1/auth/**")
                             .permitAll().anyRequest().authenticated();
                 })
                 .authenticationProvider(authenticationProvider())

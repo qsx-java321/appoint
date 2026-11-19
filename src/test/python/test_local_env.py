@@ -28,6 +28,7 @@ class LocalEnvironmentTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as state, ExitStack() as mocks:
             mocks.enter_context(patch.object(local_env, 'STATE', Path(state)))
             require_idle = mocks.enter_context(patch.object(local_env, 'require_idle'))
+            compose = mocks.enter_context(patch.object(local_env, 'run'))
             launch = mocks.enter_context(patch.object(local_env.subprocess, 'Popen', side_effect=[backend, frontend]))
             mocks.enter_context(patch.object(local_env, 'process_info',
                                              side_effect=[('S', 10, 10, 1), ('S', 20, 20, 2)]))
@@ -36,6 +37,7 @@ class LocalEnvironmentTest(unittest.TestCase):
             local_env.start('dev')
 
         require_idle.assert_called_once_with()
+        compose.assert_called_once_with(local_env.COMPOSE + ['up', '-d', '--wait', 'rabbitmq'])
         self.assertIn('--spring.profiles.active=dev', launch.call_args_list[0].args[0][-1])
         self.assertEqual(launch.call_args_list[1].args[0], ['npm', 'run', 'dev'])
         self.assertEqual([call.args[0] for call in wait_ready.call_args_list], [backend, frontend])

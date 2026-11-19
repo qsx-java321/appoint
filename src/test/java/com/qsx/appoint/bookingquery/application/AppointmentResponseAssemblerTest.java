@@ -32,8 +32,8 @@ class AppointmentResponseAssemblerTest {
 
     @ParameterizedTest
     @CsvSource({
-            "PENDING_PAYMENT,UNPAID,-1,false,true", "PENDING_PAYMENT,UNPAID,0,false,true",
-            "PENDING_PAYMENT,UNPAID,1,true,true", "PENDING_PAYMENT,PAYING,-1,false,true",
+            "PENDING_PAYMENT,UNPAID,-1,false,false", "PENDING_PAYMENT,UNPAID,0,true,true",
+            "PENDING_PAYMENT,UNPAID,1,true,true", "PENDING_PAYMENT,PAYING,1,true,true",
             "PENDING_PAYMENT,PAID,1,false,false", "CONFIRMED,PAID,1,false,false"
     })
     void preservesPaymentAndCancellationPermissions(String appointment, String payment, int deadlineOffset,

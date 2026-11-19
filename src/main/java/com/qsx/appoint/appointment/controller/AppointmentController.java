@@ -66,19 +66,17 @@ public class AppointmentController {
          return Result.success(appointmentService.listMine((Long) authentication.getPrincipal(), order));
         }
 
-    /**
-     * 取消后重新读取当前详情，并用退款流程布尔值决定HTTP状态。
-     * @param id 预约单ID
-     * @return 无需退款或退款已完成为200；进入/仍处退款流程为202，不代表渠道已退回
-     */
-    @PostMapping("/{id}/cancel")
-    public ResponseEntity<Result<AppointmentResponse>> cancel(Authentication authentication, @PathVariable Long id) {
+    @PostMapping("/{id}/pay")
+    public Result<AppointmentResponse> pay(Authentication authentication, @PathVariable Long id) {
         Long userId = (Long) authentication.getPrincipal();
-        boolean refundPending = lifecycleCoordinator.cancelOwned(userId, id);
-        AppointmentResponse response = appointmentService.getOwned(userId, id);
-        Result<AppointmentResponse> result = refundPending
-                ? Result.success("退款申请已受理", response)
-                : Result.success(response);
-        return ResponseEntity.status(refundPending ? HttpStatus.ACCEPTED : HttpStatus.OK).body(result);
+        lifecycleCoordinator.payOwned(userId, id);
+        return Result.success(appointmentService.getOwned(userId, id));
+    }
+
+    @PostMapping("/{id}/cancel")
+    public Result<AppointmentResponse> cancel(Authentication authentication, @PathVariable Long id) {
+        Long userId = (Long) authentication.getPrincipal();
+        lifecycleCoordinator.cancelOwned(userId, id);
+        return Result.success(appointmentService.getOwned(userId, id));
     }
 }

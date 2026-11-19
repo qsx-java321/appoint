@@ -108,15 +108,6 @@ public interface ScheduleMapper extends BaseMapper<Schedule> {
 
     @Update("""
             UPDATE schedules
-            SET confirmed_capacity = confirmed_capacity - 1,
-                available_capacity = available_capacity + 1,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = #{scheduleId} AND confirmed_capacity > 0
-            """)
-    int releaseConfirmedOne(@Param("scheduleId") Long scheduleId);
-
-    @Update("""
-            UPDATE schedules
             SET total_capacity = total_capacity + #{delta},
                 available_capacity = available_capacity + #{delta},
                 updated_at = CURRENT_TIMESTAMP

@@ -186,8 +186,7 @@ class AppointmentIdempotencyIntegrationTest {
         String paidFirst = createAppointment(token, paidKey, paidBody);
         String paidAppointmentId = objectMapper.readTree(paidFirst).at("/data/appointmentOrderId").asText();
         String paidAppointmentNo = appointmentOrderMapper.selectById(Long.valueOf(paidAppointmentId)).getAppointmentNo();
-        String paymentId = objectMapper.readTree(paidFirst).at("/data/paymentOrderId").asText();
-        assertThat(formalPayments.payWithToken(token, paymentId)).satisfies(paid -> {
+        assertThat(formalPayments.payWithToken(token, Long.valueOf(paidAppointmentId))).satisfies(paid -> {
             assertThat(paid.getStatus()).isEqualTo("CONFIRMED");
             assertThat(paid.getPaymentStatus()).isEqualTo("PAID");
         });

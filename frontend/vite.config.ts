@@ -88,7 +88,6 @@ export default defineConfig(({ mode, command, isPreview }) => {
     ],
     define: {
       "import.meta.env.VITE_APPOINT_ENVIRONMENT": JSON.stringify(profile ?? ""),
-      "import.meta.env.VITE_ENABLE_MOCK_PAY": JSON.stringify(Boolean(profile)),
     },
     server: {
       host,

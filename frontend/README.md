@@ -27,7 +27,7 @@ npm run build
 
 测试使用Vitest单元/Mock用例，API由Mock提供，不连接后端。已有结果见[测试报告](../docs/testing/latest-report.md)。
 
-构建输出dist，前后端分别构建。静态服务器需将`/api`反向代理到后端，并为history路由提供index.html回退；后端凭据不进入VITE变量。三套本地模式显示 MockPay 操作。默认生产构建关闭模拟按钮，生成保留模拟支付的 demo 静态产物时使用 `npm run build -- --mode demo`。
+构建输出dist，前后端分别构建。静态服务器需将`/api`反向代理到后端，并为history路由提供index.html回退；后端凭据不进入VITE变量。预约支付页通过后端同步模拟支付接口取得最终结果。
 
 ## 代码与状态
 

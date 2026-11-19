@@ -38,4 +38,9 @@ public final class BookingTimeRules {
         LocalDateTime timeoutAt = createdAt.plus(paymentTimeout);
         return timeoutAt.isBefore(sessionStartsAt) ? timeoutAt : sessionStartsAt;
     }
+
+    /** 最晚支付时刻当秒仍可支付。 */
+    public static boolean isPaymentExpired(LocalDateTime paymentDeadline, LocalDateTime serverTime) {
+        return paymentDeadline != null && serverTime.isAfter(paymentDeadline);
+    }
 }

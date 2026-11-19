@@ -60,18 +60,10 @@ export const api = {
     request<T.Appointment>(`/appointments/${id(appointment)}/check-in`, {
       method: "POST",
     }),
-  pay: (payment: string) =>
-    request<T.PaymentAttempt>(`/payments/${id(payment)}/attempts`, {
+  pay: (appointment: string) =>
+    request<T.Appointment>(`/appointments/${id(appointment)}/pay`, {
       method: "POST",
-      data: { channel: "MOCK" },
     }),
-  mock: (path: string, outcome: "complete" | "fail") => {
-    if (!/^\/api\/v1\/mock-pay\/attempts\/[A-Za-z0-9_-]+$/.test(path))
-      throw new Error("模拟支付入口无效，请刷新预约详情。");
-    return request<unknown>(path.slice("/api/v1".length) + "/" + outcome, {
-      method: "POST",
-    });
-  },
   sessions: (date: string) =>
     request<T.DoctorSession[]>("/doctor/sessions", { params: { date } }),
   doctorRows: (date: string, sessionType: string) =>

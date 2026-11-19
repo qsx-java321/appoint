@@ -5,34 +5,26 @@
       "tested_on": "2026-11-19",
       "command": "./mvnw -Pmysql-it clean verify",
       "build_exit_code": 0,
-      "source_revision": "基于 e983207 的预约按场次占号工作树",
+      "source_revision": "基于 2884620 的同步模拟支付工作树",
       "status": "通过",
       "totals": {
-        "tests": 340,
+        "tests": 183,
         "failures": 0,
         "errors": 0,
         "skipped": 0,
-        "passed": 340
+        "passed": 183
       },
       "suites": [
         {
-          "name": "com.qsx.appoint.catalog.CatalogManagementIntegrationTest",
-          "tests": 11,
+          "name": "com.qsx.appoint.ApiFlowIntegrationTest",
+          "tests": 6,
           "failures": 0,
           "errors": 0,
           "skipped": 0,
-          "passed": 11
+          "passed": 6
         },
         {
-          "name": "com.qsx.appoint.visit.application.VisitServiceTest",
-          "tests": 2,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 2
-        },
-        {
-          "name": "com.qsx.appoint.payment.PaymentDomainEnumTest",
+          "name": "com.qsx.appoint.appointment.AppointmentExpirationJobTest",
           "tests": 1,
           "failures": 0,
           "errors": 0,
@@ -40,12 +32,28 @@
           "passed": 1
         },
         {
-          "name": "com.qsx.appoint.payment.application.PaymentNotificationPolicyTest",
-          "tests": 10,
+          "name": "com.qsx.appoint.appointment.AppointmentIdempotencyIntegrationTest",
+          "tests": 7,
           "failures": 0,
           "errors": 0,
           "skipped": 0,
-          "passed": 10
+          "passed": 7
+        },
+        {
+          "name": "com.qsx.appoint.appointment.AppointmentLifecycleIntegrationTest",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 7
+        },
+        {
+          "name": "com.qsx.appoint.appointment.AppointmentQueryIntegrationTest",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 7
         },
         {
           "name": "com.qsx.appoint.appointment.OnDemandBookingHttpTest",
@@ -56,15 +64,15 @@
           "passed": 14
         },
         {
-          "name": "com.qsx.appoint.coordination.PaymentSucceededEventCodecTest",
-          "tests": 1,
+          "name": "com.qsx.appoint.appointment.ScheduleInventoryIntegrationTest",
+          "tests": 5,
           "failures": 0,
           "errors": 0,
           "skipped": 0,
-          "passed": 1
+          "passed": 5
         },
         {
-          "name": "com.qsx.appoint.payment.application.PaymentNotificationBoundaryTest",
+          "name": "com.qsx.appoint.auth.RegistrationHttpTest",
           "tests": 2,
           "failures": 0,
           "errors": 0,
@@ -72,12 +80,44 @@
           "passed": 2
         },
         {
-          "name": "com.qsx.appoint.coordination.messaging.PaymentSucceededListenerTest",
-          "tests": 5,
+          "name": "com.qsx.appoint.bookingquery.application.AppointmentResponseAssemblerTest",
+          "tests": 7,
           "failures": 0,
           "errors": 0,
           "skipped": 0,
-          "passed": 5
+          "passed": 7
+        },
+        {
+          "name": "com.qsx.appoint.bookingquery.application.BookingQueryServiceTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 3
+        },
+        {
+          "name": "com.qsx.appoint.bookingquery.application.BookingWorkflowProjectorTest",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 7
+        },
+        {
+          "name": "com.qsx.appoint.catalog.BookingSettingsHttpTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 3
+        },
+        {
+          "name": "com.qsx.appoint.catalog.CatalogManagementIntegrationTest",
+          "tests": 11,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 11
         },
         {
           "name": "com.qsx.appoint.catalog.DoctorAccountQueryHttpTest",
@@ -88,60 +128,12 @@
           "passed": 7
         },
         {
-          "name": "com.qsx.appoint.payment.messaging.MessageConsumerContractTest",
-          "tests": 30,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 30
-        },
-        {
-          "name": "com.qsx.appoint.payment.messaging.RefundRequestedListenerTest",
-          "tests": 5,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 5
-        },
-        {
-          "name": "com.qsx.appoint.appointment.AppointmentLifecycleIntegrationTest",
-          "tests": 12,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 12
-        },
-        {
-          "name": "com.qsx.appoint.patient.PatientIntegrationTest",
+          "name": "com.qsx.appoint.catalog.DoctorAccountQueryServiceTest",
           "tests": 4,
           "failures": 0,
           "errors": 0,
           "skipped": 0,
           "passed": 4
-        },
-        {
-          "name": "com.qsx.appoint.common.messaging.RabbitConsumerFailureHandlerTest",
-          "tests": 22,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 22
-        },
-        {
-          "name": "com.qsx.appoint.ApiFlowIntegrationTest",
-          "tests": 7,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 7
-        },
-        {
-          "name": "com.qsx.appoint.localenv.LocalEnvironmentPolicyTest",
-          "tests": 9,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 9
         },
         {
           "name": "com.qsx.appoint.catalog.SessionCatalogHttpTest",
@@ -150,6 +142,22 @@
           "errors": 0,
           "skipped": 0,
           "passed": 4
+        },
+        {
+          "name": "com.qsx.appoint.catalog.cache.CatalogDirectoryCacheTest",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 8
+        },
+        {
+          "name": "com.qsx.appoint.catalog.model.BookingTimeRulesTest",
+          "tests": 9,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 9
         },
         {
           "name": "com.qsx.appoint.coordination.LifecycleLanguageTest",
@@ -168,15 +176,7 @@
           "passed": 7
         },
         {
-          "name": "com.qsx.appoint.catalog.DoctorAccountQueryServiceTest",
-          "tests": 4,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 4
-        },
-        {
-          "name": "com.qsx.appoint.bookingquery.application.BookingQueryServiceTest",
+          "name": "com.qsx.appoint.localenv.LocalEnvironmentHttpTest",
           "tests": 3,
           "failures": 0,
           "errors": 0,
@@ -184,132 +184,12 @@
           "passed": 3
         },
         {
-          "name": "com.qsx.appoint.appointment.AppointmentIdempotencyIntegrationTest",
-          "tests": 7,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 7
-        },
-        {
-          "name": "com.qsx.appoint.common.messaging.ConfirmedMessagePublisherTest",
-          "tests": 5,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 5
-        },
-        {
-          "name": "com.qsx.appoint.visit.VisitHttpTest",
-          "tests": 37,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 37
-        },
-        {
-          "name": "com.qsx.appoint.catalog.model.BookingTimeRulesTest",
+          "name": "com.qsx.appoint.localenv.LocalEnvironmentPolicyTest",
           "tests": 9,
           "failures": 0,
           "errors": 0,
           "skipped": 0,
           "passed": 9
-        },
-        {
-          "name": "com.qsx.appoint.catalog.cache.CatalogDirectoryCacheTest",
-          "tests": 8,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 8
-        },
-        {
-          "name": "com.qsx.appoint.auth.RegistrationHttpTest",
-          "tests": 2,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 2
-        },
-        {
-          "name": "com.qsx.appoint.bookingquery.application.BookingWorkflowProjectorTest",
-          "tests": 14,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 14
-        },
-        {
-          "name": "com.qsx.appoint.appointment.AppointmentExpirationJobTest",
-          "tests": 1,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 1
-        },
-        {
-          "name": "com.qsx.appoint.payment.messaging.DeadLetterReplayContractTest",
-          "tests": 10,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 10
-        },
-        {
-          "name": "com.qsx.appoint.appointment.AppointmentQueryIntegrationTest",
-          "tests": 10,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 10
-        },
-        {
-          "name": "com.qsx.appoint.catalog.BookingSettingsHttpTest",
-          "tests": 3,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 3
-        },
-        {
-          "name": "com.qsx.appoint.appointment.ScheduleInventoryIntegrationTest",
-          "tests": 6,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 6
-        },
-        {
-          "name": "com.qsx.appoint.visit.domain.VisitRulesTest",
-          "tests": 6,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 6
-        },
-        {
-          "name": "com.qsx.appoint.bookingquery.application.AppointmentResponseAssemblerTest",
-          "tests": 7,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 7
-        },
-        {
-          "name": "com.qsx.appoint.coordination.application.BookingLifecyclePolicyTest",
-          "tests": 42,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 42
-        },
-        {
-          "name": "com.qsx.appoint.payment.PaymentGatewayContractTest",
-          "tests": 7,
-          "failures": 0,
-          "errors": 0,
-          "skipped": 0,
-          "passed": 7
         },
         {
           "name": "com.qsx.appoint.localenv.SampleCatalogUpgradeHttpTest",
@@ -320,12 +200,36 @@
           "passed": 1
         },
         {
-          "name": "com.qsx.appoint.localenv.LocalEnvironmentHttpTest",
-          "tests": 3,
+          "name": "com.qsx.appoint.patient.PatientIntegrationTest",
+          "tests": 4,
           "failures": 0,
           "errors": 0,
           "skipped": 0,
-          "passed": 3
+          "passed": 4
+        },
+        {
+          "name": "com.qsx.appoint.visit.VisitHttpTest",
+          "tests": 37,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 37
+        },
+        {
+          "name": "com.qsx.appoint.visit.application.VisitServiceTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 2
+        },
+        {
+          "name": "com.qsx.appoint.visit.domain.VisitRulesTest",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 6
         }
       ]
     },
@@ -334,14 +238,14 @@
       "tested_on": "2026-11-19",
       "command": "./mvnw -Pmysql-it clean verify",
       "build_exit_code": 0,
-      "source_revision": "基于 e983207 的预约按场次占号工作树",
+      "source_revision": "基于 2884620 的同步模拟支付工作树",
       "status": "通过",
       "totals": {
-        "tests": 15,
+        "tests": 13,
         "failures": 0,
         "errors": 0,
         "skipped": 0,
-        "passed": 15
+        "passed": 13
       },
       "suites": [
         {
@@ -353,12 +257,12 @@
           "passed": 7
         },
         {
-          "name": "com.qsx.appoint.mysql.PaymentConsistencyMySqlIT",
-          "tests": 5,
+          "name": "com.qsx.appoint.mysql.BookingRollbackMySqlIT",
+          "tests": 1,
           "failures": 0,
           "errors": 0,
           "skipped": 0,
-          "passed": 5
+          "passed": 1
         },
         {
           "name": "com.qsx.appoint.mysql.MigrationMySqlIT",
@@ -369,17 +273,24 @@
           "passed": 2
         },
         {
-          "name": "com.qsx.appoint.mysql.BookingRollbackMySqlIT",
-          "tests": 1,
+          "name": "com.qsx.appoint.mysql.PaymentConsistencyMySqlIT",
+          "tests": 3,
           "failures": 0,
           "errors": 0,
           "skipped": 0,
-          "passed": 1
+          "passed": 3
         }
       ]
     }
   },
   "recorded_checks": [
+    {
+      "title": "同步支付与 RabbitMQ 运行验收",
+      "tested_on": "2026-11-19",
+      "tests": null,
+      "status": "通过",
+      "evidence": "隔离 demo 通过脚本重新启动 RabbitMQ 并等待健康。使用真实 HTTP 经 Vite 代理验证预约、支付、重放和取消权限。支付前后 demo vhost 无队列，Broker 无 AMQP 连接。"
+    },
     {
       "title": "预约按场次占号",
       "tested_on": "2026-11-19",
@@ -389,24 +300,24 @@
     },
     {
       "title": "前端单元/Mock",
-      "tested_on": "2026-11-18",
-      "tests": 31,
+      "tested_on": "2026-11-19",
+      "tests": 29,
       "status": "通过",
-      "evidence": "npm test，8 文件、31 项通过，包含同源环境会话与草稿隔离。"
+      "evidence": "npm test，8 文件、29 项通过。"
     },
     {
       "title": "前端类型检查、构建和格式",
-      "tested_on": "2026-11-18",
+      "tested_on": "2026-11-19",
       "tests": null,
       "status": "通过",
-      "evidence": "npm run typecheck、npm run build、Vite demo 模式构建和改动文件的 Prettier 检查均通过。"
+      "evidence": "npm run build 包含类型检查，改动文件通过 Prettier。"
     },
     {
       "title": "环境脚本回归",
-      "tested_on": "2026-11-18",
+      "tested_on": "2026-11-19",
       "tests": 4,
       "status": "通过",
-      "evidence": "python3 -B -m unittest discover -s src/test/python，覆盖默认环境、dev 首次启动、并发拒绝及启动身份。"
+      "evidence": "4 项回归通过，包含等待 RabbitMQ 健康后启动前后端。"
     },
     {
       "title": "三环境端口与启动验收",
@@ -438,10 +349,10 @@
     }
   ],
   "report_date": "2026-11-19",
-  "basis": "预约按场次占号改造的后端回归。前端、环境脚本及环境人工验收记录来自 2026-11-18。",
+  "basis": "同步模拟支付改造的后端、前端、环境脚本及隔离 demo 验收。三环境历史人工验收来自 2026-11-18。",
   "limitations": [
-    "demo 时段验证使用隔离验收 JVM 的临时时钟。",
-    "浏览器核验覆盖登录、结果页和切换环境，核心业务操作通过实际 HTTP 执行。"
+    "本轮隔离 demo 使用真实 HTTP 和 Vite 代理验证核心流程，浏览器界面覆盖由前端构建和单元测试提供。",
+    "本轮未检查常驻 dev 库的历史过渡订单。"
   ],
   "api_main_flow": {
     "tested_on": "2026-11-16",
@@ -466,10 +377,10 @@
     "report": "api-flow-report.md"
   },
   "frontend": {
-    "tested_on": "2026-11-18",
+    "tested_on": "2026-11-19",
     "files": 8,
-    "tests": 31,
-    "passed": 31,
+    "tests": 29,
+    "passed": 29,
     "build_exit_code": 0
   },
   "email_signup": {

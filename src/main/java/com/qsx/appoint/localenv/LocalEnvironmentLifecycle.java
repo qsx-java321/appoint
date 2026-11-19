@@ -44,7 +44,7 @@ public class LocalEnvironmentLifecycle implements BeanFactoryPostProcessor, Disp
                 if ("test".equals(name) && !"classpath:/regression/".equals(environment.getProperty("spring.config.location"))) LocalEnvironmentFiles.rotateTestJwt(secret);
                 environment.getPropertySources().addFirst(new MapPropertySource("localResetJwt", Map.of("appoint.jwt.secret", secret)));
             }
-            System.out.printf("常驻环境=%s，后端端口=%d，业务时钟=实时；MockPay渠道状态仅存于内存%n", name, port);
+            System.out.printf("常驻环境=%s，后端端口=%d，业务时钟=实时%n", name, port);
         } catch (RuntimeException error) {
             destroy();
             throw error;

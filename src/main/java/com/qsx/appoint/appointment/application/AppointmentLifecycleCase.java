@@ -12,9 +12,9 @@ import java.time.LocalTime;
  * @param userId 账号用户ID
  * @param scheduleId 内部场次关联ID；调用方不据此直接更新库存
  * @param status 显式从存储字符串映射的预约状态
- * @param paymentExpiresAt 支付截止，等于此刻已属迟到
+ * @param paymentExpiresAt 最晚支付时刻，包含当秒
  * @param appointmentDate 凭证就诊日期
- * @param startTime 凭证开诊时刻，用于协调层24小时取消判断
+ * @param startTime 凭证开诊时刻，用于到院规则
  * @param doctorId 预约快照的医生ID，用于就诊归属校验
  * @param visitNumber 已分配的就诊序号，未确认时为null
  * @param endTime 凭证结束时刻，用于签到截止判断

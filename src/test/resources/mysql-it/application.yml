@@ -30,13 +30,7 @@ appoint:
     payment-timeout: 15m
   catalog-cache:
     enabled: false
-  messaging:
-    enabled: false
   expiration:
-    enabled: false
-  reconciliation:
-    enabled: false
-  outbox:
     enabled: false
   local-environment:
     enabled: false

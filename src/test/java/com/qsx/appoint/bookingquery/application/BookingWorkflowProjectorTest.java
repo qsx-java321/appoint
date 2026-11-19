@@ -17,15 +17,8 @@ class BookingWorkflowProjectorTest {
     @ParameterizedTest
     @CsvSource({
             "PENDING_PAYMENT, UNPAID, WAITING_FOR_PAYMENT",
-            "PENDING_PAYMENT, PAYING, PAYMENT_PROCESSING",
-            "PENDING_PAYMENT, PAID, CONFIRMING_APPOINTMENT",
+            "PENDING_PAYMENT, PAYING, WAITING_FOR_PAYMENT",
             "CONFIRMED, PAID, CONFIRMED",
-            "CANCELLED, REFUND_PENDING, CANCELLED_REFUNDING",
-            "EXPIRED, REFUND_PENDING, CANCELLED_REFUNDING",
-            "CANCELLED_BY_HOSPITAL, REFUND_PENDING, CANCELLED_REFUNDING",
-            "CANCELLED, REFUNDED, CANCELLED_REFUNDED",
-            "EXPIRED, REFUNDED, CANCELLED_REFUNDED",
-            "CANCELLED_BY_HOSPITAL, REFUNDED, CANCELLED_REFUNDED",
             "EXPIRED, CLOSED, EXPIRED"
     })
     void projectsSupportedStates(String appointment, String payment, WorkflowStatus expected) {

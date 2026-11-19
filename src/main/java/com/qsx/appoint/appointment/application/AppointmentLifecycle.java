@@ -41,7 +41,7 @@ public interface AppointmentLifecycle {
 
     /**
      * 关闭待支付预约，同时释放暂占并删除有效占用。
-     * <p>只负责预约侧变更；支付关闭或退款由协调层安排在同一事务内。失败回滚全部预约变更。
+     * <p>协调层在同一事务内关闭支付单。失败回滚全部预约变更。
      * @param appointment 当前事务lock返回的待支付预约原对象
      * @param reason 关闭原因，决定预约终态为CANCELLED或EXPIRED
      * @param closedAt 协调层采样的业务关闭时间，沿用同一次决策时间
@@ -49,14 +49,4 @@ public interface AppointmentLifecycle {
      * @throws com.qsx.appoint.common.BusinessException Case/状态无效或库存、预约、占用更新不满足预期
      */
     void closePending(AppointmentLifecycleCase appointment, AppointmentCloseReason reason, LocalDateTime closedAt);
-
-    /**
-     * 取消已确认预约，释放已确认名额并删除有效占用，保留原就诊序号。
-     * <p>开诊前24小时资格和退款由协调层判断；本方法不重复判断时间或调用支付渠道。
-     * @param appointment 当前事务lock返回的CONFIRMED预约原对象
-     * @param cancelledAt 协调层采样的取消时间
-     * @throws org.springframework.transaction.IllegalTransactionStateException 调用方没有事务
-     * @throws com.qsx.appoint.common.BusinessException Case/状态无效或条件更新未命中
-     */
-    void cancelConfirmed(AppointmentLifecycleCase appointment, LocalDateTime cancelledAt);
 }

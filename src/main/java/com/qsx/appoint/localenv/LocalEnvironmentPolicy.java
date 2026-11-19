@@ -88,7 +88,7 @@ public class LocalEnvironmentPolicy implements EnvironmentPostProcessor, Ordered
                 || (isolated && env.getProperty("spring.data.redis.port", Integer.class, 6379) == 6379)
                 || !"127.0.0.1".equals(env.getProperty("server.address"))) throw new IllegalArgumentException("环境目标不匹配");
         for (String field : List.of("spring.datasource.username", "spring.datasource.password", "spring.rabbitmq.username",
-                "spring.rabbitmq.password", "appoint.jwt.secret", "appoint.mock-pay.signing-key")) {
+                "spring.rabbitmq.password", "appoint.jwt.secret")) {
             String value = env.getRequiredProperty(field);
             if (value.isBlank() || value.startsWith("replace-")) throw new IllegalArgumentException("缺少本地配置");
         }

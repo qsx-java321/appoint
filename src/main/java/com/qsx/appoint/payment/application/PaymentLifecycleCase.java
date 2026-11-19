@@ -3,7 +3,7 @@ package com.qsx.appoint.payment.application;
 import com.qsx.appoint.payment.domain.PaymentOrderStatus;
 
 /**
- * 支付侧稳定事实；find结果只读，写入必须使用本事务lock返回的原对象。
+ * 支付单写操作使用当前事务锁定的支付事实。
  * @param id 支付单主键
  * @param paymentNo 支付业务编号
  * @param appointmentOrderId 唯一关联的预约ID

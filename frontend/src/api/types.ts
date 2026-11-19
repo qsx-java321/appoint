@@ -119,28 +119,6 @@ export interface DoctorSnapshot extends Omit<Doctor, "introduction"> {
   department: Department;
   hospital: Hospital;
 }
-export interface AttemptSummary {
-  id: Id;
-  attemptNo: string;
-  channel: string;
-  status: string;
-  providerOrderNo: string | null;
-  failureCode: string | null;
-  createdAt: string;
-  completedAt: string | null;
-}
-export interface Refund {
-  id: Id;
-  refundNo: string;
-  amount: Money;
-  currency: string;
-  channel: string;
-  status: string;
-  reason: string;
-  attemptCount: number;
-  lastFailureCode: string | null;
-  completedAt: string | null;
-}
 export interface Appointment {
   id: Id;
   appointmentNo: string;
@@ -156,10 +134,8 @@ export interface Appointment {
   workflowStatus: string | null;
   amount: Money;
   currency: string;
-  paymentAttemptCount: number;
-  latestPaymentAttempt: AttemptSummary | null;
-  refund: Refund | null;
-  paymentExpiresAt: string;
+  paidAt: string | null;
+  paymentExpiresAt: string | null;
   closedAt: string | null;
   serverTime: string;
   paymentExpired: boolean;
@@ -169,16 +145,6 @@ export interface Appointment {
   doctor: DoctorSnapshot;
   sessionType: string | null;
   visit: Visit | null;
-}
-export interface PaymentAttempt {
-  paymentOrderId: Id;
-  paymentAttemptId: Id;
-  channel: string;
-  paymentStatus: string;
-  attemptStatus: string;
-  providerOrderNo: string;
-  checkoutUrl: string;
-  expiresAt: string;
 }
 export interface DoctorSession {
   appointmentDate: string;

@@ -393,7 +393,7 @@ class VisitHttpTest {
         request.setDoctorId(1L); request.setPatientId(patientId);
         request.setAppointmentDate(LocalDate.parse(date)); request.setSessionType(session);
         var response = (CreateAppointmentResponse) bookings.create(81001L, UUID.randomUUID().toString(), request);
-        if (pay) payments.pay(81001L, response.getPaymentOrderId());
+        if (pay) payments.pay(81001L, response.getAppointmentOrderId());
         return response;
     }
     void bind(long doctorId, long userId, String token, int expected) throws Exception {

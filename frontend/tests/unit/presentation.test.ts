@@ -1,29 +1,20 @@
 import { expect, it } from "vitest";
 import { appointment } from "../fixtures";
-import { label, needsPolling } from "../../src/lib/presentation";
-it("收款确认和预约确认分开", () => {
-  const a = appointment({
-    paymentStatus: "PAID",
-    workflowStatus: "CONFIRMING_APPOINTMENT",
-  });
-  expect(label(a)).toBe("已支付，正在确认预约");
-  expect(needsPolling(a)).toBe(true);
+import {
+  epoch,
+  label,
+  withinPaymentDeadline,
+} from "../../src/lib/presentation";
+it("最晚支付时刻的最后一秒仍可付款", () => {
+  const deadline = "2026-11-19T10:29:59";
+  expect(withinPaymentDeadline(epoch(deadline) + 999, deadline)).toBe(true);
+  expect(withinPaymentDeadline(epoch(deadline) + 1000, deadline)).toBe(false);
+  expect(withinPaymentDeadline(epoch(deadline), null)).toBe(false);
 });
-it("关闭原因和退款进度分开", () => {
-  expect(
-    label(
-      appointment({
-        status: "EXPIRED",
-        paymentStatus: "REFUND_PENDING",
-        workflowStatus: "CANCELLED_REFUNDING",
-      }),
-    ),
-  ).toBe("预约已过期 · 退款处理中");
-  expect(
-    label(appointment({ status: "CANCELLED", paymentStatus: "REFUNDED" })),
-  ).toBe("预约已取消 · 退款已完成");
+it("未支付且超过截止显示为已过期", () => {
+  expect(label(appointment({ paymentExpired: true }))).toBe("预约已过期");
 });
-it("已确认未签到不会变成爽约或退款", () => {
+it("已确认未签到显示待签到", () => {
   const a = appointment({
     status: "CONFIRMED",
     paymentStatus: "PAID",
@@ -39,5 +30,4 @@ it("已确认未签到不会变成爽约或退款", () => {
     },
   });
   expect(label(a)).toBe("预约已确认 · 待签到");
-  expect(needsPolling(a)).toBe(false);
 });

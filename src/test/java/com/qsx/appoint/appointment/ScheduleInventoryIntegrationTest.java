@@ -106,43 +106,42 @@ class ScheduleInventoryIntegrationTest {
     }
 
     @Test
-    void visitNumbersAreMonotonicAndCancelledNumberIsNotReused() {
+    void visitNumbersFollowConfirmationOrder() {
         Long operator = createUser("operator-sequence");
-        Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 3), "MORNING", 2);
+        Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 3), "MORNING", 3);
         Long user = createUser("sequence-user");
         CreateAppointmentResponse first = createAppointment(user,
                 createPatient(user, "序号甲", "110105199001010010"), schedule.getId());
         CreateAppointmentResponse second = createAppointment(user,
                 createPatient(user, "序号乙", "110105199002020026"), schedule.getId());
-        formalPayments.pay(user, first.getPaymentOrderId());
-        formalPayments.pay(user, second.getPaymentOrderId());
-        lifecycleCoordinator.cancelOwned(user, first.getAppointmentOrderId());
+        formalPayments.pay(user, first.getAppointmentOrderId());
+        formalPayments.pay(user, second.getAppointmentOrderId());
         CreateAppointmentResponse third = createAppointment(user,
                 createPatient(user, "序号丙", "110105199003030031"), schedule.getId());
-        formalPayments.pay(user, third.getPaymentOrderId());
+        formalPayments.pay(user, third.getAppointmentOrderId());
 
         assertThat(appointmentOrderMapper.selectById(first.getAppointmentOrderId()).getVisitNumber()).isEqualTo(1);
         assertThat(appointmentOrderMapper.selectById(second.getAppointmentOrderId()).getVisitNumber()).isEqualTo(2);
         assertThat(appointmentOrderMapper.selectById(third.getAppointmentOrderId()).getVisitNumber()).isEqualTo(3);
-        assertThat(paymentOrderMapper.selectById(first.getPaymentOrderId()).getStatus()).isEqualTo("REFUND_PENDING");
+        assertThat(paymentOrderMapper.selectById(first.getPaymentOrderId()).getStatus()).isEqualTo("PAID");
         Schedule finalInventory = scheduleMapper.selectById(schedule.getId());
-        assertInventory(finalInventory, 2, 0, 0, 2);
+        assertInventory(finalInventory, 3, 0, 0, 3);
         assertThat(finalInventory.getNextVisitNumber()).isEqualTo(4);
     }
 
     @Test
-    void confirmedCancellationIsRejectedAtExactTwentyFourHourBoundary() {
-        Long operator = createUser("operator-refund-boundary");
+    void confirmedAppointmentCannotBeCancelled() {
+        Long operator = createUser("operator-confirmed-cancel");
         Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 2), "MORNING", 1);
-        Long user = createUser("refund-boundary-user");
+        Long user = createUser("confirmed-cancel-user");
         CreateAppointmentResponse created = createAppointment(user,
-                createPatient(user, "退款边界", "110105199001010010"), schedule.getId());
-        formalPayments.pay(user, created.getPaymentOrderId());
+                createPatient(user, "已确认取消", "110105199001010010"), schedule.getId());
+        formalPayments.pay(user, created.getAppointmentOrderId());
 
         assertThatThrownBy(() -> lifecycleCoordinator.cancelOwned(user, created.getAppointmentOrderId()))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode())
-                                .isEqualTo(ErrorCode.CANCELLATION_DEADLINE_REACHED));
+                                .isEqualTo(ErrorCode.ORDER_STATE_ERROR));
         assertThat(appointmentOrderMapper.selectById(created.getAppointmentOrderId()).getStatus())
                 .isEqualTo("CONFIRMED");
         assertThat(paymentOrderMapper.selectById(created.getPaymentOrderId()).getStatus()).isEqualTo("PAID");
@@ -150,16 +149,16 @@ class ScheduleInventoryIntegrationTest {
     }
 
     @Test
-    void paymentIsRejectedAtTheExactPaymentDeadlineWithoutChangingTheHold() {
+    void paymentIsRejectedAfterThePaymentDeadlineWithoutChangingTheHold() {
         clock.setInstant(RELEASE_INSTANT.plus(Duration.ofDays(1)));
         Long operator = createUser("operator-payment-deadline");
         Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 4), "MORNING", 1);
         Long user = createUser("payment-deadline-user");
         CreateAppointmentResponse created = createAppointment(user,
                 createPatient(user, "支付边界", "110105199001010010"), schedule.getId());
-        clock.setInstant(created.getPaymentExpiresAt().atZone(SHANGHAI).toInstant());
+        clock.setInstant(created.getPaymentExpiresAt().plusSeconds(1).atZone(SHANGHAI).toInstant());
 
-        assertThatThrownBy(() -> formalPayments.pay(user, created.getPaymentOrderId()))
+        assertThatThrownBy(() -> formalPayments.pay(user, created.getAppointmentOrderId()))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PAYMENT_EXPIRED));
 
@@ -169,30 +168,6 @@ class ScheduleInventoryIntegrationTest {
         assertThat(detail.isPaymentExpired()).isTrue();
         assertThat(detail.isCanPay()).isFalse();
         assertInventory(scheduleMapper.selectById(schedule.getId()), 1, 0, 1, 0);
-    }
-
-    @Test
-    void confirmedCancellationCanBeRepeatedWithoutChangingItsReceipt() {
-        clock.setInstant(RELEASE_INSTANT.plus(Duration.ofDays(1)));
-        Long operator = createUser("operator-refund-idempotency");
-        Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 4), "AFTERNOON", 1);
-        Long user = createUser("refund-idempotency-user");
-        CreateAppointmentResponse created = createAppointment(user,
-                createPatient(user, "重复退款", "110105199001010010"), schedule.getId());
-        formalPayments.pay(user, created.getPaymentOrderId());
-
-        lifecycleCoordinator.cancelOwned(user, created.getAppointmentOrderId());
-        AppointmentResponse first = appointmentService.getOwned(user, created.getAppointmentOrderId());
-        lifecycleCoordinator.cancelOwned(user, created.getAppointmentOrderId());
-        AppointmentResponse repeated = appointmentService.getOwned(user, created.getAppointmentOrderId());
-
-        assertThat(first.getStatus()).isEqualTo("CANCELLED");
-        assertThat(first.getPaymentStatus()).isEqualTo("REFUND_PENDING");
-        assertThat(repeated.getStatus()).isEqualTo(first.getStatus());
-        assertThat(repeated.getPaymentStatus()).isEqualTo(first.getPaymentStatus());
-        assertThat(repeated.getClosedAt()).isEqualTo(first.getClosedAt());
-        assertThat(repeated.getVisitNumber()).isEqualTo(first.getVisitNumber());
-        assertInventory(scheduleMapper.selectById(schedule.getId()), 1, 1, 0, 0);
     }
 
     @Test

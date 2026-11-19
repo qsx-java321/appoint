@@ -57,18 +57,6 @@ public interface AppointmentOrderMapper extends BaseMapper<AppointmentOrder> {
                        @Param("closedAt") java.time.LocalDateTime closedAt);
 
     /**
-     * 仅取消CONFIRMED预约，保留visit_number；与释放confirmed库存和删占用同事务。
-     * @return 命中行数，调用方要求1，0表示状态已不满足
-     */
-    @Update("""
-            UPDATE appointment_orders
-            SET status = 'CANCELLED', closed_at = #{closedAt}, updated_at = CURRENT_TIMESTAMP
-            WHERE id = #{id} AND status = 'CONFIRMED'
-            """)
-    int cancelIfConfirmed(@Param("id") Long id,
-                          @Param("closedAt") java.time.LocalDateTime closedAt);
-
-    /**
      * 按预约ID顺序锁定指定场次内待支付预约，保留既有持久化能力。
      * <p>不是新停诊写入口；调用者应先持有场次锁。
      * @return 锁后待支付列表，无记录为空
@@ -78,7 +66,7 @@ public interface AppointmentOrderMapper extends BaseMapper<AppointmentOrder> {
 
     /**
      * 以固定扫描时间和截止+ID游标分批读取待支付到期候选，不加锁。
-     * @param scanTime 本轮固定上界，等于截止也列入
+     * @param scanTime 本轮固定上界，严格晚于最晚支付时刻才列入
      * @param cursorExpiresAt 上批最后截止，首批为null
      * @param cursorId 同截止下的最后ID，与cursorExpiresAt配套
      * @param limit 批大小上限
@@ -89,7 +77,7 @@ public interface AppointmentOrderMapper extends BaseMapper<AppointmentOrder> {
             SELECT id, payment_expires_at
             FROM appointment_orders
             WHERE status = 'PENDING_PAYMENT'
-              AND payment_expires_at &lt;= #{scanTime}
+              AND payment_expires_at &lt; #{scanTime}
             <if test="cursorExpiresAt != null">
               AND (payment_expires_at &gt; #{cursorExpiresAt}
                    OR (payment_expires_at = #{cursorExpiresAt} AND id &gt; #{cursorId}))

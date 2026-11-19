@@ -7,16 +7,20 @@ import com.qsx.appoint.common.ErrorCode;
 public enum PaymentOrderStatus {
     /** 未收款且可按其他资格发起尝试。 */
     UNPAID,
-    /** 本地存在发起中的尝试，尚未确认收款。 */
+    /** 旧版已发起尝试，尚未确认收款。 */
     PAYING,
-    /** 已确认收款，预约可能仍在确认中。 */
+    /** 已确认收款。 */
     PAID,
-    /** 本地未付关闭，仍可能接到PROCESSING尝试的迟到收款。 */
+    /** 未付关闭。 */
     CLOSED,
-    /** 退款已申请，渠道尚未完成。 */
+    /** 历史状态，退款曾经申请。 */
     REFUND_PENDING,
-    /** 本地已记录渠道退款成功。 */
+    /** 历史状态，旧版已记录退款。 */
     REFUNDED;
+
+    public boolean isUnpaid() {
+        return this == UNPAID || this == PAYING;
+    }
 
     /**
      * 从既有存储字符串显式转换状态，不做默认值或大小写兜底。

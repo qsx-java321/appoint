@@ -120,7 +120,7 @@ def clean_env(name):
 def command_for(name, reset=False):
     args = ['./mvnw', 'spring-boot:run']
     options = [f'--spring.profiles.active={name}']
-    if reset: options += ['--appoint.local-environment.reset-only=true', '--spring.main.web-application-type=none', '--appoint.messaging.enabled=false', '--appoint.outbox.enabled=false', '--appoint.expiration.enabled=false', '--appoint.reconciliation.enabled=false']
+    if reset: options += ['--appoint.local-environment.reset-only=true', '--spring.main.web-application-type=none', '--appoint.expiration.enabled=false']
     args += ['-Dspring-boot.run.arguments=' + ' '.join(options)]
     return args
 
@@ -266,6 +266,7 @@ def stop_groups(records, verify_owner):
 
 def start(name):
     require_idle()
+    run(COMPOSE + ['up', '-d', '--wait', 'rabbitmq'])
     processes = []
     records = {}
     launch_id = uuid.uuid4().hex

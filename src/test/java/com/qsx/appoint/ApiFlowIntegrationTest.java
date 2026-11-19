@@ -8,11 +8,6 @@ import com.qsx.appoint.catalog.entity.Schedule;
 import com.qsx.appoint.catalog.mapper.DoctorMapper;
 import com.qsx.appoint.support.BookingTestDoctors;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
-import com.qsx.appoint.payment.adapter.mock.MockPaymentGateway;
-import com.qsx.appoint.payment.mapper.PaymentOrderMapper;
-import com.qsx.appoint.payment.mapper.PaymentOutboxEventMapper;
-import com.qsx.appoint.payment.port.GatewayPaymentStatus;
-import com.qsx.appoint.payment.port.RawPaymentNotification;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -25,7 +20,6 @@ import java.util.UUID;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.LocalDateTime;
 import java.math.BigDecimal;
 import com.qsx.appoint.support.CommittedFixtureScope;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +38,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.url=jdbc:h2:mem:api-flow;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
 @ActiveProfiles("regression")
-@org.springframework.context.annotation.Import(com.qsx.appoint.support.FormalPaymentTestSupport.class)
 class ApiFlowIntegrationTest {
     @Autowired private JdbcTemplate fixtureJdbc;
     private CommittedFixtureScope fixtureScope;
@@ -55,14 +48,10 @@ class ApiFlowIntegrationTest {
     @AfterEach
     void removeCommittedFixture() { fixtureScope.close(); }
 
-    @Autowired private com.qsx.appoint.support.FormalPaymentTestSupport formalPayments;
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private ScheduleMapper scheduleMapper;
     @Autowired private DoctorMapper doctorMapper;
-    @Autowired private MockPaymentGateway mockPaymentGateway;
-    @Autowired private PaymentOrderMapper paymentOrderMapper;
-    @Autowired private PaymentOutboxEventMapper outboxEventMapper;
     @Autowired private Clock appointmentClock;
 
     @Test
@@ -172,109 +161,27 @@ class ApiFlowIntegrationTest {
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.data.appointmentStatus").value("PENDING_PAYMENT"))
                 .andReturn().getResponse().getContentAsString();
         JsonNode data = objectMapper.readTree(appointmentResult).get("data");
-        long paymentId = data.get("paymentOrderId").asLong();
-
-        assertThat(formalPayments.payWithToken(token, paymentId)).satisfies(paid -> {
-            assertThat(paid.getStatus()).isEqualTo("CONFIRMED");
-            assertThat(paid.getPaymentStatus()).isEqualTo("PAID");
-        });
-        assertThat(formalPayments.payWithToken(token, paymentId)).satisfies(paid -> {
-            assertThat(paid.getStatus()).isEqualTo("CONFIRMED");
-            assertThat(paid.getPaymentStatus()).isEqualTo("PAID");
-        });
+        String appointmentId = data.path("appointmentOrderId").asText();
+        String paid = mockMvc.perform(post("/api/v1/appointments/{id}/pay", appointmentId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.data.paymentStatus").value("PAID"))
+                .andExpect(jsonPath("$.data.paidAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.visitNumber").isNumber())
+                .andReturn().getResponse().getContentAsString();
+        JsonNode firstReceipt = objectMapper.readTree(paid).path("data");
+        mockMvc.perform(post("/api/v1/appointments/{id}/pay", appointmentId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.paidAt").value(firstReceipt.path("paidAt").asText()))
+                .andExpect(jsonPath("$.data.visitNumber").value(firstReceipt.path("visitNumber").asInt()));
 
         mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(appointmentBody(scheduleId, patientId)))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4204));
-    }
-
-    @Test
-    void startingMockPaymentAttemptReturnsAcceptedAndStableCheckoutData() throws Exception {
-        String body = "{\"email\":\"attempt-http@example.com\",\"password\":\"password123\"}";
-        mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(verifiedBody(mockMvc, body)));
-        String loginResult = mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
-                .andReturn().getResponse().getContentAsString();
-        String token = objectMapper.readTree(loginResult).at("/data/accessToken").asText();
-        String patientId = createPatient(token);
-        Long scheduleId = createSchedule(LocalDate.now(appointmentClock).plusDays(2));
-        String appointmentResult = mockMvc.perform(post("/api/v1/appointments")
-                        .header("Authorization", "Bearer " + token)
-                        .header("Idempotency-Key", UUID.randomUUID().toString())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(appointmentBody(scheduleId, patientId)))
-                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
-        String paymentId = objectMapper.readTree(appointmentResult).at("/data/paymentOrderId").asText();
-
-        String attemptResult = mockMvc.perform(post("/api/v1/payments/{id}/attempts", paymentId)
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"channel\":\"MOCK\"}"))
-                .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.data.paymentOrderId").value(paymentId))
-                .andExpect(jsonPath("$.data.channel").value("MOCK"))
-                .andExpect(jsonPath("$.data.paymentStatus").value("PAYING"))
-                .andExpect(jsonPath("$.data.attemptStatus").value("PROCESSING"))
-                .andExpect(jsonPath("$.data.checkoutUrl").isNotEmpty())
-                .andReturn().getResponse().getContentAsString();
-        String providerOrderNo = objectMapper.readTree(attemptResult).at("/data/providerOrderNo").asText();
-
-        RawPaymentNotification amountMismatch = mockPaymentGateway.signedNotification(
-                "notify-wrong-" + paymentId, providerOrderNo, "mock-txn-wrong",
-                GatewayPaymentStatus.SUCCEEDED, new BigDecimal("49.99"), "CNY",
-                LocalDateTime.now(appointmentClock));
-        mockMvc.perform(post("/api/v1/payment-notifications/MOCK")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(amountMismatch)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.processingResult").value("REJECTED_AMOUNT_OR_CURRENCY"));
-        assertThat(paymentOrderMapper.selectById(Long.valueOf(paymentId)).getStatus()).isEqualTo("PAYING");
-
-        RawPaymentNotification success = mockPaymentGateway.complete(
-                providerOrderNo, "notify-success-" + paymentId, LocalDateTime.now(appointmentClock));
-        String successBody = objectMapper.writeValueAsString(success);
-        mockMvc.perform(post("/api/v1/payment-notifications/MOCK")
-                        .contentType(MediaType.APPLICATION_JSON).content(successBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.processingResult").value("SUCCEEDED"))
-                .andExpect(jsonPath("$.data.paymentStatus").value("PAID"));
-        mockMvc.perform(post("/api/v1/payment-notifications/MOCK")
-                        .contentType(MediaType.APPLICATION_JSON).content(successBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.duplicate").value(true));
-        assertThat(paymentOrderMapper.selectById(Long.valueOf(paymentId)).getStatus()).isEqualTo("PAID");
-        assertThat(outboxEventMapper.selectList(null)).hasSize(1);
-
-        RawPaymentNotification conflicting = mockPaymentGateway.signedNotification(
-                success.notificationId(), success.providerOrderNo(), success.providerTransactionNo(),
-                success.status(), success.amount(), success.currency(), success.occurredAt().plusSeconds(1));
-        mockMvc.perform(post("/api/v1/payment-notifications/MOCK")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(conflicting)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value(4103));
-
-        RawPaymentNotification lateFailure = mockPaymentGateway.signedNotification(
-                "notify-late-failure-" + paymentId, success.providerOrderNo(), success.providerTransactionNo(),
-                GatewayPaymentStatus.FAILED, success.amount(), success.currency(), success.occurredAt().plusSeconds(2));
-        mockMvc.perform(post("/api/v1/payment-notifications/MOCK")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(lateFailure)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.processingResult").value("IGNORED_LATE_FAILURE"));
-        assertThat(paymentOrderMapper.selectById(Long.valueOf(paymentId)).getStatus()).isEqualTo("PAID");
-        assertThat(outboxEventMapper.selectList(null)).hasSize(1);
-
-        RawPaymentNotification forged = new RawPaymentNotification(success.notificationId(), success.providerOrderNo(),
-                success.providerTransactionNo(), success.status(), success.amount(), success.currency(),
-                success.occurredAt(), success.signature() + "00");
-        mockMvc.perform(post("/api/v1/payment-notifications/MOCK")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(forged)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(4302));
     }
 
     private String createPatient(String token) throws Exception {

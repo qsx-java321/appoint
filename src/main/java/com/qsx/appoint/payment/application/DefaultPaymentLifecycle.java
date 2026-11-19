@@ -7,6 +7,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.Set;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.time.LocalDateTime;
 import com.qsx.appoint.payment.domain.PaymentOrderStatus;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
@@ -16,18 +17,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * 支付稳定事实及关闭的数据库实现，身份集合把锁定Case绑定到当前事务。
- * <p>closeUnpaid只关闭UNPAID/PAYING支付单，保留PROCESSING尝试供迟到回调记账退款。
+ * 支付单状态更新通过本事务锁定的支付事实执行。
  */
 @Service
 @RequiredArgsConstructor
 class DefaultPaymentLifecycle implements PaymentLifecycle {
     private final PaymentOrderMapper paymentOrderMapper;
-    /** {@inheritDoc} */
-    @Override
-    public PaymentLifecycleCase find(Long id) {
-        return view(paymentOrderMapper.selectByIdForLookup(id));
-    }
     /** {@inheritDoc} */
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
@@ -40,9 +35,20 @@ class DefaultPaymentLifecycle implements PaymentLifecycle {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public void closeUnpaid(PaymentLifecycleCase payment) {
+        consumeLocked(payment);
+        requireOne(paymentOrderMapper.closeIfUnpaid(payment.id()));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void markPaid(PaymentLifecycleCase payment, LocalDateTime paidAt) {
+        consumeLocked(payment);
+        requireOne(paymentOrderMapper.payIfUnpaid(payment.id(), paidAt));
+    }
+
+    private void consumeLocked(PaymentLifecycleCase payment) {
         Context context = context(false);
         if (context == null || !context.locked.remove(payment)) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        requireOne(paymentOrderMapper.closeIfUnpaid(payment.id()));
     }
 
     /**

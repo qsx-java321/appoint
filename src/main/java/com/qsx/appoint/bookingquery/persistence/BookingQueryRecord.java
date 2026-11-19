@@ -10,7 +10,7 @@ import java.time.LocalTime;
 
 /**
  * 只属于bookingquery的跨表只读组合行，不是写模块Entity或写入命令。
- * <p>资料字段来自预约创建快照，支付/最近尝试/退款来自联查；LEFT JOIN缺失可产生null，
+ * <p>资料字段来自预约创建快照，支付结果来自联查；LEFT JOIN缺失可产生null，
  * 归属和资金完整性由查询用例/Assembler依次检查。
  */
 @Getter
@@ -74,11 +74,11 @@ public class BookingQueryRecord {
     private String scheduleStatus;
     /** 本地创建时间，业务时钟采用Asia/Shanghai。 */
     private LocalDateTime createdAt;
-    /** 持久化支付截止；等于截止即失去及时支付资格，扫描延迟不延长。 */
+    /** 持久化的最晚支付时刻，包含当秒。 */
     private LocalDateTime paymentExpiresAt;
     /** 预约或支付关闭时间，尚未关闭可为null。 */
     private LocalDateTime closedAt;
-    /** 关联支付单ID，区别于预约单及支付尝试ID。 */
+    /** 关联支付单ID，区别于预约单ID。 */
     private Long paymentOrderId;
     /** 联查支付归属账号，必须与预约账号一致。 */
     private Long paymentUserId;
@@ -88,42 +88,6 @@ public class BookingQueryRecord {
     private BigDecimal amount;
     /** 金额币种稳定代码，当前新流程使用CNY。 */
     private String currency;
-    /** 支付尝试总数，包含失败历史尝试。 */
-    private Integer paymentAttemptCount;
-    /** 按本地最大ID选出的最近支付尝试ID，无尝试时为null。 */
-    private Long attemptId;
-    /** 本地支付尝试业务编号，用作渠道下单幂等键。 */
-    private String attemptNo;
-    /** 最近支付尝试渠道，无尝试时为null。 */
-    private String attemptChannel;
-    /** 最近支付尝试状态，不代表支付单整体状态。 */
-    private String attemptStatus;
-    /** 渠道支付订单号，发起前或下单失败可为null。 */
-    private String providerOrderNo;
-    /** 最近尝试的失败代码，可为null。 */
-    private String attemptFailureCode;
-    /** 最近尝试创建时间，可为null。 */
-    private LocalDateTime attemptCreatedAt;
-    /** 最近尝试结果完成时间，可为null。 */
-    private LocalDateTime attemptCompletedAt;
-    /** 退款单ID，无申请时为null。 */
-    private Long refundId;
-    /** 本地退款业务编号，渠道退款以此幂等。 */
-    private String refundNo;
-    /** 申请全额退款金额，单位元，无申请时为null。 */
-    private BigDecimal refundAmount;
-    /** 退款币种，无申请时为null。 */
-    private String refundCurrency;
-    /** 原路退款渠道，无申请时为null。 */
-    private String refundChannel;
-    /** 退款执行摘要状态，不直接决定workflow。 */
-    private String refundStatus;
-    /** 首次退款原因，幂等请求不覆盖原原因。 */
-    private String refundReason;
-    /** 退款执行领取计数，非消息投递次数。 */
-    private Integer refundAttemptCount;
-    /** 最近退款失败代码，可为null。 */
-    private String refundLastFailureCode;
-    /** 本地记录退款成功的时间，尚未成功可为null。 */
-    private LocalDateTime refundCompletedAt;
+    /** 已支付时间，尚未付款时为 null。 */
+    private LocalDateTime paidAt;
 }
