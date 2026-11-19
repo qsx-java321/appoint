@@ -23,7 +23,7 @@
 
 1. 用户提交预约。[创建协调器](../src/main/java/com/qsx/appoint/coordination/application/DefaultBookingCoordinator.java)在一个事务内登记幂等键、暂占号源并创建预约单和支付单。重复键冲突回滚后查询已提交的登记，同键同内容返回原预约回执。
 2. 用户点击模拟支付。[生命周期协调器](../src/main/java/com/qsx/appoint/coordination/application/DefaultBookingLifecycleCoordinator.java)锁后验证资格，在同一事务写支付时间、确认预约、转换库存并分配序号。详情接口读取事务提交后的结果。
-3. 未付款的预约可以取消。过期任务使用严格晚于最晚支付时间的条件扫描待支付记录，逐单锁后复验并释放暂占。
+3. 未付款的预约可以取消。过期任务按截止时间和预约 ID 分批扫描待支付记录，逐单锁后复验。仅当当前时间严格晚于最晚支付时间且支付单未收款时，才关闭两张单并释放暂占。扫描日志分别统计关单、跳过和失败。
 
 ## 数据关系
 

@@ -65,18 +65,18 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
     @Transactional
     public boolean expireIfDue(Long appointmentOrderId) {
         AppointmentLifecycleCase appointment = appointments.lock(appointmentOrderId);
-        if (appointment == null || appointment.status() != AppointmentStatus.PENDING_PAYMENT) return false;
+        if (appointment == null || appointment.status() != AppointmentStatus.PENDING_PAYMENT) {
+            return false;
+        }
         LocalDateTime closedAt = now();
-        if (!BookingTimeRules.isPaymentExpired(appointment.paymentExpiresAt(), closedAt)) return false;
+        if (!BookingTimeRules.isPaymentExpired(appointment.paymentExpiresAt(), closedAt)) {
+            return false;
+        }
 
         PaymentLifecycleCase payment = lockPayment(appointment);
-        // 升级前已收款的历史记录保留资金事实，按既有时间继续确认按时付款的预约。
-        if (payment.status() == PaymentOrderStatus.PAID && payment.paidAt() != null
-                && payment.paidAt().isBefore(appointment.paymentExpiresAt())) {
-            appointments.confirm(appointment);
-            return true;
+        if (!payment.status().isUnpaid()) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         }
-        if (!payment.status().isUnpaid()) return false;
 
         closePending(appointment, payment, AppointmentCloseReason.PAYMENT_EXPIRED, closedAt);
         return true;

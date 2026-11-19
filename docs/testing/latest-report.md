@@ -1,17 +1,25 @@
 # 测试报告
 
-更新日期为 2026-11-19。本轮验收同步模拟支付、预约时间边界及 RabbitMQ 启动。测试命令见[自动化测试](../../README.md#自动化测试)。
+更新日期为 2026-11-19。本轮验收预约过期任务，执行 `./mvnw -Pmysql-it clean verify`。测试命令见[自动化测试](../../README.md#自动化测试)。
 
 | 检查 | 通过 | 失败 / 错误 / 跳过 |
 | --- | --- | --- |
 | 后端单元、Mock 和 H2/MockMvc | 183 | 0 / 0 / 0 |
-| Testcontainers MySQL 集成 | 13 | 0 / 0 / 0 |
-| 前端 Vitest | 29（8 文件） | 0 / 0 / 0 |
-| Python 环境脚本 | 4 | 0 / 0 / 0 |
+| Testcontainers MySQL 集成 | 14 | 0 / 0 / 0 |
 
-执行 `./mvnw -Pmysql-it clean verify`、前端 `npm test` 和 `npm run build`，以及 `python3 -B -m unittest discover -s src/test/python`。分组及类级统计见 [JSON 报告](latest-report.json)。
+本轮使用隔离的 H2 和 Testcontainers MySQL。分组及类级统计见 [JSON 报告](latest-report.json)。
 
-## 同步支付验收
+## 预约过期任务验收
+
+| 场景 | 实测结果 |
+| --- | --- |
+| Spring 定时调度与 MySQL 分批处理 | 测试中每批取一条。截止当秒仍可付款，推进业务时钟一秒后，Spring 定时线程跨两批关闭两张未付款预约。库存恢复为 19 个可用、0 个暂占、1 个已确认，已付款预约保留原支付时间和序号。 |
+| 重复处理与有效占用 | 已关单的预约再次处理返回跳过。过期预约的有效占用已删除，已付款预约的有效占用保留。 |
+| 单笔失败与日志 | 单笔失败后继续处理同批候选，扫描摘要分别统计过期、跳过和失败。 |
+
+## 此前同步支付验收
+
+2026-11-19 的前一轮验收执行了前端 `npm test`（8 个文件、29 项通过）、`npm run build` 和 Python 环境脚本测试（4 项通过）。
 
 | 场景 | 实测结果 |
 | --- | --- |

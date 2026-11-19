@@ -145,21 +145,15 @@ class AppointmentLifecycleIntegrationTest {
     }
 
     @Test
-    void expirationProtectsPersistedPaidOrderAndRecoversDelayedConfirmation() throws Exception {
+    void expirationSkipsAnAlreadyConfirmedAppointment() throws Exception {
         AuthenticatedUser user = registerAndLogin();
         Schedule schedule = createSchedule(LocalDate.of(2099, 3, 8), LocalTime.of(9, 0));
         CreatedAppointment created = createAppointment(user, schedule.getId());
-        AppointmentOrder appointment = appointmentOrderMapper.selectById(created.appointmentId());
-        appointment.setPaymentExpiresAt(LocalDateTime.now(appointmentClock).minusSeconds(1));
-        appointmentOrderMapper.updateById(appointment);
-        PaymentOrder payment = paymentOrderMapper.selectById(created.paymentId());
-        payment.setStatus("PAID");
-        payment.setPaidAt(LocalDateTime.now(appointmentClock).minusSeconds(2));
-        paymentOrderMapper.updateById(payment);
+        mockMvc.perform(post("/api/v1/appointments/{id}/pay", created.appointmentId())
+                        .header("Authorization", bearer(user)))
+                .andExpect(status().isOk());
 
-        AppointmentExpirationJob job = new AppointmentExpirationJob(appointmentOrderMapper, lifecycleService,
-                new ExpirationProperties(true, Duration.ofSeconds(30), 100), appointmentClock);
-        job.scanExpiredAppointments();
+        assertThat(lifecycleService.expireIfDue(created.appointmentId())).isFalse();
 
         assertThat(appointmentOrderMapper.selectById(created.appointmentId()).getStatus()).isEqualTo("CONFIRMED");
         assertThat(paymentOrderMapper.selectById(created.paymentId()).getStatus()).isEqualTo("PAID");
