@@ -2,8 +2,6 @@ package com.qsx.appoint.appointment.application;
 
 import com.qsx.appoint.appointment.entity.AppointmentCreateRequest;
 import com.qsx.appoint.appointment.mapper.AppointmentCreateRequestMapper;
-import com.qsx.appoint.appointment.entity.AppointmentOrder;
-import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -15,14 +13,12 @@ import java.time.LocalDateTime;
 
 /**
  * 以创建请求表维护幂等事实，不在本类开启独立创建事务。
- * <p>登记、预约和完成回执跟随BookingCreationTransaction一起提交；重放只返回预约标识，
- * 不把已保存的首次响应当作最新支付/预约状态。
+ * 登记、预约和回执跟随BookingCreationTransaction一起提交。
  */
 @Service
 @RequiredArgsConstructor
 class AppointmentCreationRequestServiceImpl implements AppointmentCreationRequestService {
     private final AppointmentCreateRequestMapper mapper;
-    private final AppointmentOrderMapper appointmentOrderMapper;
 
     /**
      * {@inheritDoc}
@@ -52,19 +48,12 @@ class AppointmentCreationRequestServiceImpl implements AppointmentCreationReques
         }
     }
 
-    /**
-     * {@inheritDoc}
-     * <p>同时检查回执与预约是否存在，避免把未完成登记当作可重放的成功请求。
-     */
+    /** {@inheritDoc} */
     @Override
     public AppointmentCreationReplay find(Long userId, String idempotencyKey) {
         AppointmentCreateRequest request = mapper.selectByUserAndKey(userId, idempotencyKey);
         if (request == null) return null;
-        AppointmentOrder appointment = request.getAppointmentOrderId() == null
-                ? null : appointmentOrderMapper.selectById(request.getAppointmentOrderId());
-        return new AppointmentCreationReplay(request.getRequestHash(), request.getAppointmentOrderId(),
-                appointment == null ? null : appointment.getAppointmentNo(),
-                request.getResponseJson() != null && appointment != null);
+        return new AppointmentCreationReplay(request.getRequestHash(), request.getResponseJson());
     }
 }
 

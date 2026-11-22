@@ -98,7 +98,7 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 
 ## 创建预约
 
-`POST /api/v1/appointments` 需要 UUID 格式的 `Idempotency-Key` 请求头。
+已登录用户调用 `POST /api/v1/appointments/token` 领取令牌，无请求体。成功返回 `200`，`data` 为 `{"token":"<UUID>","expiresIn":600}`。调用 `POST /api/v1/appointments` 时，将领取到的令牌放入 `Idempotency-Key` 请求头。
 
 请求示例
 
@@ -113,9 +113,15 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 
 将示例日期替换为可预约日期。日期超出窗口或达到下单截止返回 `409 / 4202`。服务端确定金额、创建时间和支付截止。
 
-幂等键作用于当前账号，比较内容为规范化后的 `doctorId + appointmentDate + sessionType + patientId`。同键同内容且原请求已完成时返回重放回执。同键不同内容返回 `409 / 4103`，提示使用原键重试的并发冲突返回 `503 / 5001`。已取消或过期后重新预约须使用新键。
+令牌作用于当前账号，比较内容为规范化后的 `doctorId + appointmentDate + sessionType + patientId`。同令牌同内容且原请求已完成时返回原回执。不同内容返回 `409 / 4103`，无效或过期且未创建预约的令牌返回 `409 / 4104`。已取消或过期后重新预约须领取新令牌。
 
-首次创建返回 **201**，包含 `appointmentOrderId`、`paymentOrderId`、`appointmentStatus`、`paymentStatus`、`amount`、`currency`、`paymentExpiresAt`、`serverTime`。重放返回 **200**，包含 `appointmentOrderId`、`appointmentNo` 与 `replayed=true`，当前状态通过详情查询。
+| HTTP 状态 | `data` |
+| --- | --- |
+| `201` 首次创建 | `appointmentOrderId`、`appointmentNo`、`appointmentStatus`、`paymentOrderId`、`paymentNo`、`paymentStatus`、`amount`、`currency`、`createdAt`、`paymentExpiresAt`、`serverTime` |
+| `200` 重放 | 与首次创建相同的回执，当前状态通过详情查询 |
+| `202` 原请求正在提交 | `{"pending":true}`，再次提交时沿用原令牌和请求体 |
+
+网络超时或 `503 / 5001` 时也沿用原令牌和请求体。[下单幂等设计](booking-idempotency.md)
 
 ## 预约查询和生命周期
 
@@ -288,6 +294,7 @@ data为`environment`（当前环境名称）和`items`数组。每项字段如�
 | 同场有效预约重复 | `409 / 4204` |
 | 日期不在今天至后天，或已到场次下单截止 | `409 / 4202` |
 | 幂等键同键不同内容 | `409 / 4103` |
+| 预约令牌无效或已过期，且无已提交回执 | `409 / 4104` |
 | 已超过最晚支付时刻 | `409 / 4004` |
 | 当前订单状态不允许操作 | `409 / 4003` |
 | 需要沿原键重试的并发冲突 | `503 / 5001` |

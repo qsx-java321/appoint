@@ -34,3 +34,4 @@ appoint:
     enabled: false
   local-environment:
     enabled: false
+    name: mysql-it

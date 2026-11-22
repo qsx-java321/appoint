@@ -41,9 +41,9 @@ python3 scripts/local_env.py start demo
 
 ```bash
 ./mvnw clean test                         # 后端单元、Mock 和 H2/MockMvc
-./mvnw -Pmysql-it clean verify             # 再运行 Testcontainers MySQL 集成测试
+./mvnw -Pmysql-it clean verify             # 再运行 Testcontainers MySQL 和 Redis 集成测试
 npm test --prefix frontend                # 前端 Vitest
 python3 -B -m unittest discover -s src/test/python  # 环境脚本回归
 ```
 
-MySQL 集成测试需要 Docker，自行启动临时容器。各套自动化测试使用独立资源。
+MySQL 和 Redis 集成测试需要 Docker，自行启动临时容器。各套自动化测试使用独立资源。

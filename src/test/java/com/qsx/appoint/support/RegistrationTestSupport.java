@@ -6,10 +6,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.web.servlet.MockMvc;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -33,7 +35,24 @@ public class RegistrationTestSupport {
         when(ops.get(anyString())).thenAnswer(call -> values.get(call.getArgument(0)));
         when(ops.getAndDelete(anyString())).thenAnswer(call -> values.remove(call.getArgument(0)));
         when(redis.delete(anyString())).thenAnswer(call -> values.remove(call.getArgument(0)) != null);
+        when(redis.execute(org.mockito.ArgumentMatchers.<RedisScript<String>>any(), anyList(),
+                anyString(), anyString(), anyString(), anyString())).thenAnswer(call ->
+                claimBookingToken(call.getArgument(1), call.getArgument(2), call.getArgument(3), call.getArgument(4)));
         return redis;
+    }
+
+    // Regression tests keep Redis in memory. The Lua implementation runs against real Redis in mysql-it.
+    private synchronized String claimBookingToken(List<String> keys, String userId, String hash, String appointmentNo) {
+        String binding = values.get(keys.get(1));
+        if (binding != null) {
+            String[] fields = binding.split(":", 3);
+            if (!fields[0].equals(userId)) return "INVALID";
+            return fields[1].equals(hash) ? "PENDING" : "CONFLICT";
+        }
+        if (!userId.equals(values.get(keys.getFirst()))) return "INVALID";
+        values.put(keys.get(1), userId + ":" + hash + ":" + appointmentNo);
+        values.remove(keys.getFirst());
+        return "CLAIMED";
     }
     @Bean @Primary
     JavaMailSender registrationSmtp() {

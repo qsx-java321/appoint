@@ -90,16 +90,25 @@ export interface BookingInput {
   sessionType: SessionType;
   patientId: Id;
 }
-export type CreateBooking = { appointmentOrderId: Id } & (
-  | { replayed: true; appointmentNo: string }
+export interface BookingToken {
+  token: string;
+  expiresIn: number;
+}
+export type CreateBooking =
+  | { pending: true }
   | {
-      replayed?: false;
+      appointmentOrderId: Id;
+      appointmentNo: string;
+      appointmentStatus: string;
       paymentOrderId: Id;
+      paymentNo: string;
+      paymentStatus: string;
       amount: string;
+      currency: string;
+      createdAt: string;
       paymentExpiresAt: string;
       serverTime: string;
-    }
-);
+    };
 export type VisitStatus =
   "NOT_CHECKED_IN" | "WAITING" | "IN_PROGRESS" | "COMPLETED";
 export interface Visit {

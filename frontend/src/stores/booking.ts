@@ -44,37 +44,57 @@ export const useBooking = defineStore("booking", () => {
   const selection = ref<Selection | null>(null);
   const pending = ref<Submission | null>(readSubmission());
   const busy = ref(false);
+  let issued: { owner: string; token: string; expiresAt: number } | null = null;
   function clear() {
     selection.value = null;
     pending.value = null;
+    issued = null;
     sessionStorage.removeItem(key);
   }
   window.addEventListener("appoint:logout", clear);
+
+  async function prepare() {
+    const owner = readSession()?.user.id;
+    if (!owner) throw new Error("请先登录或重新登录。");
+    const now = Date.now();
+    if (issued?.owner === owner && issued.expiresAt > now) return issued.token;
+    const response = await api.bookingToken();
+    if (readSession()?.user.id !== owner) throw new Error("登录账号已切换。");
+    issued = {
+      owner,
+      token: response.token,
+      expiresAt: now + response.expiresIn * 1000,
+    };
+    return issued.token;
+  }
+
   async function create(patientId?: string) {
     if (busy.value) throw new Error("预约正在提交，请稍候。");
-    if (!pending.value) {
-      const s = selection.value,
-        owner = readSession()?.user.id;
-      if (!s || !patientId || !owner)
-        throw new Error("请重新登录并选择预约信息。");
-      pending.value = {
-        owner,
-        key: crypto.randomUUID(),
-        body: {
-          doctorId: s.doctor.id,
-          appointmentDate: s.schedule.appointmentDate,
-          sessionType: s.schedule.sessionType,
-          patientId,
-        },
-      };
-      sessionStorage.setItem(key, JSON.stringify(pending.value));
-    }
     busy.value = true;
     try {
-      const result = await api.createAppointment(
-        pending.value.body,
-        pending.value.key,
-      );
+      if (!pending.value) {
+        const s = selection.value,
+          owner = readSession()?.user.id;
+        if (!s || !patientId || !owner)
+          throw new Error("请重新登录并选择预约信息。");
+        const token = await prepare();
+        pending.value = {
+          owner,
+          key: token,
+          body: {
+            doctorId: s.doctor.id,
+            appointmentDate: s.schedule.appointmentDate,
+            sessionType: s.schedule.sessionType,
+            patientId,
+          },
+        };
+        issued = null;
+        sessionStorage.setItem(key, JSON.stringify(pending.value));
+      }
+      const { owner, body, key: token } = pending.value;
+      const result = await api.createAppointment(body, token);
+      if (readSession()?.user.id !== owner) throw new Error("登录账号已切换。");
+      if ("pending" in result) return null;
       clear();
       return result.appointmentOrderId;
     } catch (error) {
@@ -87,5 +107,5 @@ export const useBooking = defineStore("booking", () => {
       busy.value = false;
     }
   }
-  return { selection, pending, busy, create, clear };
+  return { selection, pending, busy, prepare, create, clear };
 });

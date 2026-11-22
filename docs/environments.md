@@ -50,7 +50,7 @@ docker compose --env-file compose.env up -d --wait
 
 ## 重置 test
 
-**重置会删除 test 的业务数据和自行注册的账号，重建样例目录与预置账号，同时清理 test 的目录缓存、验证码和注册票据。JWT 密钥会轮换，旧登录失效。** 保持共享容器运行，执行：
+**重置会删除 test 的业务数据和自行注册的账号，重建样例目录与预置账号，同时清理 test 的目录缓存、注册验证数据和预约令牌。JWT 密钥会轮换，旧登录失效。** 保持共享容器运行，执行：
 
 ```bash
 python3 scripts/local_env.py stop test

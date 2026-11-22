@@ -27,6 +27,7 @@ public enum ErrorCode {
     PATIENT_DOCUMENT_EXISTS(4101, "该证件已登记为就诊人", HttpStatus.CONFLICT),
     PATIENT_DISABLED(4102, "该就诊人已停用", HttpStatus.CONFLICT),
     IDEMPOTENCY_CONFLICT(4103, "幂等键已用于其他预约请求", HttpStatus.CONFLICT),
+    BOOKING_TOKEN_INVALID(4104, "预约令牌无效或已过期，请重新提交", HttpStatus.CONFLICT),
     RETRYABLE_CONCURRENCY_ERROR(5001, "请求暂时无法处理，请使用原幂等键重试", HttpStatus.SERVICE_UNAVAILABLE),
     SCHEDULE_NOT_OPEN(4201, "排班尚未开放预约", HttpStatus.CONFLICT),
     SCHEDULE_CUTOFF_REACHED(4202, "已到预约截止时间", HttpStatus.CONFLICT),

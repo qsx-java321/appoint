@@ -25,7 +25,8 @@ public class LocalEnvironmentConfig {
         return flyway -> {
             if (lifecycle.reset()) {
                 for (String prefix : java.util.List.of("appoint:" + lifecycle.name() + ":catalog:v1:*",
-                        "appoint:" + lifecycle.name() + ":auth:*")) {
+                        "appoint:" + lifecycle.name() + ":auth:*",
+                        "appoint:" + lifecycle.name() + ":booking:*")) {
                     try (var cursor = redis.scan(ScanOptions.scanOptions().match(prefix).count(100).build())) {
                         cursor.forEachRemaining(redis::delete);
                     }

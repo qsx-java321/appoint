@@ -29,7 +29,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 import java.util.List;
-import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -392,7 +391,7 @@ class VisitHttpTest {
         var request = new CreateAppointmentRequest();
         request.setDoctorId(1L); request.setPatientId(patientId);
         request.setAppointmentDate(LocalDate.parse(date)); request.setSessionType(session);
-        var response = (CreateAppointmentResponse) bookings.create(81001L, UUID.randomUUID().toString(), request);
+        var response = (CreateAppointmentResponse) bookings.create(81001L, bookings.issueToken(81001L).token(), request);
         if (pay) payments.pay(81001L, response.getAppointmentOrderId());
         return response;
     }

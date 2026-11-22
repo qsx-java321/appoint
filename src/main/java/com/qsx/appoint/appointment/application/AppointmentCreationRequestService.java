@@ -30,10 +30,10 @@ public interface AppointmentCreationRequestService {
     void complete(Long requestId, Long appointmentOrderId, String responseJson);
 
     /**
-     * 按账号和幂等键查找已有登记及关联预约，供唯一键冲突后判断重放。
+     * 按账号和幂等键查找已有登记及创建回执。
      * @param userId 账号用户ID，构成幂等隔离范围
      * @param idempotencyKey 规范化后的UUID键
-     * @return 重放事实；无登记返回null，登记未完整完成时completed=false
+     * @return 重放事实；无登记返回null
      */
     AppointmentCreationReplay find(Long userId, String idempotencyKey);
 }

@@ -1,5 +1,7 @@
 package com.qsx.appoint.appointment;
 
+import static com.qsx.appoint.support.BookingTestToken.issueBookingToken;
+
 import static com.qsx.appoint.support.RegistrationTestSupport.verifiedBody;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -244,7 +246,7 @@ class AppointmentQueryIntegrationTest {
         Schedule selected = scheduleMapper.selectById(scheduleId);
         String response = mockMvc.perform(post("/api/v1/appointments")
                         .header("Authorization", bearer(user))
-                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .header("Idempotency-Key", issueBookingToken(mockMvc, bearer(user)))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"doctorId\":" + selected.getDoctorId()
                                 + ",\"appointmentDate\":\"" + selected.getAppointmentDate()

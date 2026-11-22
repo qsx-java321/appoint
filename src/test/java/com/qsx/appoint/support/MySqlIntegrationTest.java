@@ -24,7 +24,7 @@ import org.springframework.test.context.TestPropertySource;
         "appoint.local-environment.enabled=false"
 })
 @ContextConfiguration(initializers = RegressionEnvironment.class)
-@Import({RegistrationTestSupport.class,MySqlContainerConfiguration.class,
+@Import({MySqlContainerConfiguration.class,
         AppointmentClockTestConfiguration.class,
         FormalPaymentTestSupport.class})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)

@@ -1,5 +1,6 @@
 package com.qsx.appoint.mysql;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.support.MySqlBusinessTestSupport;
 import com.qsx.appoint.support.TestExecutor;
 import com.qsx.appoint.appointment.dto.*;
@@ -10,6 +11,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.*;
@@ -18,11 +25,19 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** 多个独立业务事务竞争真实唯一键和行锁；SQL异常直接使测试失败。 */
+@AutoConfigureMockMvc
 class BookingConcurrencyMySqlIT extends MySqlBusinessTestSupport {
     @Autowired private ScheduleMapper schedules;
     @Autowired private TransactionTemplate transaction;
+    @Autowired private StringRedisTemplate redis;
+    @Autowired private MockMvc mvc;
+    @Autowired private ObjectMapper json;
 
     private List<Actor> actors() { return List.of(actor("110105199001010010"),actor("110105199002020026"),actor("110105199003030031"),actor("110105199004040048")); }
     private List<Object> compete(List<Actor> actors) throws Exception {
@@ -77,7 +92,7 @@ class BookingConcurrencyMySqlIT extends MySqlBusinessTestSupport {
         var releaseFirst = new CountDownLatch(1);
         try (var executor = new TestExecutor(2)) {
             var firstBooking = executor.submit(() -> transaction.executeWithoutResult(status -> {
-                assertThat(bookings.create(first.user(), UUID.randomUUID().toString(), firstRequest))
+                assertThat(bookings.create(first.user(), bookings.issueToken(first.user()).token(), firstRequest))
                         .isInstanceOf(CreateAppointmentResponse.class);
                 firstReady.countDown();
                 await(releaseFirst);
@@ -85,7 +100,7 @@ class BookingConcurrencyMySqlIT extends MySqlBusinessTestSupport {
             try {
                 await(firstReady);
                 var secondBooking = executor.submit(() -> bookings.create(
-                        second.user(), UUID.randomUUID().toString(), secondRequest));
+                        second.user(), bookings.issueToken(second.user()).token(), secondRequest));
                 assertThat(secondBooking.get(10, TimeUnit.SECONDS)).isInstanceOf(CreateAppointmentResponse.class);
                 assertThat(ordersFor(first.user())).isZero();
                 assertThat(ordersFor(second.user())).isEqualTo(1);
@@ -133,14 +148,56 @@ class BookingConcurrencyMySqlIT extends MySqlBusinessTestSupport {
             throw new AssertionError("等待并发下单测试信号时被中断", exception);
         }
     }
-    @Test void concurrentSameKeyReplaysCommittedReceipt() throws Exception {
-        var a=actor("110105199001010010"); var key=UUID.randomUUID().toString();
-        List<Callable<AppointmentCreationResult>> tasks=new ArrayList<>();
-        for(int i=0;i<4;i++) tasks.add(() -> bookings.create(a.user(),key,request(a)));
-        var results=race(tasks);
-        assertThat(results.stream().filter(CreateAppointmentResponse.class::isInstance).count()).isEqualTo(1);
-        var ids=results.stream().map(r -> r instanceof CreateAppointmentResponse c ? c.getAppointmentOrderId():((ReplayedAppointmentResponse)r).getAppointmentOrderId()).toList();
-        assertThat(new HashSet<>(ids)).hasSize(1); rows(1); inventory(20,19,1,0);
+    @Test void sameTokenWaitsForCommitThenReplaysFullReceiptEvenAfterRedisBindingExpires() throws Exception {
+        var owner = actor("110105199001010010");
+        var other = actor("110105199002020026");
+        var token = bookings.issueToken(owner.user()).token();
+        String tokenKey = "appoint:mysql-it:booking:token:" + token;
+        String bindingKey = "appoint:mysql-it:booking:binding:" + token;
+        assertThat(redis.getExpire(tokenKey, TimeUnit.SECONDS)).isBetween(590L, 600L);
+        submit(other, token, request(other)).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4104));
+        assertThat(redis.hasKey(tokenKey)).isTrue();
+
+        var firstReady = new CountDownLatch(1);
+        var releaseFirst = new CountDownLatch(1);
+        var request = request(owner);
+        CreateAppointmentResponse first;
+        try (var executor = new TestExecutor(1)) {
+            var firstBooking = executor.submit(() -> transaction.execute(status -> {
+                var result = (CreateAppointmentResponse) bookings.create(owner.user(), token, request);
+                firstReady.countDown();
+                await(releaseFirst);
+                return result;
+            }));
+            try {
+                await(firstReady);
+                assertThat(redis.hasKey(tokenKey)).isFalse();
+                assertThat(redis.getExpire(bindingKey, TimeUnit.SECONDS)).isBetween(590L, 600L);
+                submit(owner, token, request).andExpect(status().isAccepted()).andExpect(jsonPath("$.data.pending").value(true));
+                var changed = request(owner);
+                changed.setSessionType(AppointmentSession.MORNING_SECOND.name());
+                submit(owner, token, changed).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4103));
+                assertThat(count("appointment_orders")).isZero();
+            } finally {
+                releaseFirst.countDown();
+            }
+            first = firstBooking.get(10, TimeUnit.SECONDS);
+        }
+
+        redis.expire(bindingKey, 0, TimeUnit.SECONDS);
+        assertThat(redis.hasKey(bindingKey)).isFalse();
+        var second = submit(owner, token, request).andExpect(status().isOk()).andReturn().getResponse();
+        assertThat(json.readTree(second.getContentAsString()).path("data")).isEqualTo(json.valueToTree(first));
+        rows(1);
+        inventory(20, 19, 1, 0);
+    }
+
+    private ResultActions submit(Actor actor, String token, CreateAppointmentRequest request) throws Exception {
+        return mvc.perform(post("/api/v1/appointments")
+                .with(authentication(UsernamePasswordAuthenticationToken.authenticated(actor.user(), null, List.of())))
+                .header("Idempotency-Key", token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(request)));
     }
     @Test void sameDocumentAcrossAccountsHasOnlyOneActiveClaim() throws Exception {
         var results=compete(List.of(actor("110105199001010010"),actor("110105199001010010")));

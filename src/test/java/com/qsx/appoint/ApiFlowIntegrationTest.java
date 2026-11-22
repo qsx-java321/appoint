@@ -1,5 +1,7 @@
 package com.qsx.appoint;
 
+import static com.qsx.appoint.support.BookingTestToken.issueBookingToken;
+
 import static com.qsx.appoint.support.RegistrationTestSupport.verifiedBody;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -16,7 +18,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.util.UUID;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -135,7 +136,7 @@ class ApiFlowIntegrationTest {
                 .andExpect(jsonPath("$.data[0].id").value("1"));
 
         mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
-                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .header("Idempotency-Key", issueBookingToken(mockMvc, "Bearer " + token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(appointmentBody(scheduleId, patientId)))
                 .andExpect(status().isCreated())
@@ -155,7 +156,7 @@ class ApiFlowIntegrationTest {
         Long scheduleId = createSchedule(LocalDate.now(appointmentClock).plusDays(2));
 
         String appointmentResult = mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
-                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .header("Idempotency-Key", issueBookingToken(mockMvc, "Bearer " + token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(appointmentBody(scheduleId, patientId)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.data.appointmentStatus").value("PENDING_PAYMENT"))
@@ -178,7 +179,7 @@ class ApiFlowIntegrationTest {
                 .andExpect(jsonPath("$.data.visitNumber").value(firstReceipt.path("visitNumber").asInt()));
 
         mockMvc.perform(post("/api/v1/appointments").header("Authorization", "Bearer " + token)
-                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .header("Idempotency-Key", issueBookingToken(mockMvc, "Bearer " + token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(appointmentBody(scheduleId, patientId)))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(4204));

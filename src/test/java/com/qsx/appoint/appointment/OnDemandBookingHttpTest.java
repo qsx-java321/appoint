@@ -1,5 +1,7 @@
 package com.qsx.appoint.appointment;
 
+import static com.qsx.appoint.support.BookingTestToken.issueBookingToken;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.catalog.entity.Schedule;
@@ -93,7 +95,7 @@ class OnDemandBookingHttpTest {
 
     @Test
     void firstBookingCreatesSessionFromSettingsAndGetsFullPaymentWindow() throws Exception {
-        String body = createAppointment("2026-11-06", "MORNING_FIRST", UUID.randomUUID().toString());
+        String body = createAppointment("2026-11-06", "MORNING_FIRST");
         JsonNode data = objectMapper.readTree(body).path("data");
         assertThat(data.path("amount").asText()).isEqualTo("10.00");
         assertThat(data.path("paymentExpiresAt").asText()).isEqualTo("2026-11-05T12:15:00");
@@ -112,9 +114,9 @@ class OnDemandBookingHttpTest {
     @Test
     void settingChangesOnlyAffectSessionsCreatedAfterTheChange() throws Exception {
         replaceSettings(30, "12.00");
-        createAppointment("2026-11-07", "MORNING_FIRST", UUID.randomUUID().toString());
+        createAppointment("2026-11-07", "MORNING_FIRST");
         replaceSettings(40, "14.00");
-        createAppointment("2026-11-07", "MORNING_SECOND", UUID.randomUUID().toString());
+        createAppointment("2026-11-07", "MORNING_SECOND");
 
         Schedule first = scheduleMapper.selectByDoctorDateSession(1L,
                 java.time.LocalDate.of(2026, 11, 7), "MORNING_FIRST");
@@ -134,7 +136,7 @@ class OnDemandBookingHttpTest {
 
         mockMvc.perform(post("/api/v1/appointments")
                         .with(authentication(auth()))
-                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .header("Idempotency-Key", issueBookingToken(mockMvc, authentication(auth())))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request("2026-11-06", "MORNING")))
                 .andExpect(status().isBadRequest())
@@ -143,7 +145,7 @@ class OnDemandBookingHttpTest {
 
     @Test
     void idempotencyUsesDoctorDateSessionAndPatient() throws Exception {
-        String key = UUID.randomUUID().toString();
+        String key = issueBookingToken(mockMvc, authentication(auth()));
         String first = createAppointment("2026-11-07", "AFTERNOON_FIRST", key);
         String appointmentId = objectMapper.readTree(first).at("/data/appointmentOrderId").asText();
 
@@ -167,8 +169,7 @@ class OnDemandBookingHttpTest {
     @Test
     void todayBookingPersistsIdenticalAppointmentAndPaymentTimes() throws Exception {
         clock.set("2026-11-05T13:40:00");
-        var data = objectMapper.readTree(createAppointment("2026-11-05", "AFTERNOON_FIRST",
-                UUID.randomUUID().toString())).path("data");
+        var data = objectMapper.readTree(createAppointment("2026-11-05", "AFTERNOON_FIRST")).path("data");
         assertTimes(data, "2026-11-05T13:40:00", "2026-11-05T13:55:00");
     }
 
@@ -178,8 +179,7 @@ class OnDemandBookingHttpTest {
         for (var session : AppointmentSession.values()) {
             var cutoff = date.atTime(session.startTime()).minusMinutes(15);
             clock.set(cutoff.minusSeconds(1).toString());
-            var created = objectMapper.readTree(createAppointment(date.toString(), session.name(),
-                    UUID.randomUUID().toString())).path("data");
+            var created = objectMapper.readTree(createAppointment(date.toString(), session.name())).path("data");
             clock.set(cutoff.toString());
             expectDateRejected(date.toString(), session.name());
 
@@ -201,8 +201,7 @@ class OnDemandBookingHttpTest {
     void createdAtIsSampledAfterPatientLockRatherThanRequestRegistration() throws Exception {
         clock.set("2026-11-05T13:30:00");
         advanceAfterPatientLock("2026-11-05T13:40:00");
-        var data = objectMapper.readTree(createAppointment("2026-11-05", "AFTERNOON_FIRST",
-                UUID.randomUUID().toString())).path("data");
+        var data = objectMapper.readTree(createAppointment("2026-11-05", "AFTERNOON_FIRST")).path("data");
         assertTimes(data, "2026-11-05T13:40:00", "2026-11-05T13:55:00");
         assertThat(data.path("serverTime").asText()).isEqualTo("2026-11-05T13:40:00");
     }
@@ -211,8 +210,7 @@ class OnDemandBookingHttpTest {
     void midnightWhileWaitingStillAcceptsOriginalTomorrowAsToday() throws Exception {
         clock.set("2026-11-05T23:59:59");
         advanceAfterPatientLock("2026-11-06T00:00:00");
-        var data = objectMapper.readTree(createAppointment("2026-11-06", "MORNING_FIRST",
-                UUID.randomUUID().toString())).path("data");
+        var data = objectMapper.readTree(createAppointment("2026-11-06", "MORNING_FIRST")).path("data");
         assertTimes(data, "2026-11-06T00:00:00", "2026-11-06T00:15:00");
     }
 
@@ -255,8 +253,7 @@ class OnDemandBookingHttpTest {
     @Test
     void existingOrderCanPayAfterNewBookingCutoffWithOneDeadlineAcrossAllResponses() throws Exception {
         clock.set("2026-11-05T10:14:00");
-        var created = objectMapper.readTree(createAppointment("2026-11-05", "MORNING_SECOND",
-                UUID.randomUUID().toString())).path("data");
+        var created = objectMapper.readTree(createAppointment("2026-11-05", "MORNING_SECOND")).path("data");
         String expiresAt = created.path("paymentExpiresAt").asText();
         assertThat(expiresAt).isEqualTo("2026-11-05T10:29:00");
         clock.set("2026-11-05T10:20:00");
@@ -273,8 +270,7 @@ class OnDemandBookingHttpTest {
     @Test
     void paymentAcrossMidnightUsesPersistedDeadline() throws Exception {
         clock.set("2026-11-05T23:55:00");
-        var created = objectMapper.readTree(createAppointment("2026-11-06", "MORNING_FIRST",
-                UUID.randomUUID().toString())).path("data");
+        var created = objectMapper.readTree(createAppointment("2026-11-06", "MORNING_FIRST")).path("data");
         assertThat(created.path("paymentExpiresAt").asText()).isEqualTo("2026-11-06T00:10:00");
         clock.set("2026-11-06T00:05:00");
         assertThat(pay(created).path("paymentExpiresAt").asText()).isEqualTo("2026-11-06T00:10:00");
@@ -283,8 +279,7 @@ class OnDemandBookingHttpTest {
 
     @Test
     void historyRemainsReadableAfterLeavingTheThreeDayWindowWithoutRecalculatingDeadline() throws Exception {
-        var created = objectMapper.readTree(createAppointment("2026-11-07", "MORNING_FIRST",
-                UUID.randomUUID().toString())).path("data");
+        var created = objectMapper.readTree(createAppointment("2026-11-07", "MORNING_FIRST")).path("data");
         String expiresAt = created.path("paymentExpiresAt").asText();
         clock.set("2026-11-10T10:00:00");
         assertThat(detail(created).path("paymentExpiresAt").asText()).isEqualTo(expiresAt);
@@ -299,8 +294,7 @@ class OnDemandBookingHttpTest {
     @Test
     void passingPaymentDeadlineDisablesPaymentWithoutWaitingForExpirationScan() throws Exception {
         clock.set("2026-11-05T10:14:00");
-        var created = objectMapper.readTree(createAppointment("2026-11-05", "MORNING_SECOND",
-                UUID.randomUUID().toString())).path("data");
+        var created = objectMapper.readTree(createAppointment("2026-11-05", "MORNING_SECOND")).path("data");
         clock.set("2026-11-05T10:29:01");
         var detail = detail(created);
         assertThat(detail.path("status").asText()).isEqualTo("PENDING_PAYMENT");
@@ -335,6 +329,10 @@ class OnDemandBookingHttpTest {
         assertThat(payment.getExpiresAt()).isEqualTo(appointment.getPaymentExpiresAt());
     }
 
+    private String createAppointment(String date, String session) throws Exception {
+        return createAppointment(date, session, issueBookingToken(mockMvc, authentication(auth())));
+    }
+
     private String createAppointment(String date, String session, String key) throws Exception {
         return mockMvc.perform(post("/api/v1/appointments")
                         .with(authentication(auth()))
@@ -349,7 +347,7 @@ class OnDemandBookingHttpTest {
     private void expectDateRejected(String date, String session) throws Exception {
         mockMvc.perform(post("/api/v1/appointments")
                         .with(authentication(auth()))
-                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .header("Idempotency-Key", issueBookingToken(mockMvc, authentication(auth())))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request(date, session)))
                 .andExpect(status().isConflict())

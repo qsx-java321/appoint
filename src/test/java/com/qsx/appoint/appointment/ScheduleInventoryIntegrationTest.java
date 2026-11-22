@@ -219,7 +219,7 @@ class ScheduleInventoryIntegrationTest {
         request.setAppointmentDate(schedule.getAppointmentDate());
         request.setSessionType(schedule.getSessionType());
         request.setPatientId(patientId);
-        AppointmentCreationResult result = bookingCoordinator.create(userId, UUID.randomUUID().toString(), request);
+        AppointmentCreationResult result = bookingCoordinator.create(userId, bookingCoordinator.issueToken(userId).token(), request);
         return (CreateAppointmentResponse) result;
     }
 

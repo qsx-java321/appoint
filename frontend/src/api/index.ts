@@ -42,6 +42,8 @@ export const api = {
       method: "PATCH",
       data: { enabled },
     }),
+  bookingToken: () =>
+    request<T.BookingToken>("/appointments/token", { method: "POST" }),
   createAppointment: (data: T.BookingInput, key: string) =>
     request<T.CreateBooking>("/appointments", {
       method: "POST",

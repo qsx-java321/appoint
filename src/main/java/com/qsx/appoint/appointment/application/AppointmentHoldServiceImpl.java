@@ -30,7 +30,6 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.Clock;
 import java.time.temporal.ChronoUnit;
-import java.util.UUID;
 
 /**
  * 在同库创建事务中完成预约侧暂占：按需生成场次、锁定就诊人、占号、保存快照与有效占用。
@@ -173,7 +172,7 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
                                                         Patient patient, Doctor doctor, Department department,
                                                         Hospital hospital, LocalDateTime now) {
         AppointmentOrder appointment = new AppointmentOrder();
-        appointment.setAppointmentNo("AP" + UUID.randomUUID().toString().replace("-", ""));
+        appointment.setAppointmentNo(command.appointmentNo());
         appointment.setUserId(command.userId());
         appointment.setScheduleId(schedule.getId());
         appointment.setPatientId(patient.getId());

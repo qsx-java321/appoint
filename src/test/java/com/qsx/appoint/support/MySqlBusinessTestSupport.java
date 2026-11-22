@@ -60,7 +60,7 @@ public abstract class MySqlBusinessTestSupport {
         r.setAppointmentDate(LocalDate.of(2026,11,7)); r.setSessionType("MORNING_FIRST"); return r;
     }
     protected CreateAppointmentResponse create(Actor a) {
-        return (CreateAppointmentResponse) bookings.create(a.user(), UUID.randomUUID().toString(), request(a));
+        return (CreateAppointmentResponse) bookings.create(a.user(), bookings.issueToken(a.user()).token(), request(a));
     }
     protected long count(String table) { return jdbc.queryForObject("SELECT COUNT(*) FROM "+table, Long.class); }
     protected void inventory(int total, int available, int held, int confirmed) {

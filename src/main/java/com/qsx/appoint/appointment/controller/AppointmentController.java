@@ -24,12 +24,17 @@ public class AppointmentController {
     private final BookingCoordinator bookingCoordinator;
     private final BookingLifecycleCoordinator lifecycleCoordinator;
 
+    @PostMapping("/token")
+    public Result<BookingTokenResponse> issueToken(Authentication authentication) {
+        return Result.success(bookingCoordinator.issueToken((Long) authentication.getPrincipal()));
+    }
+
     /**
      * 创建预约并区分首次与幂等重放的HTTP响应。
      * @param authentication 安全过滤器设置的账号身份，principal为Long用户ID
-     * @param idempotencyKey 客户端UUID请求键，网络重试沿用原值
+     * @param idempotencyKey 后端签发的预约令牌，网络重试沿用原值
      * @param request 经过Bean Validation的结构化请求，业务资格由用例判断
-     * @return 首次201及完整创建结果；重放200及预约标识回执
+     * @return 首次201及完整回执，重放200及原回执，仍在提交时202
      */
     @PostMapping
     public ResponseEntity<Result<AppointmentCreationResult>> create(
@@ -40,6 +45,9 @@ public class AppointmentController {
                 (Long) authentication.getPrincipal(), idempotencyKey, request);
         if (response instanceof ReplayedAppointmentResponse) {
             return ResponseEntity.ok(Result.success(REPLAY_MESSAGE, response));
+        }
+        if (response instanceof PendingAppointmentResponse) {
+            return ResponseEntity.accepted().body(Result.success("原预约正在提交", response));
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(Result.success(response));
     }

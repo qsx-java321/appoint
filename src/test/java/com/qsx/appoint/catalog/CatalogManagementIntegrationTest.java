@@ -172,7 +172,7 @@ class CatalogManagementIntegrationTest {
         request.setSessionType("MORNING_FIRST");
         request.setPatientId(patientId);
         CreateAppointmentResponse appointment = (CreateAppointmentResponse) bookingCoordinator.create(
-                userId, UUID.randomUUID().toString(), request);
+                userId, bookingCoordinator.issueToken(userId).token(), request);
         org.assertj.core.api.Assertions.assertThat(appointment.getAppointmentOrderId()).isNotNull();
     }
 
@@ -553,7 +553,7 @@ class CatalogManagementIntegrationTest {
         request.setDoctorId(schedule.getDoctorId());
         request.setAppointmentDate(schedule.getAppointmentDate());
         request.setSessionType(schedule.getSessionType());
-        AppointmentCreationResult result = bookingCoordinator.create(userId, UUID.randomUUID().toString(), request);
+        AppointmentCreationResult result = bookingCoordinator.create(userId, bookingCoordinator.issueToken(userId).token(), request);
         return (CreateAppointmentResponse) result;
     }
 

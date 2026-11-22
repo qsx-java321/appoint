@@ -1,9 +1,6 @@
 package com.qsx.appoint.appointment.dto;
 
-/**
- * 预约创建结果的封闭类型：首次返回完整建单结果，重放返回预约标识回执。
- * <p>Controller按具体结果分别返回201/200，调用方不能假定两者字段相同。
- */
+/** 首次成功、成功重放和仍在提交分别对应 HTTP 201、200 和 202。 */
 public sealed interface AppointmentCreationResult
-        permits CreateAppointmentResponse, ReplayedAppointmentResponse {
+        permits CreateAppointmentResponse, ReplayedAppointmentResponse, PendingAppointmentResponse {
 }

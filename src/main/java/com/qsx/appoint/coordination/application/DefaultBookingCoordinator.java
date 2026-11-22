@@ -1,9 +1,14 @@
 package com.qsx.appoint.coordination.application;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qsx.appoint.appointment.application.AppointmentCreationRequestService;
 import com.qsx.appoint.appointment.application.AppointmentCreationReplay;
+import com.qsx.appoint.appointment.dto.BookingTokenResponse;
 import com.qsx.appoint.appointment.dto.CreateAppointmentRequest;
 import com.qsx.appoint.appointment.dto.AppointmentCreationResult;
+import com.qsx.appoint.appointment.dto.CreateAppointmentResponse;
+import com.qsx.appoint.appointment.dto.PendingAppointmentResponse;
 import com.qsx.appoint.appointment.dto.ReplayedAppointmentResponse;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
@@ -18,9 +23,7 @@ import java.util.HexFormat;
 import java.util.UUID;
 
 /**
- * 预约创建的事务外入口：规范化幂等键/内容摘要，委托独立Spring事务Bean创建。
- * <p>唯一键冲突必须等创建事务回滚后再查询重放，避免在已标记回滚的事务中继续返回成功。
- * 同键不同摘要拒绝；登记尚未完整完成返回可重试错误，不再次占号。
+ * 预约创建的事务外入口。已提交的回执优先，首次下单消费令牌后进入创建事务。
  * @see BookingCreationTransaction
  */
 @Service
@@ -28,6 +31,13 @@ import java.util.UUID;
 class DefaultBookingCoordinator implements BookingCoordinator {
     private final AppointmentCreationRequestService creationRequestService;
     private final BookingCreationTransaction creationTransaction;
+    private final BookingTokenStore tokens;
+    private final ObjectMapper objectMapper;
+
+    @Override
+    public BookingTokenResponse issueToken(Long userId) {
+        return tokens.issue(userId);
+    }
 
     /**
      * {@inheritDoc}
@@ -39,19 +49,43 @@ class DefaultBookingCoordinator implements BookingCoordinator {
         String idempotencyKey = normalizeKey(rawIdempotencyKey);
         String requestHash = hash(request.getDoctorId(), request.getAppointmentDate(),
                 request.getSessionType(), request.getPatientId());
+        var replay = findReplay(userId, idempotencyKey, requestHash);
+        if (replay != null) return replay;
+
+        String appointmentNo = "AP" + UUID.randomUUID().toString().replace("-", "");
+        var claim = tokens.claim(userId, idempotencyKey, requestHash, appointmentNo);
+        if (claim == BookingTokenStore.Claim.CONFLICT) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT);
+        }
+        if (claim != BookingTokenStore.Claim.CLAIMED) {
+            // 首次请求可能已在前一次读回执与 Redis 校验之间提交。
+            replay = findReplay(userId, idempotencyKey, requestHash);
+            if (replay != null) return replay;
+            if (claim == BookingTokenStore.Claim.PENDING) return new PendingAppointmentResponse(true);
+            throw new BusinessException(ErrorCode.BOOKING_TOKEN_INVALID);
+        }
+
         try {
-            return creationTransaction.create(userId, idempotencyKey, requestHash, request);
+            return creationTransaction.create(userId, idempotencyKey, requestHash, appointmentNo, request);
         } catch (DuplicateKeyException exception) {
-            // 异常已穿过事务代理并完成回滚；此时才能读取其他请求已提交的幂等登记。
-            AppointmentCreationReplay replay = creationRequestService.find(userId, idempotencyKey);
-            if (replay == null) throw exception;
-            if (!requestHash.equals(replay.requestHash())) {
-                throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT);
-            }
-            if (!replay.completed() || replay.appointmentOrderId() == null || replay.appointmentNo() == null) {
-                throw new BusinessException(ErrorCode.RETRYABLE_CONCURRENCY_ERROR);
-            }
-            return new ReplayedAppointmentResponse(replay.appointmentOrderId(), replay.appointmentNo());
+            replay = findReplay(userId, idempotencyKey, requestHash);
+            if (replay != null) return replay;
+            throw exception;
+        } catch (BusinessException exception) {
+            if (exception.getErrorCode().getHttpStatus().is4xxClientError()) tokens.discardBinding(idempotencyKey);
+            throw exception;
+        }
+    }
+
+    private AppointmentCreationResult findReplay(Long userId, String idempotencyKey, String requestHash) {
+        AppointmentCreationReplay replay = creationRequestService.find(userId, idempotencyKey);
+        if (replay == null) return null;
+        if (!requestHash.equals(replay.requestHash())) throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT);
+        if (replay.responseJson() == null) return new PendingAppointmentResponse(true);
+        try {
+            return new ReplayedAppointmentResponse(objectMapper.readValue(replay.responseJson(), CreateAppointmentResponse.class));
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("无法读取已保存的预约创建回执", exception);
         }
     }
 
@@ -63,7 +97,10 @@ class DefaultBookingCoordinator implements BookingCoordinator {
      */
     private String normalizeKey(String raw) {
         try {
-            return UUID.fromString(raw == null ? "" : raw.trim()).toString();
+            String value = raw == null ? "" : raw.trim();
+            String canonical = UUID.fromString(value).toString();
+            if (!canonical.equalsIgnoreCase(value)) throw new IllegalArgumentException();
+            return canonical;
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
