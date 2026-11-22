@@ -57,7 +57,7 @@ python3 scripts/local_env.py reset dev
 python3 scripts/local_env.py reset test
 ```
 
-`reset` 完成后脚本退出。继续使用时运行对应的 `start dev` 或 `start test`。重建 `demo` 时运行 `python3 scripts/local_env.py start demo`，需要结束演示时执行 `python3 scripts/local_env.py stop demo`。
+`reset` 完成后脚本退出。继续使用时运行对应的 `start dev` 或 `start test`。重建 `demo` 时运行 `python3 scripts/local_env.py start demo`，需要结束演示时执行 `python3 scripts/local_env.py stop demo`。Mailpit 已保存的邮件和 RabbitMQ 数据随各自服务保留。
 
 ## test 业务调时
 

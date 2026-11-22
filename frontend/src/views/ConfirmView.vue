@@ -136,15 +136,19 @@ onMounted(() => {
         <template v-if="selected && !booking.pending">
           <h2>费用与规则</h2>
           <p class="price">¥{{ money(selected.schedule.registrationFee) }}</p>
-          <p>已确认预约仅在距开诊<strong>严格超过24小时</strong>时可取消。</p>
+          <p id="booking-cancel-policy">
+            支付期限内可以取消待支付预约。付款确认后无法自助取消。
+          </p>
           <p>提交前尚未占号，最终名额与费用以创建结果为准。</p>
           <p v-if="!valid" class="notice error">
             当前场次不可新预约，请返回重新选择。
           </p>
           <label class="check-line"
-            ><input v-model="acknowledged" type="checkbox" /><span
-              >我已核对信息，并知晓已确认预约的取消限制。</span
-            ></label
+            ><input
+              v-model="acknowledged"
+              type="checkbox"
+              aria-describedby="booking-cancel-policy"
+            /><span>我已核对预约信息，并知晓取消规则。</span></label
           >
         </template>
         <button

@@ -26,7 +26,7 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 | `POST /api/v1/auth/login` | `email`、`password` | 200，Token 与用户对象 |
 | `GET /api/v1/users/me` | 无请求体，需要登录 | 200，当前用户对象 |
 
-验证码是六位数字字符串，保留前导零。验证码与注册票据各有效五分钟，重发覆盖旧码，成功验码后签发票据，提交注册时消费票据。
+验证码是六位数字字符串，保留前导零。验证码与注册票据默认各有效五分钟，重发覆盖旧码，成功验码后签发票据，提交注册时消费票据。
 
 邮箱按去除首尾空白、转小写处理。注册密码为 8–64 字符。用户对象为 `id`、`email`、`roles`，注册授予 `USER`。
 
@@ -113,7 +113,7 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 
 将示例日期替换为可预约日期。日期超出窗口或达到下单截止返回 `409 / 4202`。服务端确定金额、创建时间和支付截止。
 
-令牌作用于当前账号，比较内容为规范化后的 `doctorId + appointmentDate + sessionType + patientId`。同令牌同内容且原请求已完成时返回原回执。不同内容返回 `409 / 4103`，无效或过期且未创建预约的令牌返回 `409 / 4104`。已取消或过期后重新预约须领取新令牌。
+令牌作用于当前账号，比较内容为规范化后的 `doctorId + appointmentDate + sessionType + patientId`。同令牌同内容且原请求已完成时返回原回执。令牌已绑定的内容与本次提交不同时返回 `409 / 4103`，无效或过期且未创建预约的令牌返回 `409 / 4104`。已取消或过期后重新预约须领取新令牌。
 
 | HTTP 状态 | `data` |
 | --- | --- |
@@ -130,11 +130,11 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 | 方法与路径 | 用途 | 成功结果 |
 | --- | --- | --- |
 | `GET /api/v1/appointments/{id}` | 查询预约详情 | 200，详情对象 |
-| `GET /api/v1/appointments/my` | 查询本人预约 | 200，详情数组。可传 `order=ASC` 或 `DESC`，默认降序 |
+| `GET /api/v1/appointments/my` | 查询本人预约 | 200，详情数组，依次按就诊日期、场次开始时间和预约 ID 排序。`order` 可为 `ASC` 或 `DESC`，默认降序 |
 | `POST /api/v1/appointments/{id}/pay` | 同步模拟付款 | 200，已确认的预约详情，包含支付时间和就诊序号 |
 | `POST /api/v1/appointments/{id}/cancel` | 关闭未支付预约 | 200，关闭后的详情。重复取消返回当前详情 |
 
-支付和取消均使用预约单 ID。超时支付返回 `409 / 4004`，取消已确认预约返回 `409 / 4003`。重复支付已确认的订单返回原支付时间和就诊序号。[时间规则](business-flow.md#关键时间)
+支付和取消均使用预约单 ID。待支付预约超时后付款，或尝试付款给已过期预约，返回 `409 / 4004`。取消已确认预约返回 `409 / 4003`。如果待支付预约已超时但尚未被后台关单，取消接口会按过期关闭并释放名额。重复支付已确认的订单返回原支付时间和就诊序号。[时间规则](business-flow.md#关键时间)
 
 ### 详情字段
 
@@ -146,7 +146,7 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 | 操作与提示 | `workflowStatus`、`paymentExpired`、`canPay`、`canCancel` |
 | 凭证与就诊 | `patient`（证件号脱敏）、`doctor`（包含科室与医院快照）、`visit`（已确认预约的就诊进度） |
 
-`paymentExpired` 在超过订单截止后即为真，此时 `canPay` 和 `canCancel` 为假。查询可在后台关单前返回 `workflowStatus=EXPIRED`，此时持久化的 `status` 仍可能为 `PENDING_PAYMENT`。
+`paymentExpired` 在预约已过期，或者仍待支付且超过最晚支付时间时为真。后一种情况在后台关单前即可显示 `workflowStatus=EXPIRED`，而持久化的 `status` 仍为 `PENDING_PAYMENT`。`canPay` 和 `canCancel` 只在预约仍待支付、支付单未付款且处于支付期限内时为真。`workflowStatus` 可以为 `null`，例如用户已取消的预约。
 
 支付单关联缺失或不一致返回 `500 / 1002`。
 
@@ -228,7 +228,7 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 }
 ```
 
-两个接口均要求 `ADMIN`，返回 **200**。响应为 `capacityPerSession`、`registrationFee`（字符串）、`currency`、`updatedAt`。PUT 的两个字段必填，容量为正整数，费用大于零且最多八位整数和两位小数。非法输入返回 `400 / 1001`。[设置生效范围](business-flow.md#场次设置与库存)
+两个接口均要求 `ADMIN`，返回 **200**。响应为 `capacityPerSession`、`registrationFee`（字符串）、`currency`、`updatedAt`。PUT 的两个字段必填，容量为正整数，费用最低为 0.01 元，最多八位整数和两位小数。非法输入返回 `400 / 1001`。[设置生效范围](business-flow.md#场次设置与库存)
 
 ## 管理员医生账号
 
@@ -269,7 +269,13 @@ data为`environment`（当前环境名称）和`items`数组。每项字段如�
 
 ## test环境业务调时
 
-常驻 `test` 环境注册调时接口，调用需要 `ADMIN` 角色。对 `/api/v1/test-control/clock` 发起 `GET` 查询，使用 `PUT` 设置业务时间，使用 `DELETE` 恢复实时。设置时传入带时区的 ISO 时间字符串 `instant`。响应包含 `businessTime` 和 `mode`（`realtime` 或 `adjusted`）。[调时操作和影响](environments.md#test-业务调时)
+调时接口在常驻 `test` 环境提供，需要 `ADMIN` 角色。成功响应包含 `businessTime` 和 `mode`（`realtime` 或 `adjusted`）。[调时操作和影响](environments.md#test-业务调时)
+
+| 方法与路径 | 用途 |
+| --- | --- |
+| `GET /api/v1/test-control/clock` | 查询业务时间 |
+| `PUT /api/v1/test-control/clock` | 设置业务时间，请求体中的 `instant` 为带时区偏移的 ISO 时间字符串 |
+| `DELETE /api/v1/test-control/clock` | 恢复实时 |
 
 ## 主要错误
 
