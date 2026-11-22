@@ -42,18 +42,36 @@ class LocalEnvironmentTest(unittest.TestCase):
         self.assertEqual(launch.call_args_list[1].args[0], ['npm', 'run', 'dev'])
         self.assertEqual([call.args[0] for call in wait_ready.call_args_list], [backend, frontend])
 
-    def test_concurrent_start_is_rejected_before_launching_any_application(self):
+    def test_dev_and_test_reset_launch_only_the_selected_backend(self):
+        with tempfile.TemporaryDirectory() as state, patch.object(local_env, 'STATE', Path(state)):
+            for environment in ('dev', 'test'):
+                with self.subTest(environment=environment), patch.object(sys, 'argv', [str(SCRIPT), 'reset', environment]), \
+                        patch.object(local_env, 'require_idle') as require_idle, \
+                        patch.object(local_env.subprocess, 'run') as run:
+                    local_env.main()
+
+                    require_idle.assert_called_once_with()
+                    run.assert_called_once()
+                    command = run.call_args.args[0]
+                    self.assertIn(f'--spring.profiles.active={environment}', command[-1])
+                    self.assertIn('--appoint.local-environment.reset-only=true', command[-1])
+                    self.assertIn('--spring.main.web-application-type=none', command[-1])
+                    self.assertEqual(run.call_args.kwargs['env']['SPRING_PROFILES_ACTIVE'], environment)
+                    self.assertTrue(run.call_args.kwargs['check'])
+
+    def test_concurrent_start_or_reset_is_rejected_before_launching_any_application(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             script = root / 'scripts/local_env.py'
             script.parent.mkdir()
             shutil.copyfile(SCRIPT, script)
             with patch.object(local_env, 'STATE', root / '.local-env'), local_env.operation_lock():
-                result = subprocess.run([sys.executable, str(script), 'start', 'test'], text=True,
-                                        capture_output=True, timeout=5)
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn('已有启停或维护操作正在执行', result.stderr)
-                self.assertFalse((root / '.local-env/test.json').exists())
+                for command, environment in (('start', 'test'), ('reset', 'dev')):
+                    result = subprocess.run([sys.executable, str(script), command, environment], text=True,
+                                            capture_output=True, timeout=5)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn('已有启停或维护操作正在执行', result.stderr)
+                    self.assertFalse((root / f'.local-env/{environment}.json').exists())
 
     def test_same_profile_from_another_launch_is_rejected(self):
         with patch.object(local_env, 'environment_status', return_value={

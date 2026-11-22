@@ -102,6 +102,16 @@ class LocalEnvironmentPolicyTest {
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("常驻环境不能关闭初始化生命周期");
     }
 
+    @Test void explicitResetAppliesToDevAndTestWhileDemoResetsOnStartup() {
+        for (String name : java.util.List.of("dev", "test")) {
+            var env = valid(name).withProperty("appoint.local-environment.reset-only", "true");
+            LocalEnvironmentPolicy.validate(env, name, directory);
+        }
+        var demo = valid("demo").withProperty("appoint.local-environment.reset-only", "true");
+        assertThatThrownBy(() -> LocalEnvironmentPolicy.validate(demo, "demo", directory))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("显式重置适用于 dev 和 test");
+    }
+
     @Test void everyEnvironmentRequiresAnInitializationPasswordBeforeConnecting() {
         for (String name : java.util.List.of("dev", "test", "demo")) {
             for (String password : java.util.List.of("", "short")) {

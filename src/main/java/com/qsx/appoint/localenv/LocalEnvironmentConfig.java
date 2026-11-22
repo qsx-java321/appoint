@@ -43,11 +43,8 @@ public class LocalEnvironmentConfig {
     }
 
     @Bean
-    @ConditionalOnProperty(name = "appoint.local-environment.reset-only", havingValue = "true")
-    ApplicationRunner finishReset(ConfigurableApplicationContext context, LocalEnvironmentLifecycle lifecycle) {
-        return args -> {
-            if (!"test".equals(lifecycle.name())) throw new IllegalStateException("只允许显式重置test");
-            context.close();
-        };
+    @ConditionalOnProperty(prefix = "appoint.local-environment", name = {"enabled", "reset-only"}, havingValue = "true")
+    ApplicationRunner finishReset(ConfigurableApplicationContext context) {
+        return args -> context.close();
     }
 }

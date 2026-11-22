@@ -334,7 +334,7 @@ def main():
     sub.add_parser('start').add_argument('environment', choices=ENVIRONMENTS, nargs='?', default='demo')
     for command in ('stop', 'status'):
         sub.add_parser(command).add_argument('environment', choices=ENVIRONMENTS)
-    sub.add_parser('reset').add_argument('environment', choices=('test',))
+    sub.add_parser('reset').add_argument('environment', choices=('dev', 'test'))
     p = sub.add_parser('clock')
     p.add_argument('environment', choices=('test',))
     p.add_argument('action', choices=('get', 'set', 'reset'))
@@ -355,7 +355,7 @@ def main():
                 stop(args.environment)
             elif args.command == 'reset':
                 require_idle()
-                subprocess.run(command_for('test', True), cwd=ROOT, env=clean_env('test'), check=True)
+                subprocess.run(command_for(args.environment, True), cwd=ROOT, env=clean_env(args.environment), check=True)
 
 
 if __name__ == '__main__':

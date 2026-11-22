@@ -4,19 +4,21 @@ import java.nio.file.*;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 
-/** 不记录秘密；test显式重置原子轮换密钥，旧文件不进入版本库。 */
+/** 显式重置原子更新当前环境的私密配置。 */
 final class LocalEnvironmentFiles {
     private LocalEnvironmentFiles() {}
-    static void rotateTestJwt(String secret) {
-        Path file = Path.of(".env.test");
+
+    static void rotateJwt(Path file, String secret) {
         try {
             List<String> lines = Files.readAllLines(file);
-            lines.removeIf(line -> line.startsWith("JWT_SECRET=")); lines.add("JWT_SECRET=" + secret);
-            Path temporary = Files.createTempFile(file.toAbsolutePath().getParent(), ".test-jwt-", ".tmp");
+            lines.removeIf(line -> line.startsWith("JWT_SECRET="));
+            lines.add("JWT_SECRET=" + secret);
+            Path temporary = Files.createTempFile(file.toAbsolutePath().getParent(), ".jwt-", ".tmp",
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
             try {
-                Files.setPosixFilePermissions(temporary, PosixFilePermissions.fromString("rw-------"));
-                Files.write(temporary, lines); Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                Files.write(temporary, lines);
+                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             } finally { Files.deleteIfExists(temporary); }
-        } catch (Exception e) { throw new IllegalStateException("test密钥轮换失败"); }
+        } catch (Exception e) { throw new IllegalStateException("环境密钥轮换失败"); }
     }
 }

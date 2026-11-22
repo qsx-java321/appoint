@@ -45,6 +45,9 @@ public class LocalEnvironmentPolicy implements EnvironmentPostProcessor, Ordered
         if (!List.of("dev", "test", "demo").contains(name)) throw new IllegalArgumentException("未知环境");
         String[] profiles = env.getActiveProfiles().length == 0 ? env.getDefaultProfiles() : env.getActiveProfiles();
         if (profiles.length != 1 || !profiles[0].equals(name)) throw new IllegalArgumentException("只允许单个常驻profile");
+        if ("demo".equals(name) && env.getProperty("appoint.local-environment.reset-only", Boolean.class, false)) {
+            throw new IllegalArgumentException("demo 通过启动重建数据，显式重置适用于 dev 和 test");
+        }
         boolean isolated = "classpath:/regression/".equals(env.getProperty("spring.config.location"));
         int actualPort = env.getRequiredProperty("server.port", Integer.class);
         if (isolated && List.of(BACKEND_PORT, FRONTEND_PORT).contains(actualPort)) throw new IllegalArgumentException("隔离验证不能占用常驻端口");

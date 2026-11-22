@@ -10,6 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -25,7 +26,7 @@ public class LocalEnvironmentLifecycle implements BeanFactoryPostProcessor, Disp
 
     public LocalEnvironmentLifecycle(ConfigurableEnvironment environment) { this.environment = environment; }
     public String name() { return name; }
-    public boolean reset() { return "demo".equals(name) || ("test".equals(name) && flag("reset-only")); }
+    public boolean reset() { return "demo".equals(name) || flag("reset-only"); }
     public boolean flag(String suffix) { return environment.getProperty("appoint.local-environment." + suffix, Boolean.class, false); }
 
     @Override public void postProcessBeanFactory(ConfigurableListableBeanFactory factory) throws BeansException {
@@ -40,8 +41,10 @@ public class LocalEnvironmentLifecycle implements BeanFactoryPostProcessor, Disp
             if (reset()) {
                 byte[] bytes = new byte[48]; new SecureRandom().nextBytes(bytes);
                 String secret = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-                // test重置密钥必须持久保存，普通重启继续使用；demo密钥只在本次进程有效。
-                if ("test".equals(name) && !"classpath:/regression/".equals(environment.getProperty("spring.config.location"))) LocalEnvironmentFiles.rotateTestJwt(secret);
+                // 显式重置的密钥供后续启动使用，demo 每次启动生成进程内密钥。
+                if (flag("reset-only") && !"classpath:/regression/".equals(environment.getProperty("spring.config.location"))) {
+                    LocalEnvironmentFiles.rotateJwt(Path.of(".env." + name), secret);
+                }
                 environment.getPropertySources().addFirst(new MapPropertySource("localResetJwt", Map.of("appoint.jwt.secret", secret)));
             }
             System.out.printf("常驻环境=%s，后端端口=%d，业务时钟=实时%n", name, port);
