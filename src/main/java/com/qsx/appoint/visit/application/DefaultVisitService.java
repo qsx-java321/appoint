@@ -6,6 +6,8 @@ import com.qsx.appoint.appointment.domain.AppointmentStatus;
 import com.qsx.appoint.catalog.service.DoctorAccountService;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
+import com.qsx.appoint.notification.application.NotificationEventRecorder;
+import com.qsx.appoint.notification.domain.NotificationType;
 import com.qsx.appoint.visit.domain.VisitRules;
 import com.qsx.appoint.visit.domain.VisitStatus;
 import com.qsx.appoint.visit.entity.VisitRecord;
@@ -24,6 +26,7 @@ class DefaultVisitService implements VisitService {
     private final AppointmentLifecycle appointments;
     private final DoctorAccountService doctors;
     private final VisitRecordMapper records;
+    private final NotificationEventRecorder notifications;
     private final Clock appointmentClock;
 
     @Override
@@ -54,6 +57,8 @@ class DefaultVisitService implements VisitService {
             // 并发重复签到也返回资格冲突，保留最先成功的时间。
             throw new BusinessException(ErrorCode.VISIT_STATE_ERROR);
         }
+        // 签到记录与签到通知同事务；通知事件写入失败时签到整体回滚。
+        notifications.record(appointmentId, NotificationType.CHECKED_IN, now);
     }
 
     @Override
@@ -61,7 +66,9 @@ class DefaultVisitService implements VisitService {
     public void startVisit(Long doctorUserId, Long appointmentId) {
         requireDoctorAppointment(doctorUserId, appointmentId);
         if (!VisitRules.canStart(progress(appointmentId))) throw new BusinessException(ErrorCode.VISIT_STATE_ERROR);
-        requireOne(records.startIfWaiting(appointmentId, now()));
+        LocalDateTime occurredAt = now();
+        requireOne(records.startIfWaiting(appointmentId, occurredAt));
+        notifications.record(appointmentId, NotificationType.VISIT_STARTED, occurredAt);
     }
 
     @Override
@@ -69,7 +76,9 @@ class DefaultVisitService implements VisitService {
     public void completeVisit(Long doctorUserId, Long appointmentId) {
         requireDoctorAppointment(doctorUserId, appointmentId);
         if (!VisitRules.canComplete(progress(appointmentId))) throw new BusinessException(ErrorCode.VISIT_STATE_ERROR);
-        requireOne(records.completeIfInProgress(appointmentId, now()));
+        LocalDateTime occurredAt = now();
+        requireOne(records.completeIfInProgress(appointmentId, occurredAt));
+        notifications.record(appointmentId, NotificationType.VISIT_COMPLETED, occurredAt);
     }
 
     private AppointmentLifecycleCase requireAppointment(Long appointmentId) {

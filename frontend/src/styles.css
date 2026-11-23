@@ -489,6 +489,22 @@ main > .booking-layout {
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   gap: 20px;
 }
+.notification-list {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+.notification-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  justify-content: stretch;
+  padding: 14px 16px;
+}
+.notification-item strong {
+  font-size: 16px;
+}
 .status-panel {
   display: flex;
   justify-content: space-between;

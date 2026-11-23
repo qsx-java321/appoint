@@ -54,6 +54,9 @@ export const api = {
     request<T.Appointment[]>("/appointments/my", { params: { order } }),
   appointment: (appointment: string) =>
     request<T.Appointment>(`/appointments/${id(appointment)}`),
+  notifications: () => request<T.NotificationSummary[]>("/notifications"),
+  notification: (notification: string) =>
+    request<T.NotificationDetail>(`/notifications/${id(notification)}`),
   cancel: (appointment: string) =>
     request<T.Appointment>(`/appointments/${id(appointment)}/cancel`, {
       method: "POST",

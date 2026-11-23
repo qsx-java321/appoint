@@ -28,6 +28,8 @@ appoint:
     expiration-seconds: 7200
   appointment:
     payment-timeout: 15m
+  notification:
+    messaging-enabled: false
   catalog-cache:
     enabled: false
   expiration:

@@ -44,6 +44,10 @@ export const router = createRouter({
       component: () => import("../views/AppointmentView.vue"),
       meta: { payment: true },
     },
+    {
+      path: "/notifications",
+      component: () => import("../views/NotificationsView.vue"),
+    },
     { path: "/patients", component: () => import("../views/PatientsView.vue") },
     { path: "/account", component: () => import("../views/AccountView.vue") },
     {

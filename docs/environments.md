@@ -50,14 +50,14 @@ docker compose --env-file compose.env up -d --wait
 
 ## 重置环境
 
-**重置会删除所选环境的业务数据和自行注册的账号，重建样例目录与预置账号，同时清理该环境的目录缓存、注册验证数据和预约令牌。JWT 密钥会轮换，旧登录失效。** 先停止当前前后端并保持共享容器运行，再按环境执行对应的命令。
+**重置会删除所选环境的业务数据和自行注册的账号，重建样例目录与预置账号，同时清理该环境的目录缓存、注册验证数据、预约令牌和通知队列。JWT 密钥会轮换，旧登录失效。** 先停止当前前后端并保持共享容器运行，再按环境执行对应的命令。
 
 ```bash
 python3 scripts/local_env.py reset dev
 python3 scripts/local_env.py reset test
 ```
 
-`reset` 完成后脚本退出。继续使用时运行对应的 `start dev` 或 `start test`。重建 `demo` 时运行 `python3 scripts/local_env.py start demo`，需要结束演示时执行 `python3 scripts/local_env.py stop demo`。Mailpit 已保存的邮件和 RabbitMQ 数据随各自服务保留。
+`reset` 完成后脚本退出。继续使用时运行对应的 `start dev` 或 `start test`。重建 `demo` 时运行 `python3 scripts/local_env.py start demo`，需要结束演示时执行 `python3 scripts/local_env.py stop demo`。通知从重置后的新预约开始生成，不补发历史预约；重置同时清空该环境的通知主队列和死信队列。Mailpit 已保存的邮件随服务保留。
 
 ## test 业务调时
 
@@ -71,6 +71,24 @@ python3 scripts/local_env.py clock test reset
 
 设置后业务时钟继续走秒，后端重启或执行 `clock test reset` 后恢复实时。调时会影响下单、支付、过期扫描和签到，并可能使已有待支付预约到期。回拨时间保留已提交的操作结果。Redis 有效期和 JWT 使用真实时间。脚本使用预置管理员初始密码，修改过该账号密码时可使用有效管理员凭据调用[调时 API](api.md#test环境业务调时)。
 
+## 通知与 RabbitMQ
+
+每套环境使用自己的 RabbitMQ vhost：
+
+| 资源 | 名称 |
+| --- | --- |
+| Exchange | `appoint.notification.exchange`（topic，durable） |
+| 主队列 | `appoint.notification.queue`（durable） |
+| Routing key | `appointment.notification` |
+| 死信 Exchange | `appoint.notification.dlx` |
+| 死信队列 | `appoint.notification.dlq` |
+
+消息持久化，发布开启 confirm 和 mandatory return。`appoint.notification.messaging-enabled=false` 时应用不声明拓扑、不启动发布器和消费者；自动化测试中的 `regression`、`mysql-it` 使用该设置。
+
+RabbitMQ 管理界面为 [15672](http://127.0.0.1:15672)，使用 `compose.env` 中的管理员凭据，选择对应环境 vhost 查看队列、未确认消息和死信。`init` 会授予该管理员访问各环境 vhost 的权限，环境业务账号仍保持 vhost 隔离。重复投递或消费失败排查时可先看 `appoint.notification.dlq`。
+
+`rabbit-it` 是独立测试档位，使用 Testcontainers 启动临时 MySQL、Redis 和 RabbitMQ，验证 Outbox → 发布 → 消费 → 通知表、重复投递幂等和无效消息重试后进入死信队列。运行命令见 [README 自动化测试](../README.md#自动化测试)。
+
 ## Flyway 初始化基线
 
-后端启动时自动迁移，空库依次执行 V1、V2。V1 是当前基线，已移除历史手工排班、支付尝试/退款/通知和消息事件表；修改基线后，已有 dev/test 库需通过[重置环境](#重置环境)重建，demo 每次启动自动重建。当前迁移链不再兼容旧基线的业务数据。
+后端启动时自动迁移，空库依次执行 V1、V2、V3。V1 是当前业务基线；V2 追加样例医疗目录；V3 只新增 `notification_outbox_events` 和 `user_notifications`，不修改已有业务表。修改 V1 后，已有 dev/test 库需通过[重置环境](#重置环境)重建，demo 每次启动自动重建。当前迁移链不再兼容旧基线的业务数据。

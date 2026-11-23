@@ -39,6 +39,8 @@ public final class CommittedFixtureScope implements AutoCloseable {
 
     private void deleteAccount(long id) {
         String orders = "SELECT id FROM appointment_orders WHERE user_id=?";
+        jdbc.update("DELETE FROM user_notifications WHERE user_id=?", id);
+        jdbc.update("DELETE FROM notification_outbox_events WHERE appointment_order_id IN (" + orders + ")", id);
         jdbc.update("DELETE FROM visit_records WHERE appointment_order_id IN (" + orders + ")", id);
         jdbc.update("DELETE FROM appointment_active_claims WHERE appointment_order_id IN (" + orders + ")", id);
         jdbc.update("DELETE FROM appointment_create_requests WHERE user_id=?", id);

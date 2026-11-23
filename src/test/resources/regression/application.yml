@@ -23,6 +23,8 @@ appoint:
     expiration-seconds: 7200
   appointment:
     payment-timeout: 15m
+  notification:
+    messaging-enabled: false
   expiration:
     enabled: false
     scan-delay: 30s

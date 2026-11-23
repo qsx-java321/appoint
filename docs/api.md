@@ -184,6 +184,21 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 
 普通用户访问医生接口返回 403，医生读取其他医生的预约详情返回 404，越权写入返回 403。
 
+## 消息中心
+
+以下接口要求登录，只读取当前账号自己的通知，不判断 `USER`、`DOCTOR` 或 `ADMIN` 角色。
+
+| 方法与路径 | 用途 | 成功结果 |
+| --- | --- | --- |
+| `GET /api/v1/notifications` | 查询本人通知列表 | 200，数组；无数据为 `[]` |
+| `GET /api/v1/notifications/{id}` | 查询本人通知详情 | 200，详情对象 |
+
+列表按 `occurredAt` 降序、`id` 降序排列，首版不分页。列表项字段为 `id`、`type`、`title`、`patientName`、`occurredAt`。详情在上述字段外增加 `detail` 和 `appointmentId`。
+
+通知不存在或不属于当前账号时返回 `404 / 4001`，不区分两种情况。`appointmentId` 可用于跳转现有预约详情接口，预约归属校验继续生效。
+
+`type` 为 `APPOINTMENT_CONFIRMED`（预约成功）、`CHECKED_IN`（签到成功）、`VISIT_STARTED`（开始接诊）或 `VISIT_COMPLETED`（完成接诊）。`detail` 是事件生成时保存的完整中文文案，后续修改就诊人或医疗目录不会改变。通知异步投递，刚完成业务操作后稍等或刷新列表即可看到。
+
 ## 管理员医院、科室与医生目录
 
 以下九个接口都要求登录且具有 `ADMIN` 角色；普通用户返回 `403 / 2002`。

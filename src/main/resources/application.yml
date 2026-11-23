@@ -37,6 +37,14 @@ spring:
   rabbitmq:
     publisher-confirm-type: correlated
     publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 1
+        concurrency: 1
+        max-concurrency: 1
 
 mybatis-plus:
   configuration:
@@ -57,6 +65,8 @@ appoint:
     expiration-seconds: 7200
   appointment:
     payment-timeout: 15m
+  notification:
+    messaging-enabled: true
   expiration:
     enabled: true
     scan-delay: 30s

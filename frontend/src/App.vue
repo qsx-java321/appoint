@@ -67,6 +67,10 @@ function logout() {
           to="/appointments"
           >我的预约</RouterLink
         ><RouterLink to="/patients">就诊人</RouterLink></template
+      ><RouterLink
+        :class="{ 'is-current': route.path.startsWith('/notifications') }"
+        to="/notifications"
+        >消息中心</RouterLink
       >
     </nav>
     <details v-if="!publicPage && auth.authenticated" class="account-menu">

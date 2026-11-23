@@ -7,6 +7,8 @@ import com.qsx.appoint.appointment.domain.AppointmentStatus;
 import com.qsx.appoint.catalog.model.BookingTimeRules;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
+import com.qsx.appoint.notification.application.NotificationEventRecorder;
+import com.qsx.appoint.notification.domain.NotificationType;
 import com.qsx.appoint.payment.application.PaymentLifecycle;
 import com.qsx.appoint.payment.application.PaymentLifecycleCase;
 import com.qsx.appoint.payment.domain.PaymentOrderStatus;
@@ -23,6 +25,7 @@ import java.time.temporal.ChronoUnit;
 class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator {
     private final AppointmentLifecycle appointments;
     private final PaymentLifecycle payments;
+    private final NotificationEventRecorder notifications;
     private final Clock appointmentClock;
 
     @Override
@@ -43,6 +46,8 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
         }
         payments.markPaid(payment, paidAt);
         appointments.confirm(appointment);
+        // 与支付确认同一事务；Outbox写入失败时支付和预约一并回滚。
+        notifications.record(appointment.id(), NotificationType.APPOINTMENT_CONFIRMED, paidAt);
     }
 
     @Override

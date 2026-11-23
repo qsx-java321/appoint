@@ -20,11 +20,12 @@ class MigrationMySqlIT {
     }
     @Test void initializesEmptyDatabaseAndMigratesOnlyOnce() throws Exception {
         try(var c=dataSource.getConnection()) { assertThat(c.getMetaData().getDatabaseProductName()).isEqualTo("MySQL"); }
-        var flyway=migration("2");
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
+        var flyway=migration("3");
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(3);
         flyway.validate();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name <> 'flyway_schema_history'",Integer.class)).isEqualTo(16);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name <> 'flyway_schema_history'",Integer.class)).isEqualTo(18);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('notification_outbox_events','user_notifications')",Integer.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('payment_attempts','payment_refunds','payment_notifications','payment_outbox_events','coordination_inbox_events','schedule_inventory_adjustments')",Integer.class)).isZero();
         for(var entry:java.util.Map.of("hospitals",2,"departments",6,"doctors",18).entrySet())
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM "+entry.getKey(),Integer.class)).isEqualTo(entry.getValue());

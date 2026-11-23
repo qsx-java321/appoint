@@ -6,6 +6,7 @@ import com.qsx.appoint.appointment.domain.AppointmentStatus;
 import com.qsx.appoint.catalog.service.DoctorAccountService;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
+import com.qsx.appoint.notification.application.NotificationEventRecorder;
 import com.qsx.appoint.visit.entity.VisitRecord;
 import com.qsx.appoint.visit.mapper.VisitRecordMapper;
 import org.junit.jupiter.api.Test;
@@ -18,8 +19,10 @@ class VisitServiceTest {
     private final AppointmentLifecycle appointments = mock(AppointmentLifecycle.class);
     private final DoctorAccountService doctors = mock(DoctorAccountService.class);
     private final VisitRecordMapper records = mock(VisitRecordMapper.class);
+    private final NotificationEventRecorder notifications = mock(NotificationEventRecorder.class);
     private final Clock clock = mock(Clock.class);
-    private final DefaultVisitService visits = new DefaultVisitService(appointments, doctors, records, clock);
+    private final DefaultVisitService visits = new DefaultVisitService(
+            appointments, doctors, records, notifications, clock);
 
     private void confirmed() {
         when(appointments.find(1L)).thenReturn(new AppointmentLifecycleCase(1L, 2L, 3L, AppointmentStatus.CONFIRMED,

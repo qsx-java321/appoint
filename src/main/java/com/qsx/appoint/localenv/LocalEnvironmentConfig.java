@@ -1,5 +1,7 @@
 package com.qsx.appoint.localenv;
 
+import com.qsx.appoint.notification.application.NotificationQueueResetter;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
@@ -21,7 +23,8 @@ public class LocalEnvironmentConfig {
     @Bean
     @ConditionalOnProperty(name = "appoint.local-environment.enabled", havingValue = "true")
     FlywayMigrationStrategy localMigrationStrategy(LocalEnvironmentLifecycle lifecycle,
-            StringRedisTemplate redis, DataSource source) {
+            StringRedisTemplate redis, DataSource source,
+            ObjectProvider<NotificationQueueResetter> queueResetter) {
         return flyway -> {
             if (lifecycle.reset()) {
                 for (String prefix : java.util.List.of("appoint:" + lifecycle.name() + ":catalog:v1:*",
@@ -31,6 +34,8 @@ public class LocalEnvironmentConfig {
                         cursor.forEachRemaining(redis::delete);
                     }
                 }
+                // 重置后不再补发旧预约通知；清掉仍可能留在环境vhost中的消息。
+                queueResetter.ifAvailable(NotificationQueueResetter::purge);
                 org.flywaydb.core.Flyway.configure().configuration(flyway.getConfiguration())
                         .cleanDisabled(false).load().clean();
             }

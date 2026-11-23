@@ -198,3 +198,16 @@ export interface BookingSettings {
   currency: string;
   updatedAt: string;
 }
+export type NotificationType =
+  "APPOINTMENT_CONFIRMED" | "CHECKED_IN" | "VISIT_STARTED" | "VISIT_COMPLETED";
+export interface NotificationSummary {
+  id: Id;
+  type: NotificationType;
+  title: string;
+  patientName: string;
+  occurredAt: string;
+}
+export interface NotificationDetail extends NotificationSummary {
+  detail: string;
+  appointmentId: Id;
+}

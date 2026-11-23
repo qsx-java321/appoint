@@ -107,6 +107,11 @@ def init():
         grants = rabbit('list_user_permissions', ruser)
         if any(line.split()[0] != vhost for line in grants.splitlines() if line.startswith('/')):
             raise RuntimeError('环境RabbitMQ账号还拥有其他vhost权限，请人工核对')
+        # 默认管理员只用于本地管理界面排查；环境业务账号仍保持vhost隔离。
+        admin = read_properties(ROOT / 'compose.env')['RABBITMQ_DEFAULT_USER']
+        if admin not in users:
+            raise RuntimeError('默认RabbitMQ管理员不存在，请核对容器初始化')
+        rabbit('set_permissions', '-p', vhost, admin, '.*', '.*', '.*')
         print(f'{name}: 资源准备完成；未清理业务表、缓存或消息')
 
 
