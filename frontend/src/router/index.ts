@@ -48,6 +48,10 @@ export const router = createRouter({
       path: "/notifications",
       component: () => import("../views/NotificationsView.vue"),
     },
+    {
+      path: "/notifications/:id",
+      component: () => import("../views/NotificationDetailView.vue"),
+    },
     { path: "/patients", component: () => import("../views/PatientsView.vue") },
     { path: "/account", component: () => import("../views/AccountView.vue") },
     {

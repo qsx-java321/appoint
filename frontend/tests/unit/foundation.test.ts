@@ -36,6 +36,9 @@ describe("身份和安全返回地址", () => {
   });
   it("保留消息中心返回路径", () => {
     expect(safeReturn("/notifications")).toBe("/notifications");
+    expect(safeReturn("/notifications/9007199254740999")).toBe(
+      "/notifications/9007199254740999",
+    );
   });
   it("过期会话不可恢复，ID不转数字", () => {
     vi.useFakeTimers();
