@@ -10,10 +10,9 @@ import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.appointment.service.AppointmentService;
 import com.qsx.appoint.coordination.application.BookingCoordinator;
 import com.qsx.appoint.coordination.application.BookingLifecycleCoordinator;
-import com.qsx.appoint.catalog.dto.CreateScheduleRequest;
 import com.qsx.appoint.catalog.entity.Schedule;
 import com.qsx.appoint.catalog.mapper.ScheduleMapper;
-import com.qsx.appoint.catalog.service.ScheduleManagementService;
+import com.qsx.appoint.catalog.model.AppointmentSession;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 import com.qsx.appoint.patient.entity.Patient;
@@ -65,7 +64,6 @@ class ScheduleInventoryIntegrationTest {
             2026, 11, 1, 8, 0, 0, 0, SHANGHAI).toInstant();
 
     @Autowired private MutableAppointmentClock clock;
-    @Autowired private ScheduleManagementService scheduleManagementService;
     @Autowired private AppointmentService appointmentService;
     @Autowired private BookingCoordinator bookingCoordinator;
     @Autowired private BookingLifecycleCoordinator lifecycleCoordinator;
@@ -83,8 +81,7 @@ class ScheduleInventoryIntegrationTest {
 
     @Test
     void crossAccountSameDocumentIsBlockedUntilFirstClaimIsReleased() {
-        Long operator = createUser("operator-duplicate");
-        Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 3), "AFTERNOON", 2);
+        Schedule schedule = createSchedule(1L, LocalDate.of(2026, 11, 3), "AFTERNOON", 2);
         Long firstUser = createUser("duplicate-first");
         Long secondUser = createUser("duplicate-second");
         Long firstPatient = createPatient(firstUser, "孩子甲", "110105199001010010");
@@ -107,8 +104,7 @@ class ScheduleInventoryIntegrationTest {
 
     @Test
     void visitNumbersFollowConfirmationOrder() {
-        Long operator = createUser("operator-sequence");
-        Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 3), "MORNING", 3);
+        Schedule schedule = createSchedule(2L, LocalDate.of(2026, 11, 3), "MORNING", 3);
         Long user = createUser("sequence-user");
         CreateAppointmentResponse first = createAppointment(user,
                 createPatient(user, "序号甲", "110105199001010010"), schedule.getId());
@@ -131,8 +127,7 @@ class ScheduleInventoryIntegrationTest {
 
     @Test
     void confirmedAppointmentCannotBeCancelled() {
-        Long operator = createUser("operator-confirmed-cancel");
-        Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 2), "MORNING", 1);
+        Schedule schedule = createSchedule(2L, LocalDate.of(2026, 11, 2), "MORNING", 1);
         Long user = createUser("confirmed-cancel-user");
         CreateAppointmentResponse created = createAppointment(user,
                 createPatient(user, "已确认取消", "110105199001010010"), schedule.getId());
@@ -151,8 +146,7 @@ class ScheduleInventoryIntegrationTest {
     @Test
     void paymentIsRejectedAfterThePaymentDeadlineWithoutChangingTheHold() {
         clock.setInstant(RELEASE_INSTANT.plus(Duration.ofDays(1)));
-        Long operator = createUser("operator-payment-deadline");
-        Schedule schedule = createSchedule(operator, 2L, LocalDate.of(2026, 11, 4), "MORNING", 1);
+        Schedule schedule = createSchedule(2L, LocalDate.of(2026, 11, 4), "MORNING", 1);
         Long user = createUser("payment-deadline-user");
         CreateAppointmentResponse created = createAppointment(user,
                 createPatient(user, "支付边界", "110105199001010010"), schedule.getId());
@@ -172,8 +166,7 @@ class ScheduleInventoryIntegrationTest {
 
     @Test
     void appointmentCreationCopiesAnImmutableFeeSnapshotToBothOrders() {
-        Long operator = createUser("operator-snapshot");
-        Schedule schedule = createSchedule(operator, 1L, LocalDate.of(2026, 11, 6), "MORNING", 1);
+        Schedule schedule = createSchedule(1L, LocalDate.of(2026, 11, 6), "MORNING", 1);
         clock.setInstant(ZonedDateTime.of(2026, 11, 4, 8, 0, 0, 0, SHANGHAI).toInstant());
         Long user = createUser("snapshot-user");
         CreateAppointmentResponse created = createAppointment(user,
@@ -189,7 +182,6 @@ class ScheduleInventoryIntegrationTest {
         assertThat(payment.getCurrency()).isEqualTo("CNY");
         assertThat(payment.getUserId()).isEqualTo(appointment.getUserId());
         assertThat(payment.getExpiresAt()).isEqualTo(created.getPaymentExpiresAt());
-        assertThat(payment.getLegacy()).isFalse();
 
         schedule.setRegistrationFee(new BigDecimal("80.00"));
         scheduleMapper.updateById(schedule);
@@ -199,17 +191,18 @@ class ScheduleInventoryIntegrationTest {
                 .isEqualByComparingTo("50.00");
     }
 
-    private Schedule createSchedule(Long operator, Long doctorId, LocalDate date, String session, int capacity) {
-        CreateScheduleRequest request = new CreateScheduleRequest();
-        request.setDoctorId(doctorId);
-        request.setAppointmentDate(date);
-        request.setSessionType("MORNING".equals(session) ? "MORNING_FIRST" :
-                "AFTERNOON".equals(session) ? "AFTERNOON_FIRST" : session);
-        request.setTotalCapacity(capacity);
-        request.setRegistrationFee(new BigDecimal("50.00"));
-        request.setFeeCurrency("CNY");
-        Long id = scheduleManagementService.create(operator, request).getId();
-        return scheduleMapper.selectById(id);
+    private Schedule createSchedule(Long doctorId, LocalDate date, String session, int capacity) {
+        String sessionType = switch (session) {
+            case "MORNING" -> AppointmentSession.MORNING_FIRST.name();
+            case "AFTERNOON" -> AppointmentSession.AFTERNOON_FIRST.name();
+            default -> session;
+        };
+        AppointmentSession appointmentSession = AppointmentSession.valueOf(sessionType);
+        fixtureJdbc.update("UPDATE booking_settings SET capacity_per_session=?, registration_fee=? WHERE id=1",
+                capacity, new BigDecimal("50.00"));
+        scheduleMapper.insertGeneratedFromSettings(doctorId, date,
+                appointmentSession.startTime(), appointmentSession.endTime(), sessionType);
+        return scheduleMapper.selectByDoctorDateSession(doctorId, date, sessionType);
     }
 
     private CreateAppointmentResponse createAppointment(Long userId, Long patientId, Long scheduleId) {

@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * 预约详情/列表跨表联查的只读Mapper，不继承写Mapper或获取行锁。
- * <p>预约侧姓名/地址为创建快照；最近尝试按最大本地ID取，退款按支付单唯一关联。
+ * <p>预约侧姓名/地址为创建快照，支付结果按支付单唯一关联。
  * LEFT JOIN保留缺失支付的异常预约，让上层先做归属判断再报告完整性。
  */
 @Mapper
@@ -20,7 +20,7 @@ public interface BookingQueryMapper {
                    a.doctor_name, a.doctor_title, a.department_id, a.department_name,
                    a.hospital_id, a.hospital_name, a.hospital_address, a.appointment_date,
                    a.start_time, a.end_time, a.status, a.visit_number, a.created_at,
-                   a.payment_expires_at, a.closed_at, s.status AS schedule_status, s.session_type,
+                   a.payment_expires_at, a.closed_at, s.session_type,
                    v.id AS visit_record_id, v.status AS visit_status,
                    v.checked_in_at, v.started_at, v.completed_at,
                    p.id AS payment_order_id, p.user_id AS payment_user_id, p.status AS payment_status,

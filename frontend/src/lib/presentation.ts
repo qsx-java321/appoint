@@ -4,8 +4,6 @@ export const sessionNames: Record<string, string> = {
   MORNING_SECOND: "上午第二段",
   AFTERNOON_FIRST: "下午第一段",
   AFTERNOON_SECOND: "下午第二段",
-  MORNING: "上午（历史场次）",
-  AFTERNOON: "下午（历史场次）",
 };
 export const visitNames: Record<VisitStatus, string> = {
   NOT_CHECKED_IN: "待签到",
@@ -36,13 +34,12 @@ export function today() {
   );
 }
 export function label(a: Appointment): string {
-  if (a.status === "CANCELLED_BY_HOSPITAL") return "医院取消（历史记录）";
   if (a.status === "CANCELLED") return "预约已取消";
   if (a.paymentExpired || a.status === "EXPIRED") return "预约已过期";
   if (a.status === "CONFIRMED")
     return "预约已确认 · " + (a.visit ? visitNames[a.visit.status] : "待签到");
   if (a.workflowStatus === "WAITING_FOR_PAYMENT") return "待支付";
-  return a.paymentStatus === "PAID" ? "历史预约 · 已支付" : "请刷新确认状态";
+  return "请刷新确认状态";
 }
 
 export function withinPaymentDeadline(now: number, deadline: string | null) {

@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 
 /**
  * 本人预约详情及列表元素，组合历史凭证与当前支付结果。
- * <p>操作标记是展示提示，写入口仍复验时间与状态；历史合法组合允许workflow为null。
+ * <p>操作标记是展示提示，写入口仍复验时间与状态；用户取消后workflow为null。
  */
 @Getter @AllArgsConstructor
 public class AppointmentResponse {
@@ -35,7 +35,7 @@ public class AppointmentResponse {
     private final Long paymentOrderId;
     /** 支付单稳定状态，不等同预约status或展示workflowStatus。 */
     private final String paymentStatus;
-    /** 预约+支付组合展示状态；部分历史关闭未付组合为null。 */
+    /** 预约+支付组合展示状态；用户取消后为null。 */
     private final String workflowStatus;
     /** 金额，单位元；与currency一起解释，不按分存储。 */
     private final BigDecimal amount;
@@ -58,7 +58,7 @@ public class AppointmentResponse {
     private final AppointmentPatientResponse patient;
     /** 创建时医生、科室和医院凭证，不随目录更新。 */
     private final AppointmentDoctorResponse doctor;
-    /** 关联场次类型，历史记录可为空或旧类型。 */
+    /** 关联场次类型；当前预约均有值。 */
     private final String sessionType;
     /** 已确认预约的就诊进度，其余预约为空。 */
     private final AppointmentVisitResponse visit;

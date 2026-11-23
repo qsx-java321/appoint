@@ -35,10 +35,6 @@ class PaymentConsistencyMySqlIT extends MySqlBusinessTestSupport {
         assertThat(replay.getPaidAt()).isEqualTo(paidAt);
         assertThat(replay.getVisitNumber()).isEqualTo(1);
         inventory(20, 19, 0, 1);
-        assertThat(count("payment_outbox_events")).isZero();
-        assertThat(count("coordination_inbox_events")).isZero();
-        assertThat(count("payment_attempts")).isZero();
-        assertThat(count("payment_refunds")).isZero();
     }
 
     @Test

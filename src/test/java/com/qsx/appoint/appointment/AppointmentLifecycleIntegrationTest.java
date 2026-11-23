@@ -277,7 +277,6 @@ class AppointmentLifecycleIntegrationTest {
         schedule.setAppointmentDate(past ? date : LocalDate.now(appointmentClock).plusDays(2));
         schedule.setStartTime(afternoon ? LocalTime.of(14, 0) : LocalTime.of(8, 0));
         schedule.setEndTime(afternoon ? LocalTime.of(16, 0) : LocalTime.of(10, 0));
-        schedule.setStatus("OPEN");
         schedule.setSessionType(afternoon ? "AFTERNOON_FIRST" : "MORNING_FIRST");
         schedule.setTotalCapacity(5);
         schedule.setRegistrationFee(new java.math.BigDecimal("50.00"));

@@ -9,7 +9,7 @@ import com.qsx.appoint.payment.domain.PaymentOrderStatus;
  * @param appointmentOrderId 唯一关联的预约ID
  * @param userId 支付所属账号ID，协调层校验与预约一致
  * @param status 显式从存储字符串转换的支付状态
- * @param paidAt 本系统确认收款时间；尚未收款或历史缺失时可为null
+ * @param paidAt 本系统确认收款时间；尚未收款时可为null
  */
 public record PaymentLifecycleCase(
         Long id,

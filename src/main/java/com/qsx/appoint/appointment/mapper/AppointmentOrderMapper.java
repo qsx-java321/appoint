@@ -57,14 +57,6 @@ public interface AppointmentOrderMapper extends BaseMapper<AppointmentOrder> {
                        @Param("closedAt") java.time.LocalDateTime closedAt);
 
     /**
-     * 按预约ID顺序锁定指定场次内待支付预约，保留既有持久化能力。
-     * <p>不是新停诊写入口；调用者应先持有场次锁。
-     * @return 锁后待支付列表，无记录为空
-     */
-    @Select("SELECT * FROM appointment_orders WHERE schedule_id = #{scheduleId} AND status = 'PENDING_PAYMENT' ORDER BY id FOR UPDATE")
-    List<AppointmentOrder> selectPendingByScheduleForUpdate(@Param("scheduleId") Long scheduleId);
-
-    /**
      * 以固定扫描时间和截止+ID游标分批读取待支付到期候选，不加锁。
      * @param scanTime 本轮固定上界，严格晚于最晚支付时刻才列入
      * @param cursorExpiresAt 上批最后截止，首批为null

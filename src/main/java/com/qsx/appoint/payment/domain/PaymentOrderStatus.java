@@ -3,23 +3,17 @@ package com.qsx.appoint.payment.domain;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 
-/** 支付单资金整体状态，区别于一次尝试状态和预约展示workflow。 */
+/** 支付单资金整体状态，区别于预约展示workflow。 */
 public enum PaymentOrderStatus {
-    /** 未收款且可按其他资格发起尝试。 */
+    /** 未收款且可按资格发起支付。 */
     UNPAID,
-    /** 旧版已发起尝试，尚未确认收款。 */
-    PAYING,
     /** 已确认收款。 */
     PAID,
     /** 未付关闭。 */
-    CLOSED,
-    /** 历史状态，退款曾经申请。 */
-    REFUND_PENDING,
-    /** 历史状态，旧版已记录退款。 */
-    REFUNDED;
+    CLOSED;
 
     public boolean isUnpaid() {
-        return this == UNPAID || this == PAYING;
+        return this == UNPAID;
     }
 
     /**

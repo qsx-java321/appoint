@@ -43,7 +43,7 @@ class VisitServiceTest {
     }
 
     @Test
-    void legacyMidnightCheckInIsNotRevokedAndCanStartOnNextDay() {
+    void midnightCheckInIsNotRevokedAndCanStartOnNextDay() {
         confirmed();
         var legacy = new VisitRecord();
         legacy.setStatus("WAITING");

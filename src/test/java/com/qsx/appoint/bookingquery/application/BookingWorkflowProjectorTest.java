@@ -17,7 +17,6 @@ class BookingWorkflowProjectorTest {
     @ParameterizedTest
     @CsvSource({
             "PENDING_PAYMENT, UNPAID, WAITING_FOR_PAYMENT",
-            "PENDING_PAYMENT, PAYING, WAITING_FOR_PAYMENT",
             "CONFIRMED, PAID, CONFIRMED",
             "EXPIRED, CLOSED, EXPIRED"
     })
@@ -26,9 +25,8 @@ class BookingWorkflowProjectorTest {
     }
 
     @Test
-    void cancelledClosedReturnsNullForCompatibility() {
+    void cancelledClosedReturnsNull() {
         assertThat(projector.project(record("CANCELLED", "CLOSED"))).isNull();
-        assertThat(projector.project(record("CANCELLED_BY_HOSPITAL", "CLOSED"))).isNull();
     }
 
     @Test
@@ -40,11 +38,9 @@ class BookingWorkflowProjectorTest {
     @Test
     void everyOtherPersistedStateCombinationIsRejected() {
         var allowed = java.util.Set.of(
-                "PENDING_PAYMENT/UNPAID", "PENDING_PAYMENT/PAYING", "PENDING_PAYMENT/PAID", "CONFIRMED/PAID",
-                "CANCELLED/CLOSED", "EXPIRED/CLOSED", "CANCELLED_BY_HOSPITAL/CLOSED",
-                "CANCELLED/REFUND_PENDING", "EXPIRED/REFUND_PENDING", "CANCELLED_BY_HOSPITAL/REFUND_PENDING",
-                "CANCELLED/REFUNDED", "EXPIRED/REFUNDED", "CANCELLED_BY_HOSPITAL/REFUNDED");
-        for (String appointment : java.util.List.of("PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "EXPIRED", "CANCELLED_BY_HOSPITAL")) {
+                "PENDING_PAYMENT/UNPAID", "CONFIRMED/PAID",
+                "EXPIRED/CLOSED", "CANCELLED/CLOSED");
+        for (String appointment : java.util.List.of("PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "EXPIRED")) {
             for (var payment : com.qsx.appoint.payment.domain.PaymentOrderStatus.values()) {
                 if (!allowed.contains(appointment + "/" + payment.name())) {
                     assertThatThrownBy(() -> projector.project(record(appointment, payment.name())))

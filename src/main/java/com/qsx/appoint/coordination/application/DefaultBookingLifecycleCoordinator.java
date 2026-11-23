@@ -50,8 +50,8 @@ class DefaultBookingLifecycleCoordinator implements BookingLifecycleCoordinator 
     public void cancelOwned(Long userId, Long appointmentOrderId) {
         AppointmentLifecycleCase appointment = lockOwned(userId, appointmentOrderId);
         PaymentLifecycleCase payment = lockPayment(appointment);
-        if (appointment.status() == AppointmentStatus.CANCELLED || appointment.status() == AppointmentStatus.EXPIRED
-                || appointment.status() == AppointmentStatus.CANCELLED_BY_HOSPITAL) {
+        if (appointment.status() == AppointmentStatus.CANCELLED
+                || appointment.status() == AppointmentStatus.EXPIRED) {
             return;
         }
         requirePendingUnpaid(appointment, payment);

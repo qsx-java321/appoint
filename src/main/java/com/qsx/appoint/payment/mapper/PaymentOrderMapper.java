@@ -16,13 +16,13 @@ public interface PaymentOrderMapper extends BaseMapper<PaymentOrder> {
 
     @Update("""
             UPDATE payment_orders SET status = 'CLOSED', closed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-            WHERE id = #{id} AND status IN ('UNPAID', 'PAYING')
+            WHERE id = #{id} AND status = 'UNPAID'
             """)
     int closeIfUnpaid(@Param("id") Long id);
 
     @Update("""
             UPDATE payment_orders SET status = 'PAID', paid_at = #{paidAt}, updated_at = CURRENT_TIMESTAMP
-            WHERE id = #{id} AND status IN ('UNPAID', 'PAYING')
+            WHERE id = #{id} AND status = 'UNPAID'
             """)
     int payIfUnpaid(@Param("id") Long id, @Param("paidAt") LocalDateTime paidAt);
 }

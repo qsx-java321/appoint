@@ -58,7 +58,7 @@ public class AppointmentOrder {
     private LocalTime startTime;
     /** 凭证场次结束时间。 */
     private LocalTime endTime;
-    /** 预约状态字符串，模块入口显式映射AppointmentStatus；包含历史停诊取消。 */
+    /** 预约状态字符串，模块入口显式映射AppointmentStatus。 */
     private String status;
     /** 场次内就诊序号，未确认时可为null；取消后不复用。 */
     private Integer visitNumber;

@@ -39,10 +39,10 @@ public interface ScheduleMapper extends BaseMapper<Schedule> {
 
     @Insert("""
             INSERT INTO schedules (
-                doctor_id, appointment_date, start_time, end_time, status, session_type,
+                doctor_id, appointment_date, start_time, end_time, session_type,
                 total_capacity, available_capacity, held_capacity, confirmed_capacity,
                 next_visit_number, registration_fee, fee_currency)
-            SELECT #{doctorId}, #{appointmentDate}, #{startTime}, #{endTime}, 'OPEN', #{sessionType},
+            SELECT #{doctorId}, #{appointmentDate}, #{startTime}, #{endTime}, #{sessionType},
                    capacity_per_session, capacity_per_session, 0, 0, 1, registration_fee, currency
             FROM booking_settings
             WHERE booking_settings.id = 1
@@ -59,20 +59,10 @@ public interface ScheduleMapper extends BaseMapper<Schedule> {
             SET available_capacity = available_capacity - 1,
                 held_capacity = held_capacity + 1,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = #{scheduleId} AND session_type IS NOT NULL
-              AND status = 'OPEN' AND available_capacity > 0
-            """)
-    int holdOne(@Param("scheduleId") Long scheduleId);
-
-    @Update("""
-            UPDATE schedules
-            SET available_capacity = available_capacity - 1,
-                held_capacity = held_capacity + 1,
-                updated_at = CURRENT_TIMESTAMP
             WHERE id = #{scheduleId} AND doctor_id = #{doctorId}
               AND appointment_date = #{appointmentDate} AND session_type = #{sessionType}
               AND session_type IN ('MORNING_FIRST', 'MORNING_SECOND', 'AFTERNOON_FIRST', 'AFTERNOON_SECOND')
-              AND status = 'OPEN' AND available_capacity > 0
+              AND available_capacity > 0
               AND appointment_date BETWEEN #{firstBookableDate} AND #{lastBookableDate}
               AND (appointment_date > #{earliestStartDate}
                    OR (appointment_date = #{earliestStartDate} AND start_time > #{earliestStartTime}))
@@ -92,7 +82,7 @@ public interface ScheduleMapper extends BaseMapper<Schedule> {
                 confirmed_capacity = confirmed_capacity + 1,
                 next_visit_number = next_visit_number + 1,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = #{scheduleId} AND status = 'OPEN'
+            WHERE id = #{scheduleId}
               AND held_capacity > 0 AND next_visit_number = #{visitNumber}
             """)
     int confirmOne(@Param("scheduleId") Long scheduleId, @Param("visitNumber") Integer visitNumber);
@@ -106,24 +96,4 @@ public interface ScheduleMapper extends BaseMapper<Schedule> {
             """)
     int releaseHeldOne(@Param("scheduleId") Long scheduleId);
 
-    @Update("""
-            UPDATE schedules
-            SET total_capacity = total_capacity + #{delta},
-                available_capacity = available_capacity + #{delta},
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = #{scheduleId} AND status = 'OPEN'
-              AND total_capacity + #{delta} >= 0
-              AND available_capacity + #{delta} >= 0
-            """)
-    int adjustAvailable(@Param("scheduleId") Long scheduleId, @Param("delta") int delta);
-
-    @Update("""
-            UPDATE schedules
-            SET status = 'CLOSED', closed_at = #{closedAt}, closed_by = #{closedBy},
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = #{scheduleId} AND status = 'OPEN' AND session_type IS NOT NULL
-            """)
-    int closeIfOpen(@Param("scheduleId") Long scheduleId,
-                    @Param("closedAt") java.time.LocalDateTime closedAt,
-                    @Param("closedBy") Long closedBy);
 }

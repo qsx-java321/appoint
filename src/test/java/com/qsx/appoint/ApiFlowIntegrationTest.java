@@ -202,7 +202,6 @@ class ApiFlowIntegrationTest {
         schedule.setAppointmentDate(date);
         schedule.setStartTime(LocalTime.of(8, 0));
         schedule.setEndTime(LocalTime.of(10, 0));
-        schedule.setStatus("OPEN");
         schedule.setSessionType("MORNING_FIRST");
         schedule.setTotalCapacity(2);
         schedule.setRegistrationFee(new java.math.BigDecimal("50.00"));

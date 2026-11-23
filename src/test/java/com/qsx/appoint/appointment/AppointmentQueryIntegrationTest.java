@@ -71,23 +71,22 @@ class AppointmentQueryIntegrationTest {
     }
 
     @Test
-    void legacyTerminalOrderWithNullFeeRemainsReadable() throws Exception {
+    void cancelledOrderRemainsReadable() throws Exception {
         AuthenticatedUser user = registerAndLogin();
         CreatedAppointment appointment = createAppointment(user, createAvailableSchedule().getId());
         AppointmentOrder order = appointmentOrderMapper.selectById(appointment.appointmentOrderId());
         order.setStatus("CANCELLED");
         order.setClosedAt(java.time.LocalDateTime.now());
         appointmentOrderMapper.updateById(order);
-        jdbcTemplate.update("UPDATE payment_orders SET status='CLOSED', legacy=TRUE, amount=NULL, currency=NULL WHERE id=?",
-                appointment.paymentOrderId());
+        jdbcTemplate.update("UPDATE payment_orders SET status='CLOSED' WHERE id=?", appointment.paymentOrderId());
 
         mockMvc.perform(get("/api/v1/appointments/{id}", appointment.appointmentOrderId())
                         .header("Authorization", bearer(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("CANCELLED"))
                 .andExpect(jsonPath("$.data.paymentStatus").value("CLOSED"))
-                .andExpect(jsonPath("$.data.amount").doesNotExist())
-                .andExpect(jsonPath("$.data.currency").doesNotExist());
+                .andExpect(jsonPath("$.data.amount").isNumber())
+                .andExpect(jsonPath("$.data.currency").value("CNY"));
     }
 
     @Test
@@ -264,7 +263,6 @@ class AppointmentQueryIntegrationTest {
         schedule.setAppointmentDate(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(2));
         schedule.setStartTime(LocalTime.of(8, 0));
         schedule.setEndTime(LocalTime.of(10, 0));
-        schedule.setStatus("OPEN");
         schedule.setSessionType("MORNING_FIRST");
         schedule.setTotalCapacity(5);
         schedule.setRegistrationFee(new java.math.BigDecimal("50.00"));

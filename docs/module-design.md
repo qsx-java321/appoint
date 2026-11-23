@@ -18,6 +18,8 @@
 - `appointment_create_requests` 按账号记录幂等键和创建回执。`appointment_active_claims` 用唯一约束限制同场次同就诊人和同证件的有效占用。
 - `visit_records` 在签到时创建，一张预约至多一条，保存就诊进度和动作时间。
 
+当前基线只保留现行业务状态：预约为 `PENDING_PAYMENT`、`CONFIRMED`、`CANCELLED`、`EXPIRED`，支付为 `UNPAID`、`PAID`、`CLOSED`。已退出的管理员手工排班、支付尝试/退款/通知、Outbox/Inbox 等结构不再保留；修改 V1 后需重置 dev/test 数据库，不再兼容旧迁移链数据。
+
 ## 事务与锁序
 
 | 操作 | 写入和并发处理 |

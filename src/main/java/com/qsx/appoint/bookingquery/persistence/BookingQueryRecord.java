@@ -70,8 +70,6 @@ public class BookingQueryRecord {
     private String status;
     /** 场次内就诊序号，未确认时可为null；取消后不复用。 */
     private Integer visitNumber;
-    /** 联查场次原状态，用于兼容历史读模型，不直接驱动workflow。 */
-    private String scheduleStatus;
     /** 本地创建时间，业务时钟采用Asia/Shanghai。 */
     private LocalDateTime createdAt;
     /** 持久化的最晚支付时刻，包含当秒。 */

@@ -24,7 +24,8 @@ class MigrationMySqlIT {
         assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
         flyway.validate();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name <> 'flyway_schema_history'",Integer.class)).isEqualTo(22);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name <> 'flyway_schema_history'",Integer.class)).isEqualTo(16);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('payment_attempts','payment_refunds','payment_notifications','payment_outbox_events','coordination_inbox_events','schedule_inventory_adjustments')",Integer.class)).isZero();
         for(var entry:java.util.Map.of("hospitals",2,"departments",6,"doctors",18).entrySet())
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM "+entry.getKey(),Integer.class)).isEqualTo(entry.getValue());
         assertThat(jdbc.queryForObject("SELECT capacity_per_session FROM booking_settings",Integer.class)).isEqualTo(20);

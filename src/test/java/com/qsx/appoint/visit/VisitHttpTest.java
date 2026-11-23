@@ -357,8 +357,8 @@ class VisitHttpTest {
     // 比较完整业务行，失败不能改资金、库存、快照、号码、有效占用或既有签到时间。
     private Map<String, List<Map<String, Object>>> bookingFacts() {
         var facts = new LinkedHashMap<String, List<Map<String, Object>>>();
-        for (String table : List.of("appointment_orders", "payment_orders", "payment_attempts", "payment_refunds",
-                "schedules", "appointment_active_claims", "visit_records", "payment_outbox_events", "coordination_inbox_events")) {
+        for (String table : List.of("appointment_orders", "payment_orders",
+                "schedules", "appointment_active_claims", "visit_records")) {
             facts.put(table, jdbc.queryForList("SELECT * FROM " + table));
         }
         return facts;

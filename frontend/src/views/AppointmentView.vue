@@ -17,10 +17,7 @@ import {
 } from "../lib/presentation";
 const paymentNames: Record<string, string> = {
   UNPAID: "未支付",
-  PAYING: "未支付",
   PAID: "已支付",
-  REFUND_PENDING: "历史订单已关闭",
-  REFUNDED: "历史订单已关闭",
   CLOSED: "已关闭",
 };
 const route = useRoute();
@@ -185,7 +182,7 @@ onUnmounted(() => {
           <p class="ticket-date">{{ data.appointmentDate }}</p>
           <p>
             {{ data.startTime.slice(0, 5) }}–{{ data.endTime.slice(0, 5) }} ·
-            {{ sessionNames[data.sessionType || ""] || "历史场次" }}
+            {{ sessionNames[data.sessionType || ""] || "未知场次" }}
           </p>
           <p>
             {{ data.doctor.hospital.name }} · {{ data.doctor.department.name }}

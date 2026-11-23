@@ -13,7 +13,9 @@ class LifecycleLanguageTest {
     @Test
     void stableStorageLiteralsRemainCompatible() {
         assertThat(AppointmentStatus.values()).extracting(Enum::name)
-                .containsExactlyInAnyOrder("PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "EXPIRED", "CANCELLED_BY_HOSPITAL");
+                .containsExactlyInAnyOrder("PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "EXPIRED");
+        assertThat(PaymentOrderStatus.values()).extracting(Enum::name)
+                .containsExactlyInAnyOrder("UNPAID", "PAID", "CLOSED");
         for (var status : AppointmentStatus.values()) assertThat(AppointmentStatus.fromStored(status.name())).isSameAs(status);
         for (var status : PaymentOrderStatus.values()) assertThat(PaymentOrderStatus.fromStored(status.name())).isSameAs(status);
         assertThat(AppointmentCloseReason.USER_CANCELLED.status().name()).isEqualTo("CANCELLED");

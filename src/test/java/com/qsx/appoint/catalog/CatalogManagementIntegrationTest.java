@@ -12,11 +12,10 @@ import org.springframework.security.authentication.TestingAuthenticationToken;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.qsx.appoint.catalog.dto.CreateScheduleRequest;
 import com.qsx.appoint.catalog.dto.AdminDepartmentResponse;
 import com.qsx.appoint.catalog.dto.CreateDepartmentRequest;
+import com.qsx.appoint.catalog.model.AppointmentSession;
 import com.qsx.appoint.catalog.service.CatalogManagementService;
-import com.qsx.appoint.catalog.service.ScheduleManagementService;
 import com.qsx.appoint.appointment.dto.AppointmentCreationResult;
 import com.qsx.appoint.appointment.dto.AppointmentResponse;
 import com.qsx.appoint.appointment.dto.CreateAppointmentRequest;
@@ -59,7 +58,6 @@ class CatalogManagementIntegrationTest {
     @Autowired private JdbcTemplate fixtureJdbc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private CatalogManagementService catalogManagementService;
-    @Autowired private ScheduleManagementService scheduleManagementService;
     @Autowired private BookingCoordinator bookingCoordinator;
     @Autowired private AppointmentService appointmentService;
     @Autowired private UserMapper userMapper;
@@ -247,14 +245,7 @@ class CatalogManagementIntegrationTest {
         expectResourceInUse(delete("/api/v1/admin/hospitals/{id}", hospitalId));
         expectResourceInUse(delete("/api/v1/admin/departments/{id}", departmentId));
 
-        CreateScheduleRequest schedule = new CreateScheduleRequest();
-        schedule.setDoctorId(doctor.path("id").asLong());
-        schedule.setAppointmentDate(LocalDate.now(appointmentClock).plusDays(10));
-        schedule.setSessionType("MORNING");
-        schedule.setTotalCapacity(1);
-        schedule.setRegistrationFee(new BigDecimal("50.00"));
-        schedule.setFeeCurrency("CNY");
-        scheduleManagementService.create(1L, schedule);
+        createSchedule(doctor.path("id").asLong(), LocalDate.now(appointmentClock).plusDays(10), "MORNING_FIRST");
         expectResourceInUse(delete("/api/v1/admin/doctors/{id}", doctor.path("id").asText()));
 
         String emptyHospitalId = createHospital("空医院", "删除路 2 号");
@@ -515,14 +506,12 @@ class CatalogManagementIntegrationTest {
     }
 
     private Long createSchedule(Long doctorId, LocalDate date, String sessionType) {
-        CreateScheduleRequest request = new CreateScheduleRequest();
-        request.setDoctorId(doctorId);
-        request.setAppointmentDate(date);
-        request.setSessionType(sessionType);
-        request.setTotalCapacity(2);
-        request.setRegistrationFee(new BigDecimal("50.00"));
-        request.setFeeCurrency("CNY");
-        return scheduleManagementService.create(1L, request).getId();
+        AppointmentSession session = AppointmentSession.valueOf(sessionType);
+        fixtureJdbc.update("UPDATE booking_settings SET capacity_per_session=?, registration_fee=? WHERE id=1",
+                2, new BigDecimal("50.00"));
+        scheduleMapper.insertGeneratedFromSettings(doctorId, date,
+                session.startTime(), session.endTime(), sessionType);
+        return scheduleMapper.selectByDoctorDateSession(doctorId, date, sessionType).getId();
     }
 
     private Long createUser() {

@@ -24,7 +24,7 @@ public interface AppointmentLifecycle {
      * @param appointmentOrderId 要处理的预约单主键
      * @return 本事务锁定的预约；预约不存在返回 null
      * @throws org.springframework.transaction.IllegalTransactionStateException 调用方没有事务
-     * @throws com.qsx.appoint.common.BusinessException 场次缺失/历史空场次类型或关联不一致
+     * @throws com.qsx.appoint.common.BusinessException 场次缺失或关联不一致
      */
     AppointmentLifecycleCase lock(Long appointmentOrderId);
 

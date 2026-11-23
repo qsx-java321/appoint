@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * 将预约状态与支付状态组合为用户可见流程状态的纯投影。
- * <p>不写数据库、不执行补偿，也不根据退款摘要重定义资金状态；非法组合报完整性错误。
+ * <p>不写数据库、不执行补偿；当前流程只接受四种状态组合，非法组合报完整性错误。
  */
 @Slf4j
 @Component
@@ -19,7 +19,7 @@ class BookingWorkflowProjector {
     /**
      * 计算组合展示状态，不把“收款成功”和“预约已确认”混为同一阶段。
      * @param record 包含预约与支付存储状态的只读行
-     * @return 对应workflow；历史CANCELLED/CANCELLED_BY_HOSPITAL+CLOSED返回null
+     * @return 对应workflow；用户取消后为null
      * @throws com.qsx.appoint.common.BusinessException 未知存储值或未定义组合，错误码INTERNAL_ERROR
      */
     WorkflowStatus project(BookingQueryRecord record) {
@@ -34,12 +34,7 @@ class BookingWorkflowProjector {
         if (appointment == AppointmentStatus.EXPIRED && payment == PaymentOrderStatus.CLOSED) {
             return WorkflowStatus.EXPIRED;
         }
-        // 旧版过渡和终态仍可读取，保留原始状态供查阅。
-        if ((appointment == AppointmentStatus.PENDING_PAYMENT && payment == PaymentOrderStatus.PAID)
-                || ((appointment == AppointmentStatus.CANCELLED || appointment == AppointmentStatus.CANCELLED_BY_HOSPITAL
-                        || appointment == AppointmentStatus.EXPIRED)
-                && (payment == PaymentOrderStatus.CLOSED || payment == PaymentOrderStatus.REFUND_PENDING
-                        || payment == PaymentOrderStatus.REFUNDED))) {
+        if (appointment == AppointmentStatus.CANCELLED && payment == PaymentOrderStatus.CLOSED) {
             return null;
         }
         log.error("预约查询发现非法组合状态，appointmentOrderId={}, appointmentStatus={}, paymentStatus={}",

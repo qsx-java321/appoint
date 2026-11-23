@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import com.qsx.appoint.support.MutableAppointmentClock;
 import com.qsx.appoint.support.AppointmentClockTestConfiguration;
 
@@ -84,7 +85,8 @@ class SessionCatalogHttpTest {
                 .andExpect(status().isOk());
         scheduleMapper.insertGeneratedFromSettings(1L, date, session.startTime(), session.endTime(), session.name());
         var schedule = scheduleMapper.selectByDoctorDateSession(1L, date, session.name());
-        assertThat(scheduleMapper.holdOne(schedule.getId())).isEqualTo(1);
+        assertThat(scheduleMapper.holdOneBookableSession(schedule.getId(), 1L, date, session.name(),
+                date, date.plusDays(2), date, LocalTime.of(10, 20))).isEqualTo(1);
 
         assertThat(rows().get(1).path("availability").asText()).isEqualTo("FULL");
         assertThat(rows().get(2).path("bookable").asBoolean()).isTrue();

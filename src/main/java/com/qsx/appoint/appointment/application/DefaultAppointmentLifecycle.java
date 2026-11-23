@@ -49,7 +49,7 @@ class DefaultAppointmentLifecycle implements AppointmentLifecycle {
         AppointmentOrder lookup = appointmentOrderMapper.selectByIdForLookup(id);
         if (lookup == null) return null;
         Schedule schedule = scheduleMapper.selectByIdForUpdate(lookup.getScheduleId());
-        if (schedule == null || schedule.getSessionType() == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        if (schedule == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         AppointmentOrder order = appointmentOrderMapper.selectByIdForUpdate(id);
         if (order == null) return null;
         if (!order.getScheduleId().equals(schedule.getId())) throw new BusinessException(ErrorCode.INTERNAL_ERROR);

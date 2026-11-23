@@ -13,7 +13,7 @@ class AppointmentResponseAssemblerTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 9, 8, 0);
 
     @Test
-    void legacySignedVisitKeepsFirstTimeAndSnapshotWindowAfterClosing() {
+    void signedVisitKeepsFirstTimeAndSnapshotWindowAfterClosing() {
         var record = new BookingQueryRecord();
         record.setAppointmentUserId(1L); record.setPaymentUserId(1L); record.setPaymentOrderId(2L);
         record.setStatus("CONFIRMED"); record.setPaymentStatus("PAID");
@@ -33,8 +33,7 @@ class AppointmentResponseAssemblerTest {
     @ParameterizedTest
     @CsvSource({
             "PENDING_PAYMENT,UNPAID,-1,false,false", "PENDING_PAYMENT,UNPAID,0,true,true",
-            "PENDING_PAYMENT,UNPAID,1,true,true", "PENDING_PAYMENT,PAYING,1,true,true",
-            "PENDING_PAYMENT,PAID,1,false,false", "CONFIRMED,PAID,1,false,false"
+            "PENDING_PAYMENT,UNPAID,1,true,true", "CONFIRMED,PAID,1,false,false"
     })
     void preservesPaymentAndCancellationPermissions(String appointment, String payment, int deadlineOffset,
                                                      boolean canPay, boolean canCancel) {

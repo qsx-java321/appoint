@@ -18,7 +18,7 @@ public interface PaymentLifecycle {
      * 关闭当前事务锁定的未付款支付单。
      * @param payment 本事务lockByAppointment返回的原对象，不接受find/复制/跨事务结果
      * @throws org.springframework.transaction.IllegalTransactionStateException 没有外层事务
-     * @throws com.qsx.appoint.common.BusinessException Case无效或UNPAID/PAYING条件更新未命中
+     * @throws com.qsx.appoint.common.BusinessException Case无效或UNPAID条件更新未命中
      */
     void closeUnpaid(PaymentLifecycleCase payment);
 

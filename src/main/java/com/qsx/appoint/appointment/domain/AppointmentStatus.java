@@ -4,8 +4,8 @@ import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
 
 /**
- * 预约单稳定状态枚举，数据库/HTTP仍保存原字符串，不更改schema。
- * <p>历史CANCELLED_BY_HOSPITAL继续可读，新流程不提供停诊写入口。
+ * 预约单稳定状态枚举，数据库和HTTP保存原字符串。
+ * <p>当前流程只产生待支付、已确认、用户取消和超时过期四种状态。
  */
 public enum AppointmentStatus {
     /** 已暂占名额，等待付款或支付成功事件确认。 */
@@ -15,9 +15,7 @@ public enum AppointmentStatus {
     /** 用户取消后终态。 */
     CANCELLED,
     /** 截止后的关闭终态，包含迟到支付释放。 */
-    EXPIRED,
-    /** 历史停诊取消，仅兼容读取。 */
-    CANCELLED_BY_HOSPITAL;
+    EXPIRED;
 
     /**
      * 从既有存储字符串显式转换状态，不做默认值或大小写兜底。

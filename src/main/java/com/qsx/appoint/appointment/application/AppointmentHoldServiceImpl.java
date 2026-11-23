@@ -165,7 +165,7 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
 
     /**
      * 从已验证的目录、就诊人与场次复制不可变预约凭证。
-     * <p>费用来自场次快照，截止取准入时间加支付时限与场次开始的较早者；历史订单不重算。
+     * <p>费用来自场次快照，截止取准入时间加支付时限与场次开始的较早者；已创建订单不重算。
      * @return 尚未插入的PENDING_PAYMENT预约Entity，仅在本模块内部使用
      */
     private AppointmentOrder createAppointmentSnapshot(CreateAppointmentHoldCommand command, Schedule schedule,
