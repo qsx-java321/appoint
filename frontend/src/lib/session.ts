@@ -41,7 +41,7 @@ export function clearSession(expectedToken?: string) {
 export function safeReturn(value: unknown): string {
   if (
     typeof value !== "string" ||
-    !/^\/(booking|appointments|patients|account|doctor|admin)(\/|\?|$)/.test(
+    !/^\/(booking|appointments|patients|account|doctor|admin|notifications)(\/|\?|$)/.test(
       value,
     )
   )

@@ -34,6 +34,9 @@ describe("身份和安全返回地址", () => {
       "/appointments/9007199254740999/payment",
     );
   });
+  it("保留消息中心返回路径", () => {
+    expect(safeReturn("/notifications")).toBe("/notifications");
+  });
   it("过期会话不可恢复，ID不转数字", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-11-14T00:00:00Z"));
