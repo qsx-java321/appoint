@@ -60,17 +60,65 @@ npx -y @redocly/cli@latest bundle openapi.yaml -o dist/openapi.yaml
 
 `lint` 校验规范、引用和示例；`bundle` 把多文件合并成单文件，方便 Apifox/Postman 导入。
 
-## 本地预览
+## 启动与停止预览服务
+
+预览页必须通过 HTTP 访问，不能直接双击 `preview.html` 用 `file://` 打开。
+
+### 启动
+
+在项目根目录执行：
 
 ```bash
 cd docs
-python3 -m http.server 8090
+python3 -m http.server 8090 --bind 127.0.0.1
 ```
 
-打开 <http://127.0.0.1:8090/openapi/preview.html>。预览页通过 CDN 加载 Scalar，需要网络。
-从 `docs` 目录启动是为了让契约里的 `../api.md` 链接也能正确打开。
+需要后台运行时：
 
-如果 CDN 不可用，可以使用 Redocly 的本地预览：
+```bash
+cd docs
+nohup python3 -m http.server 8090 --bind 127.0.0.1 > /tmp/appoint-openapi-preview.log 2>&1 &
+```
+
+打开：
+
+<http://127.0.0.1:8090/openapi/preview.html>
+
+WSL2 下 Windows 浏览器访问 `127.0.0.1` 或 `localhost`；VS Code Remote 通常会自动转发端口。预览页通过 CDN 加载 Scalar，需要网络。
+
+验证：
+
+```bash
+curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8090/openapi/preview.html
+curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8090/openapi/dist/openapi.yaml
+```
+
+两个请求都返回 `200` 表示预览服务正常。
+
+### 停止
+
+前台启动时在终端按 `Ctrl+C`。后台启动时：
+
+```bash
+pkill -f "http.server 8090"
+```
+
+确认端口已释放：
+
+```bash
+ss -ltn | grep ':8090' || echo "8090 已停止"
+```
+
+### 修改契约后
+
+预览页读取 `dist/openapi.yaml`，不读取源文件。修改 `paths/` 或 `components/` 后重新生成：
+
+```bash
+npx -y @redocly/cli@latest lint openapi.yaml
+npx -y @redocly/cli@latest bundle openapi.yaml -o dist/openapi.yaml
+```
+
+然后刷新浏览器。如果 CDN 不可用，可以使用 Redocly 本地预览：
 
 ```bash
 npx -y @redocly/cli@latest preview-docs dist/openapi.yaml

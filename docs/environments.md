@@ -28,6 +28,8 @@ python3 scripts/local_env.py status test
 
 停止脚本托管的前后端后，可按需停止或恢复共享容器。Compose 的 `stop` 保留数据卷。
 
+完整停止顺序：先用 `python3 scripts/local_env.py stop <环境>` 停止前后端，再执行 `docker compose --env-file compose.env stop` 停止共享容器。`local_env.py stop` 不会停止 Compose。
+
 ```bash
 docker compose --env-file compose.env ps -a
 docker compose --env-file compose.env stop
