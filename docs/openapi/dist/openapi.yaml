@@ -5,13 +5,18 @@ info:
   license:
     name: UNLICENSED
   description: |
-    认证、用户与头像接口的 OpenAPI 契约试点。
+    认证、用户、头像、就诊人和医疗目录接口的 OpenAPI 契约。
 
     通用约定、业务规则和错误码见 [REST API 文档](../api.md)。
     当前契约覆盖：
 
     - Auth：注册验证码、验码、注册、登录
     - User：当前用户、上传头像、删除头像、读取头像
+    - Patient：就诊人列表、详情、新增、修改、启停
+    - Catalog：医院、科室、医生、场次查询
+    - AdminCatalog：医院、科室、医生档案管理
+    - BookingSettings：统一预约设置
+    - DoctorAccount：医生账号查询与首次绑定
 
     本地环境通过 `X-Appoint-Environment` 标识 demo/dev/test；直接调用后端时可省略。
     业务 API 使用统一响应结构 `{ code, message, data }`，错误时 `data=null`。
@@ -25,6 +30,16 @@ tags:
     description: 注册与登录
   - name: User
     description: 当前用户与头像
+  - name: Patient
+    description: 就诊人管理
+  - name: Catalog
+    description: 登录用户查询医院、科室、医生和场次
+  - name: AdminCatalog
+    description: 管理员维护医院、科室和医生档案
+  - name: BookingSettings
+    description: 管理员统一预约设置
+  - name: DoctorAccount
+    description: 管理员查询和首次绑定医生账号
 paths:
   /auth/register/code:
     post:
@@ -389,6 +404,818 @@ paths:
           $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/AvatarStorageUnavailable'
+  /patients:
+    post:
+      tags:
+        - Patient
+      operationId: createPatient
+      summary: 新增就诊人
+      description: |
+        为当前登录账号新增就诊人，初始 `enabled=true`。
+        证件类型目前只支持 `RESIDENT_ID_CARD`，证件号会去除首尾空白并转大写后校验。
+        同一账号下相同证件重复登记返回 409 / 4101。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientCreateRequest'
+            example:
+              name: 张小明
+              documentType: RESIDENT_ID_CARD
+              documentNo: 11010519491231002X
+              contactPhone: '13800138000'
+              contactEmail: patient@example.com
+      responses:
+        '201':
+          description: 就诊人已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '201'
+                  name: 张小明
+                  documentType: RESIDENT_ID_CARD
+                  documentNoMasked: 1101**********002X
+                  contactPhone: '13800138000'
+                  contactEmail: patient@example.com
+                  enabled: true
+                  createdAt: '2026-11-14T09:00:00'
+                  updatedAt: '2026-11-14T09:00:00'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/PatientDocumentExists'
+    get:
+      tags:
+        - Patient
+      operationId: listPatients
+      summary: 查询本人就诊人
+      description: 只返回当前登录账号的就诊人；没有数据时返回空数组。
+      responses:
+        '200':
+          description: 当前账号的就诊人列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientListResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  - id: '201'
+                    name: 张小明
+                    documentType: RESIDENT_ID_CARD
+                    documentNoMasked: 1101**********002X
+                    contactPhone: '13800138000'
+                    contactEmail: patient@example.com
+                    enabled: true
+                    createdAt: '2026-11-14T09:00:00'
+                    updatedAt: '2026-11-14T09:00:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /patients/{id}:
+    parameters:
+      - $ref: '#/components/parameters/PatientId'
+    get:
+      tags:
+        - Patient
+      operationId: getPatient
+      summary: 查询本人就诊人
+      description: 只能读取当前账号下的就诊人；其他账号的就诊人返回 403 / 2002。
+      responses:
+        '200':
+          description: 就诊人详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '201'
+                  name: 张小明
+                  documentType: RESIDENT_ID_CARD
+                  documentNoMasked: 1101**********002X
+                  contactPhone: '13800138000'
+                  contactEmail: patient@example.com
+                  enabled: true
+                  createdAt: '2026-11-14T09:00:00'
+                  updatedAt: '2026-11-14T09:00:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - Patient
+      operationId: updatePatient
+      summary: 修改本人就诊人
+      description: |
+        缺省或 null 的字段保留原值；提供的字段重新校验。
+        证件号变更后仍需满足 18 位居民身份证校验；同账号重复证件返回 409 / 4101。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientUpdateRequest'
+            example:
+              contactPhone: '13900139000'
+      responses:
+        '200':
+          description: 更新后的就诊人
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '201'
+                  name: 张小明
+                  documentType: RESIDENT_ID_CARD
+                  documentNoMasked: 1101**********002X
+                  contactPhone: '13900139000'
+                  contactEmail: patient@example.com
+                  enabled: true
+                  createdAt: '2026-11-14T09:00:00'
+                  updatedAt: '2026-11-14T10:00:00'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/PatientDocumentExists'
+  /patients/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/PatientId'
+    patch:
+      tags:
+        - Patient
+      operationId: updatePatientStatus
+      summary: 启用或停用本人就诊人
+      description: 停用只影响后续下单，已创建预约保留原快照；重复设置相同状态仍返回当前资料。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientStatusRequest'
+            example:
+              enabled: false
+      responses:
+        '200':
+          description: 更新后的就诊人
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '201'
+                  name: 张小明
+                  documentType: RESIDENT_ID_CARD
+                  documentNoMasked: 1101**********002X
+                  contactPhone: '13900139000'
+                  contactEmail: patient@example.com
+                  enabled: false
+                  createdAt: '2026-11-14T09:00:00'
+                  updatedAt: '2026-11-14T10:05:00'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /hospitals:
+    get:
+      tags:
+        - Catalog
+      operationId: listHospitals
+      summary: 查询医院列表
+      description: 返回当前环境的全部医院。未登录返回 401。
+      responses:
+        '200':
+          description: 医院列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HospitalListResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  - id: '1'
+                    name: 市中心医院
+                    address: 人民路 100 号
+                  - id: '2'
+                    name: 新区医院
+                    address: 健康路 88 号
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /hospitals/{hospitalId}/departments:
+    parameters:
+      - $ref: '#/components/parameters/HospitalId'
+    get:
+      tags:
+        - Catalog
+      operationId: listDepartments
+      summary: 查询医院科室
+      description: 父级医院不存在或没有科室时返回空数组，不返回 404。
+      responses:
+        '200':
+          description: 科室列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepartmentListResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  - id: '11'
+                    name: 心内科
+                  - id: '12'
+                    name: 神经内科
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /departments/{departmentId}/doctors:
+    parameters:
+      - $ref: '#/components/parameters/DepartmentId'
+    get:
+      tags:
+        - Catalog
+      operationId: listDoctors
+      summary: 查询科室医生
+      description: 父级科室不存在或没有医生时返回空数组，不返回 404。
+      responses:
+        '200':
+          description: 医生列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorListResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  - id: '101'
+                    doctorNo: DOC000101
+                    name: 李明
+                    title: 主任医师
+                    introduction: 擅长心血管常见病诊治。
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /doctors/{doctorId}/schedules:
+    parameters:
+      - $ref: '#/components/parameters/DoctorId'
+    get:
+      tags:
+        - Catalog
+      operationId: listSchedules
+      summary: 查询医生场次
+      description: |
+        返回业务今天、明天、后天共 12 个场次，按日期和固定时段排列。
+        医生不存在时返回空数组。`availability` 按 `STARTED`、`CUTOFF_REACHED`、`FULL`、`AVAILABLE`
+        的顺序判定；`bookable` 仅在 `AVAILABLE` 时为真。同一响应 12 个场次共享 `serverTime`。
+      responses:
+        '200':
+          description: 场次列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleListResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  - doctorId: '101'
+                    doctorNo: DOC000101
+                    appointmentDate: '2026-11-14'
+                    sessionType: MORNING_FIRST
+                    startTime: '08:00:00'
+                    endTime: '10:00:00'
+                    totalCapacity: 20
+                    availableCapacity: 18
+                    registrationFee: '10.00'
+                    feeCurrency: CNY
+                    bookable: true
+                    bookingClosesAt: '2026-11-14T07:45:00'
+                    availability: AVAILABLE
+                    serverTime: '2026-11-14T07:30:00'
+                  - doctorId: '101'
+                    doctorNo: DOC000101
+                    appointmentDate: '2026-11-14'
+                    sessionType: MORNING_SECOND
+                    startTime: '10:30:00'
+                    endTime: '12:00:00'
+                    totalCapacity: 20
+                    availableCapacity: 20
+                    registrationFee: '10.00'
+                    feeCurrency: CNY
+                    bookable: true
+                    bookingClosesAt: '2026-11-14T10:15:00'
+                    availability: AVAILABLE
+                    serverTime: '2026-11-14T07:30:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/hospitals:
+    post:
+      tags:
+        - AdminCatalog
+      operationId: createHospital
+      summary: 新增医院
+      description: 需要 ADMIN 角色。名称、地址去除首尾空白后不能为空，上限分别为 100、200 字符。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateHospitalRequest'
+            example:
+              name: 市中心医院
+              address: 人民路 100 号
+      responses:
+        '201':
+          description: 医院已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminHospitalResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '1'
+                  name: 市中心医院
+                  address: 人民路 100 号
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/hospitals/{hospitalId}:
+    parameters:
+      - $ref: '#/components/parameters/HospitalId'
+    patch:
+      tags:
+        - AdminCatalog
+      operationId: updateHospital
+      summary: 修改医院
+      description: 需要 ADMIN 角色。至少提供 name、address 中的一个非 null 字段；null 表示保留原值。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateHospitalRequest'
+            example:
+              address: 人民路 120 号
+      responses:
+        '200':
+          description: 更新后的医院
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminHospitalResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '1'
+                  name: 市中心医院
+                  address: 人民路 120 号
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - AdminCatalog
+      operationId: deleteHospital
+      summary: 删除医院
+      description: 需要 ADMIN 角色。医院仍有科室或数据库引用阻止删除时返回 409 / 4402，不级联删除。
+      responses:
+        '200':
+          description: 医院已删除
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResult'
+              example:
+                code: 0
+                message: success
+                data: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/CatalogResourceInUse'
+  /admin/hospitals/{hospitalId}/departments:
+    parameters:
+      - $ref: '#/components/parameters/HospitalId'
+    post:
+      tags:
+        - AdminCatalog
+      operationId: createDepartment
+      summary: 新增科室
+      description: 需要 ADMIN 角色。医院不存在返回 404 / 4001；同医院科室名称重复返回 409 / 4401。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDepartmentRequest'
+            example:
+              name: 心内科
+      responses:
+        '201':
+          description: 科室已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDepartmentResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '11'
+                  hospitalId: '1'
+                  name: 心内科
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/DepartmentNameExists'
+  /admin/departments/{departmentId}:
+    parameters:
+      - $ref: '#/components/parameters/DepartmentId'
+    patch:
+      tags:
+        - AdminCatalog
+      operationId: updateDepartment
+      summary: 修改科室
+      description: 需要 ADMIN 角色。name 必填；同医院名称重复返回 409 / 4401。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDepartmentRequest'
+            example:
+              name: 心血管内科
+      responses:
+        '200':
+          description: 更新后的科室
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDepartmentResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '11'
+                  hospitalId: '1'
+                  name: 心血管内科
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/DepartmentNameExists'
+    delete:
+      tags:
+        - AdminCatalog
+      operationId: deleteDepartment
+      summary: 删除科室
+      description: 需要 ADMIN 角色。科室仍有医生或数据库引用阻止删除时返回 409 / 4402。
+      responses:
+        '200':
+          description: 科室已删除
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResult'
+              example:
+                code: 0
+                message: success
+                data: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/CatalogResourceInUse'
+  /admin/departments/{departmentId}/doctors:
+    parameters:
+      - $ref: '#/components/parameters/DepartmentId'
+    post:
+      tags:
+        - AdminCatalog
+      operationId: createDoctor
+      summary: 新增医生档案
+      description: 需要 ADMIN 角色。科室不存在返回 404 / 4001；医生编号由系统生成。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDoctorRequest'
+            example:
+              name: 李明
+              title: 主任医师
+              introduction: 擅长心血管常见病诊治。
+      responses:
+        '201':
+          description: 医生档案已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDoctorResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '101'
+                  doctorNo: DOC000101
+                  departmentId: '11'
+                  name: 李明
+                  title: 主任医师
+                  introduction: 擅长心血管常见病诊治。
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/doctors/{doctorId}:
+    parameters:
+      - $ref: '#/components/parameters/DoctorId'
+    patch:
+      tags:
+        - AdminCatalog
+      operationId: updateDoctor
+      summary: 修改医生档案
+      description: 需要 ADMIN 角色。至少提供 name、title、introduction 中的一个非 null 字段；null 表示保留原值，不支持调整所属科室或医生编号。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDoctorProfileRequest'
+            example:
+              title: 副主任医师
+      responses:
+        '200':
+          description: 更新后的医生档案
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDoctorResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '101'
+                  doctorNo: DOC000101
+                  departmentId: '11'
+                  name: 李明
+                  title: 副主任医师
+                  introduction: 擅长心血管常见病诊治。
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - AdminCatalog
+      operationId: deleteDoctor
+      summary: 删除医生档案
+      description: 需要 ADMIN 角色。医生仍有关联场次或数据库引用阻止删除时返回 409 / 4402，不级联删除业务数据。
+      responses:
+        '200':
+          description: 医生档案已删除
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResult'
+              example:
+                code: 0
+                message: success
+                data: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/CatalogResourceInUse'
+  /admin/booking-settings:
+    get:
+      tags:
+        - BookingSettings
+      operationId: getBookingSettings
+      summary: 查询统一预约设置
+      description: 需要 ADMIN 角色。返回当前每场容量、挂号费和币种。
+      responses:
+        '200':
+          description: 当前预约设置
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingSettingsResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  capacityPerSession: 20
+                  registrationFee: '10.00'
+                  currency: CNY
+                  updatedAt: '2026-11-14T09:00:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+        - BookingSettings
+      operationId: updateBookingSettings
+      summary: 更新统一预约设置
+      description: |
+        需要 ADMIN 角色。两个字段必填：容量为正整数，费用最低 0.01 元，最多 8 位整数和 2 位小数。
+        更新后用于后续新生成的场次，已存在的场次保留创建时的容量和费用快照。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookingSettingsRequest'
+            example:
+              capacityPerSession: 30
+              registrationFee: 12
+      responses:
+        '200':
+          description: 更新后的预约设置
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingSettingsResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  capacityPerSession: 30
+                  registrationFee: '12.00'
+                  currency: CNY
+                  updatedAt: '2026-11-14T10:00:00'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /admin/doctor-accounts:
+    get:
+      tags:
+        - DoctorAccount
+      operationId: listDoctorAccounts
+      summary: 查询医生账号绑定情况
+      description: |
+        需要 ADMIN 角色。返回当前后端所连接环境的全部医生及实际账号绑定，按医院、科室、医生编号排序。
+        未绑定账号的医生也会返回；`passwordHint` 只说明密码来源，不包含密码或哈希。
+      responses:
+        '200':
+          description: 医生账号绑定列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorAccountListResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  environment: test
+                  items:
+                    - hospitalId: '1'
+                      hospitalName: 市中心医院
+                      departmentId: '11'
+                      departmentName: 心内科
+                      doctorId: '101'
+                      doctorNo: DOC000101
+                      doctorName: 李明
+                      userId: '12'
+                      email: test-doctor-001@example.local
+                      bindingStatus: BOUND
+                      passwordHint: 初始密码见 .env.test 的 LOCAL_SEED_PASSWORD
+                    - hospitalId: '1'
+                      hospitalName: 市中心医院
+                      departmentId: '11'
+                      departmentName: 心内科
+                      doctorId: '102'
+                      doctorNo: DOC000102
+                      doctorName: 王芳
+                      userId: null
+                      email: null
+                      bindingStatus: UNBOUND
+                      passwordHint: 未绑定账号
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/doctors/{doctorId}/account:
+    parameters:
+      - $ref: '#/components/parameters/DoctorId'
+    put:
+      tags:
+        - DoctorAccount
+      operationId: bindDoctorAccount
+      summary: 首次绑定医生账号
+      description: |
+        需要 ADMIN 角色。首次绑定同时授予账号 DOCTOR 角色，账号重新登录后可使用医生接口。
+        医生档案或账号已有绑定时返回 409 / 4501，包括对同一关系的重复绑定；当前接口不支持换绑。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BindDoctorAccountRequest'
+            example:
+              userId: '12'
+      responses:
+        '200':
+          description: 绑定成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorAccountBindingResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  doctorId: '101'
+                  userId: '12'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/DoctorAccountAlreadyBound'
 components:
   securitySchemes:
     bearerAuth:
@@ -617,6 +1444,714 @@ components:
       type: string
       format: binary
       description: 头像图片字节。
+    LocalDateTime:
+      type: string
+      description: 业务本地时间，Asia/Shanghai，格式 yyyy-MM-ddTHH:mm:ss，不带时区偏移。
+      example: '2026-11-14T09:00:00'
+    Patient:
+      type: object
+      description: 就诊人资料。证件号只返回脱敏值。
+      required:
+        - id
+        - name
+        - documentType
+        - documentNoMasked
+        - contactPhone
+        - contactEmail
+        - enabled
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: '201'
+        name:
+          type: string
+          maxLength: 64
+          example: 张小明
+        documentType:
+          type: string
+          enum:
+            - RESIDENT_ID_CARD
+          example: RESIDENT_ID_CARD
+        documentNoMasked:
+          type: string
+          description: 脱敏证件号，不返回原文。
+          example: 1101**********002X
+        contactPhone:
+          type: string
+          example: '13800138000'
+        contactEmail:
+          type: string
+          format: email
+          example: patient@example.com
+        enabled:
+          type: boolean
+          example: true
+        createdAt:
+          $ref: '#/components/schemas/LocalDateTime'
+        updatedAt:
+          $ref: '#/components/schemas/LocalDateTime'
+    PatientListResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Patient'
+    PatientCreateRequest:
+      type: object
+      required:
+        - name
+        - documentType
+        - documentNo
+        - contactPhone
+        - contactEmail
+      properties:
+        name:
+          type: string
+          maxLength: 64
+          example: 张小明
+        documentType:
+          type: string
+          enum:
+            - RESIDENT_ID_CARD
+          example: RESIDENT_ID_CARD
+        documentNo:
+          type: string
+          maxLength: 32
+          description: 18 位居民身份证号，服务端校验并转大写。
+          example: 11010519491231002X
+        contactPhone:
+          type: string
+          maxLength: 32
+          example: '13800138000'
+        contactEmail:
+          type: string
+          format: email
+          maxLength: 120
+          example: patient@example.com
+    PatientResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/Patient'
+    PatientUpdateRequest:
+      type: object
+      description: 缺省或 null 的字段保留原值；提供的字段重新校验。
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        documentType:
+          type: string
+          enum:
+            - RESIDENT_ID_CARD
+        documentNo:
+          type: string
+          maxLength: 32
+          description: 18 位居民身份证号。
+        contactPhone:
+          type: string
+          maxLength: 32
+        contactEmail:
+          type: string
+          format: email
+          maxLength: 120
+    PatientStatusRequest:
+      type: object
+      required:
+        - enabled
+      properties:
+        enabled:
+          type: boolean
+          example: false
+    Hospital:
+      type: object
+      required:
+        - id
+        - name
+        - address
+      properties:
+        id:
+          type: string
+          example: '1'
+        name:
+          type: string
+          example: 市中心医院
+        address:
+          type: string
+          example: 人民路 100 号
+    HospitalListResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Hospital'
+    Department:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          example: '11'
+        name:
+          type: string
+          example: 心内科
+    DepartmentListResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Department'
+    Doctor:
+      type: object
+      required:
+        - id
+        - doctorNo
+        - name
+        - title
+        - introduction
+      properties:
+        id:
+          type: string
+          example: '101'
+        doctorNo:
+          type: string
+          example: DOC000101
+        name:
+          type: string
+          example: 李明
+        title:
+          type: string
+          example: 主任医师
+        introduction:
+          type: string
+          nullable: true
+          example: 擅长心血管常见病诊治。
+    DoctorListResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Doctor'
+    LocalDate:
+      type: string
+      format: date
+      description: 业务日期，格式 yyyy-MM-dd。
+      example: '2026-11-14'
+    LocalTime:
+      type: string
+      description: 时间，格式 HH:mm:ss。
+      example: '08:00:00'
+    MoneyString:
+      type: string
+      description: 金额字符串，保留两位小数。
+      example: '10.00'
+    Schedule:
+      type: object
+      description: 场次响应。单次查询返回今天、明天、后天共 12 项。
+      required:
+        - doctorId
+        - doctorNo
+        - appointmentDate
+        - sessionType
+        - startTime
+        - endTime
+        - totalCapacity
+        - availableCapacity
+        - registrationFee
+        - feeCurrency
+        - bookable
+        - bookingClosesAt
+        - availability
+        - serverTime
+      properties:
+        doctorId:
+          type: string
+          example: '101'
+        doctorNo:
+          type: string
+          example: DOC000101
+        appointmentDate:
+          $ref: '#/components/schemas/LocalDate'
+        sessionType:
+          type: string
+          enum:
+            - MORNING_FIRST
+            - MORNING_SECOND
+            - AFTERNOON_FIRST
+            - AFTERNOON_SECOND
+          example: MORNING_FIRST
+        startTime:
+          $ref: '#/components/schemas/LocalTime'
+        endTime:
+          $ref: '#/components/schemas/LocalTime'
+        totalCapacity:
+          type: integer
+          example: 20
+        availableCapacity:
+          type: integer
+          example: 20
+        registrationFee:
+          $ref: '#/components/schemas/MoneyString'
+        feeCurrency:
+          type: string
+          enum:
+            - CNY
+          example: CNY
+        bookable:
+          type: boolean
+          example: true
+        bookingClosesAt:
+          $ref: '#/components/schemas/LocalDateTime'
+        availability:
+          type: string
+          enum:
+            - AVAILABLE
+            - FULL
+            - STARTED
+            - CUTOFF_REACHED
+          example: AVAILABLE
+        serverTime:
+          $ref: '#/components/schemas/LocalDateTime'
+    ScheduleListResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Schedule'
+    CreateHospitalRequest:
+      type: object
+      required:
+        - name
+        - address
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          example: 市中心医院
+        address:
+          type: string
+          maxLength: 200
+          example: 人民路 100 号
+    AdminHospital:
+      type: object
+      required:
+        - id
+        - name
+        - address
+      properties:
+        id:
+          type: string
+          example: '1'
+        name:
+          type: string
+          example: 市中心医院
+        address:
+          type: string
+          example: 人民路 100 号
+    AdminHospitalResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/AdminHospital'
+    EmptyResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          type: object
+          nullable: true
+          example: null
+    UpdateHospitalRequest:
+      type: object
+      description: 至少提供 name、address 中的一个非 null 字段。
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        address:
+          type: string
+          maxLength: 200
+    CreateDepartmentRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          example: 心内科
+    AdminDepartment:
+      type: object
+      required:
+        - id
+        - hospitalId
+        - name
+      properties:
+        id:
+          type: string
+          example: '11'
+        hospitalId:
+          type: string
+          example: '1'
+        name:
+          type: string
+          example: 心内科
+    AdminDepartmentResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/AdminDepartment'
+    UpdateDepartmentRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          example: 心内科
+    CreateDoctorRequest:
+      type: object
+      required:
+        - name
+        - title
+      properties:
+        name:
+          type: string
+          maxLength: 64
+          example: 李明
+        title:
+          type: string
+          maxLength: 64
+          example: 主任医师
+        introduction:
+          type: string
+          maxLength: 500
+          description: 可选；提供时不能为纯空白。
+          example: 擅长心血管常见病诊治。
+    AdminDoctor:
+      type: object
+      required:
+        - id
+        - doctorNo
+        - departmentId
+        - name
+        - title
+        - introduction
+      properties:
+        id:
+          type: string
+          example: '101'
+        doctorNo:
+          type: string
+          example: DOC000101
+        departmentId:
+          type: string
+          example: '11'
+        name:
+          type: string
+          example: 李明
+        title:
+          type: string
+          example: 主任医师
+        introduction:
+          type: string
+          nullable: true
+          example: 擅长心血管常见病诊治。
+    AdminDoctorResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/AdminDoctor'
+    UpdateDoctorProfileRequest:
+      type: object
+      description: 至少提供 name、title、introduction 中的一个非 null 字段；null 表示保留原值。
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        title:
+          type: string
+          maxLength: 64
+        introduction:
+          type: string
+          maxLength: 500
+    BookingSettings:
+      type: object
+      required:
+        - capacityPerSession
+        - registrationFee
+        - currency
+        - updatedAt
+      properties:
+        capacityPerSession:
+          type: integer
+          example: 20
+        registrationFee:
+          $ref: '#/components/schemas/MoneyString'
+        currency:
+          type: string
+          enum:
+            - CNY
+          example: CNY
+        updatedAt:
+          $ref: '#/components/schemas/LocalDateTime'
+    BookingSettingsResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/BookingSettings'
+    UpdateBookingSettingsRequest:
+      type: object
+      required:
+        - capacityPerSession
+        - registrationFee
+      properties:
+        capacityPerSession:
+          type: integer
+          minimum: 1
+          example: 30
+        registrationFee:
+          type: number
+          minimum: 0.01
+          description: 最低 0.01 元，最多 8 位整数和 2 位小数。
+          example: 12
+    DoctorAccountItem:
+      type: object
+      required:
+        - hospitalId
+        - hospitalName
+        - departmentId
+        - departmentName
+        - doctorId
+        - doctorNo
+        - doctorName
+        - userId
+        - email
+        - bindingStatus
+        - passwordHint
+      properties:
+        hospitalId:
+          type: string
+          example: '1'
+        hospitalName:
+          type: string
+          example: 市中心医院
+        departmentId:
+          type: string
+          example: '11'
+        departmentName:
+          type: string
+          example: 心内科
+        doctorId:
+          type: string
+          example: '101'
+        doctorNo:
+          type: string
+          example: DOC000101
+        doctorName:
+          type: string
+          example: 李明
+        userId:
+          type: string
+          nullable: true
+          example: '12'
+        email:
+          type: string
+          format: email
+          nullable: true
+          example: test-doctor-001@example.local
+        bindingStatus:
+          type: string
+          enum:
+            - BOUND
+            - UNBOUND
+          example: BOUND
+        passwordHint:
+          type: string
+          example: 初始密码见 .env.test 的 LOCAL_SEED_PASSWORD
+    DoctorAccountList:
+      type: object
+      required:
+        - environment
+        - items
+      properties:
+        environment:
+          type: string
+          example: test
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DoctorAccountItem'
+    DoctorAccountListResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/DoctorAccountList'
+    BindDoctorAccountRequest:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          description: 待绑定账号 ID，JSON 中按字符串传递。
+          example: '12'
+    DoctorAccountBinding:
+      type: object
+      required:
+        - doctorId
+        - userId
+      properties:
+        doctorId:
+          type: string
+          example: '101'
+        userId:
+          type: string
+          example: '12'
+    DoctorAccountBindingResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/DoctorAccountBinding'
   responses:
     ValidationError:
       description: 请求参数不合法。
@@ -678,8 +2213,114 @@ components:
             code: 4001
             message: 请求的资源不存在
             data: null
+    PatientDocumentExists:
+      description: 该证件已登记为当前账号的就诊人。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResult'
+          example:
+            code: 4101
+            message: 该证件已登记为就诊人
+            data: null
+    Forbidden:
+      description: 没有权限执行此操作。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResult'
+          example:
+            code: 2002
+            message: 没有权限执行此操作
+            data: null
+    InternalError:
+      description: 服务暂时不可用。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResult'
+          example:
+            code: 1002
+            message: 服务暂时不可用
+            data: null
+    CatalogResourceInUse:
+      description: 医疗目录资源仍被下级资源引用，不能删除。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResult'
+          example:
+            code: 4402
+            message: 该资源仍被下级资源引用，不能删除
+            data: null
+    DepartmentNameExists:
+      description: 同一医院已存在该科室。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResult'
+          example:
+            code: 4401
+            message: 同一医院已存在该科室
+            data: null
+    DoctorAccountAlreadyBound:
+      description: 医生档案或账号已绑定，不支持换绑。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResult'
+          example:
+            code: 4501
+            message: 医生档案或账号已绑定，不支持换绑
+            data: null
+  parameters:
+    PatientId:
+      name: id
+      in: path
+      required: true
+      description: 就诊人 ID。
+      schema:
+        type: integer
+        format: int64
+        example: 201
+    HospitalId:
+      name: hospitalId
+      in: path
+      required: true
+      description: 医院 ID。
+      schema:
+        type: integer
+        format: int64
+        example: 1
+    DepartmentId:
+      name: departmentId
+      in: path
+      required: true
+      description: 科室 ID。
+      schema:
+        type: integer
+        format: int64
+        example: 11
+    DoctorId:
+      name: doctorId
+      in: path
+      required: true
+      description: 医生档案 ID。
+      schema:
+        type: integer
+        format: int64
+        example: 101
 x-tagGroups:
   - name: 账号与用户
     tags:
       - Auth
       - User
+  - name: 就诊人
+    tags:
+      - Patient
+  - name: 医疗目录
+    tags:
+      - Catalog
+      - AdminCatalog
+      - BookingSettings
+      - DoctorAccount

@@ -1,6 +1,6 @@
 # REST API
 
-> 认证、用户与头像接口已提供 [OpenAPI 契约试点](openapi/README.md)。本节的字段表与示例用于过渡，后续以 OpenAPI 为准；其他模块仍在本文维护。
+> 认证、用户、头像、就诊人和医疗目录接口已提供 [OpenAPI 契约](openapi/README.md)。对应章节的字段表与示例用于过渡，后续以 OpenAPI 为准；预约、就诊、通知等模块仍在本文维护。
 
 本文定义当前接口。业务规则见[业务流程](business-flow.md)。
 
@@ -54,6 +54,8 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 
 ## 就诊人管理
 
+> OpenAPI：`Patient` Tag。字段、Schema、状态码和示例以 [OpenAPI](openapi/README.md) 为准。
+
 所有接口只操作当前账号的就诊人，不接受客户端指定归属账号。就诊人 ID 与账号用户 ID 不同。
 
 | 方法与路径 | 请求 | 成功响应 |
@@ -83,6 +85,8 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 就诊人对象为 `id`、`name`、`documentType`、`documentNoMasked`、`contactPhone`、`contactEmail`、`enabled`、`createdAt`、`updatedAt`。
 
 ## 目录与场次
+
+> OpenAPI：`Catalog` Tag。字段、Schema 和示例以 [OpenAPI](openapi/README.md) 为准。
 
 | 方法与路径 | 用途 | 权限 |
 | --- | --- | --- |
@@ -221,6 +225,8 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 
 ## 管理员医院、科室与医生目录
 
+> OpenAPI：`AdminCatalog` Tag。字段、Schema 和示例以 [OpenAPI](openapi/README.md) 为准。
+
 以下九个接口都要求登录且具有 `ADMIN` 角色；普通用户返回 `403 / 2002`。
 
 | 方法与路径 | 请求字段 | 成功响应 |
@@ -249,6 +255,8 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 
 ## 管理员统一预约设置
 
+> OpenAPI：`BookingSettings` Tag。字段、Schema 和示例以 [OpenAPI](openapi/README.md) 为准。
+
 | 方法与路径 | 用途 |
 | --- | --- |
 | `GET /api/v1/admin/booking-settings` | 查询当前设置 |
@@ -266,6 +274,8 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 两个接口均要求 `ADMIN`，返回 **200**。响应为 `capacityPerSession`、`registrationFee`（字符串）、`currency`、`updatedAt`。PUT 的两个字段必填，容量为正整数，费用最低为 0.01 元，最多八位整数和两位小数。非法输入返回 `400 / 1001`。[设置生效范围](business-flow.md#场次设置与库存)
 
 ## 管理员医生账号
+
+> OpenAPI：`DoctorAccount` Tag。字段、Schema 和示例以 [OpenAPI](openapi/README.md) 为准。
 
 ### 管理员医生账号查询
 

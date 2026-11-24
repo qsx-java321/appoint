@@ -1,0 +1,314 @@
+adminHospitals:
+  post:
+    tags: [AdminCatalog]
+    operationId: createHospital
+    summary: 新增医院
+    description: 需要 ADMIN 角色。名称、地址去除首尾空白后不能为空，上限分别为 100、200 字符。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/CreateHospitalRequest'
+          example:
+            name: 市中心医院
+            address: 人民路 100 号
+    responses:
+      '201':
+        description: 医院已创建
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/AdminHospitalResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "1"
+                name: 市中心医院
+                address: 人民路 100 号
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+adminHospital:
+  parameters:
+    - $ref: '../components/parameters.yaml#/HospitalId'
+  patch:
+    tags: [AdminCatalog]
+    operationId: updateHospital
+    summary: 修改医院
+    description: 需要 ADMIN 角色。至少提供 name、address 中的一个非 null 字段；null 表示保留原值。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/UpdateHospitalRequest'
+          example:
+            address: 人民路 120 号
+    responses:
+      '200':
+        description: 更新后的医院
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/AdminHospitalResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "1"
+                name: 市中心医院
+                address: 人民路 120 号
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  delete:
+    tags: [AdminCatalog]
+    operationId: deleteHospital
+    summary: 删除医院
+    description: 需要 ADMIN 角色。医院仍有科室或数据库引用阻止删除时返回 409 / 4402，不级联删除。
+    responses:
+      '200':
+        description: 医院已删除
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/EmptyResult'
+            example:
+              code: 0
+              message: success
+              data: null
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/CatalogResourceInUse'
+
+adminHospitalDepartments:
+  parameters:
+    - $ref: '../components/parameters.yaml#/HospitalId'
+  post:
+    tags: [AdminCatalog]
+    operationId: createDepartment
+    summary: 新增科室
+    description: 需要 ADMIN 角色。医院不存在返回 404 / 4001；同医院科室名称重复返回 409 / 4401。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/CreateDepartmentRequest'
+          example:
+            name: 心内科
+    responses:
+      '201':
+        description: 科室已创建
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/AdminDepartmentResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "11"
+                hospitalId: "1"
+                name: 心内科
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/DepartmentNameExists'
+
+adminDepartment:
+  parameters:
+    - $ref: '../components/parameters.yaml#/DepartmentId'
+  patch:
+    tags: [AdminCatalog]
+    operationId: updateDepartment
+    summary: 修改科室
+    description: 需要 ADMIN 角色。name 必填；同医院名称重复返回 409 / 4401。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/UpdateDepartmentRequest'
+          example:
+            name: 心血管内科
+    responses:
+      '200':
+        description: 更新后的科室
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/AdminDepartmentResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "11"
+                hospitalId: "1"
+                name: 心血管内科
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/DepartmentNameExists'
+  delete:
+    tags: [AdminCatalog]
+    operationId: deleteDepartment
+    summary: 删除科室
+    description: 需要 ADMIN 角色。科室仍有医生或数据库引用阻止删除时返回 409 / 4402。
+    responses:
+      '200':
+        description: 科室已删除
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/EmptyResult'
+            example:
+              code: 0
+              message: success
+              data: null
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/CatalogResourceInUse'
+
+adminDepartmentDoctors:
+  parameters:
+    - $ref: '../components/parameters.yaml#/DepartmentId'
+  post:
+    tags: [AdminCatalog]
+    operationId: createDoctor
+    summary: 新增医生档案
+    description: 需要 ADMIN 角色。科室不存在返回 404 / 4001；医生编号由系统生成。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/CreateDoctorRequest'
+          example:
+            name: 李明
+            title: 主任医师
+            introduction: 擅长心血管常见病诊治。
+    responses:
+      '201':
+        description: 医生档案已创建
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/AdminDoctorResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "101"
+                doctorNo: DOC000101
+                departmentId: "11"
+                name: 李明
+                title: 主任医师
+                introduction: 擅长心血管常见病诊治。
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+adminDoctor:
+  parameters:
+    - $ref: '../components/parameters.yaml#/DoctorId'
+  patch:
+    tags: [AdminCatalog]
+    operationId: updateDoctor
+    summary: 修改医生档案
+    description: 需要 ADMIN 角色。至少提供 name、title、introduction 中的一个非 null 字段；null 表示保留原值，不支持调整所属科室或医生编号。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/UpdateDoctorProfileRequest'
+          example:
+            title: 副主任医师
+    responses:
+      '200':
+        description: 更新后的医生档案
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/AdminDoctorResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "101"
+                doctorNo: DOC000101
+                departmentId: "11"
+                name: 李明
+                title: 副主任医师
+                introduction: 擅长心血管常见病诊治。
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  delete:
+    tags: [AdminCatalog]
+    operationId: deleteDoctor
+    summary: 删除医生档案
+    description: 需要 ADMIN 角色。医生仍有关联场次或数据库引用阻止删除时返回 409 / 4402，不级联删除业务数据。
+    responses:
+      '200':
+        description: 医生档案已删除
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/EmptyResult'
+            example:
+              code: 0
+              message: success
+              data: null
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/CatalogResourceInUse'

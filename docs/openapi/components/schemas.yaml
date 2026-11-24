@@ -189,3 +189,618 @@ AvatarImage:
   type: string
   format: binary
   description: 头像图片字节。
+
+LocalDate:
+  type: string
+  format: date
+  description: 业务日期，格式 yyyy-MM-dd。
+  example: 2026-11-14
+
+LocalTime:
+  type: string
+  description: 时间，格式 HH:mm:ss。
+  example: "08:00:00"
+
+LocalDateTime:
+  type: string
+  description: 业务本地时间，Asia/Shanghai，格式 yyyy-MM-ddTHH:mm:ss，不带时区偏移。
+  example: 2026-11-14T09:00:00
+
+MoneyString:
+  type: string
+  description: 金额字符串，保留两位小数。
+  example: "10.00"
+
+Patient:
+  type: object
+  description: 就诊人资料。证件号只返回脱敏值。
+  required: [id, name, documentType, documentNoMasked, contactPhone, contactEmail, enabled, createdAt, updatedAt]
+  properties:
+    id:
+      type: string
+      example: "201"
+    name:
+      type: string
+      maxLength: 64
+      example: 张小明
+    documentType:
+      type: string
+      enum: [RESIDENT_ID_CARD]
+      example: RESIDENT_ID_CARD
+    documentNoMasked:
+      type: string
+      description: 脱敏证件号，不返回原文。
+      example: 1101**********002X
+    contactPhone:
+      type: string
+      example: "13800138000"
+    contactEmail:
+      type: string
+      format: email
+      example: patient@example.com
+    enabled:
+      type: boolean
+      example: true
+    createdAt:
+      $ref: '#/LocalDateTime'
+    updatedAt:
+      $ref: '#/LocalDateTime'
+
+PatientCreateRequest:
+  type: object
+  required: [name, documentType, documentNo, contactPhone, contactEmail]
+  properties:
+    name:
+      type: string
+      maxLength: 64
+      example: 张小明
+    documentType:
+      type: string
+      enum: [RESIDENT_ID_CARD]
+      example: RESIDENT_ID_CARD
+    documentNo:
+      type: string
+      maxLength: 32
+      description: 18 位居民身份证号，服务端校验并转大写。
+      example: 11010519491231002X
+    contactPhone:
+      type: string
+      maxLength: 32
+      example: "13800138000"
+    contactEmail:
+      type: string
+      format: email
+      maxLength: 120
+      example: patient@example.com
+
+PatientUpdateRequest:
+  type: object
+  description: 缺省或 null 的字段保留原值；提供的字段重新校验。
+  properties:
+    name:
+      type: string
+      maxLength: 64
+    documentType:
+      type: string
+      enum: [RESIDENT_ID_CARD]
+    documentNo:
+      type: string
+      maxLength: 32
+      description: 18 位居民身份证号。
+    contactPhone:
+      type: string
+      maxLength: 32
+    contactEmail:
+      type: string
+      format: email
+      maxLength: 120
+
+PatientStatusRequest:
+  type: object
+  required: [enabled]
+  properties:
+    enabled:
+      type: boolean
+      example: false
+
+PatientResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/Patient'
+
+PatientListResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      type: array
+      items:
+        $ref: '#/Patient'
+
+Hospital:
+  type: object
+  required: [id, name, address]
+  properties:
+    id:
+      type: string
+      example: "1"
+    name:
+      type: string
+      example: 市中心医院
+    address:
+      type: string
+      example: 人民路 100 号
+
+Department:
+  type: object
+  required: [id, name]
+  properties:
+    id:
+      type: string
+      example: "11"
+    name:
+      type: string
+      example: 心内科
+
+Doctor:
+  type: object
+  required: [id, doctorNo, name, title, introduction]
+  properties:
+    id:
+      type: string
+      example: "101"
+    doctorNo:
+      type: string
+      example: DOC000101
+    name:
+      type: string
+      example: 李明
+    title:
+      type: string
+      example: 主任医师
+    introduction:
+      type: string
+      nullable: true
+      example: 擅长心血管常见病诊治。
+
+Schedule:
+  type: object
+  description: 场次响应。单次查询返回今天、明天、后天共 12 项。
+  required: [doctorId, doctorNo, appointmentDate, sessionType, startTime, endTime, totalCapacity, availableCapacity, registrationFee, feeCurrency, bookable, bookingClosesAt, availability, serverTime]
+  properties:
+    doctorId:
+      type: string
+      example: "101"
+    doctorNo:
+      type: string
+      example: DOC000101
+    appointmentDate:
+      $ref: '#/LocalDate'
+    sessionType:
+      type: string
+      enum: [MORNING_FIRST, MORNING_SECOND, AFTERNOON_FIRST, AFTERNOON_SECOND]
+      example: MORNING_FIRST
+    startTime:
+      $ref: '#/LocalTime'
+    endTime:
+      $ref: '#/LocalTime'
+    totalCapacity:
+      type: integer
+      example: 20
+    availableCapacity:
+      type: integer
+      example: 20
+    registrationFee:
+      $ref: '#/MoneyString'
+    feeCurrency:
+      type: string
+      enum: [CNY]
+      example: CNY
+    bookable:
+      type: boolean
+      example: true
+    bookingClosesAt:
+      $ref: '#/LocalDateTime'
+    availability:
+      type: string
+      enum: [AVAILABLE, FULL, STARTED, CUTOFF_REACHED]
+      example: AVAILABLE
+    serverTime:
+      $ref: '#/LocalDateTime'
+
+HospitalListResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      type: array
+      items:
+        $ref: '#/Hospital'
+
+DepartmentListResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      type: array
+      items:
+        $ref: '#/Department'
+
+DoctorListResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      type: array
+      items:
+        $ref: '#/Doctor'
+
+ScheduleListResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      type: array
+      items:
+        $ref: '#/Schedule'
+
+AdminHospital:
+  type: object
+  required: [id, name, address]
+  properties:
+    id:
+      type: string
+      example: "1"
+    name:
+      type: string
+      example: 市中心医院
+    address:
+      type: string
+      example: 人民路 100 号
+
+AdminDepartment:
+  type: object
+  required: [id, hospitalId, name]
+  properties:
+    id:
+      type: string
+      example: "11"
+    hospitalId:
+      type: string
+      example: "1"
+    name:
+      type: string
+      example: 心内科
+
+AdminDoctor:
+  type: object
+  required: [id, doctorNo, departmentId, name, title, introduction]
+  properties:
+    id:
+      type: string
+      example: "101"
+    doctorNo:
+      type: string
+      example: DOC000101
+    departmentId:
+      type: string
+      example: "11"
+    name:
+      type: string
+      example: 李明
+    title:
+      type: string
+      example: 主任医师
+    introduction:
+      type: string
+      nullable: true
+      example: 擅长心血管常见病诊治。
+
+CreateHospitalRequest:
+  type: object
+  required: [name, address]
+  properties:
+    name:
+      type: string
+      maxLength: 100
+      example: 市中心医院
+    address:
+      type: string
+      maxLength: 200
+      example: 人民路 100 号
+
+UpdateHospitalRequest:
+  type: object
+  description: 至少提供 name、address 中的一个非 null 字段。
+  properties:
+    name:
+      type: string
+      maxLength: 100
+    address:
+      type: string
+      maxLength: 200
+
+CreateDepartmentRequest:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+      maxLength: 100
+      example: 心内科
+
+UpdateDepartmentRequest:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+      maxLength: 100
+      example: 心内科
+
+CreateDoctorRequest:
+  type: object
+  required: [name, title]
+  properties:
+    name:
+      type: string
+      maxLength: 64
+      example: 李明
+    title:
+      type: string
+      maxLength: 64
+      example: 主任医师
+    introduction:
+      type: string
+      maxLength: 500
+      description: 可选；提供时不能为纯空白。
+      example: 擅长心血管常见病诊治。
+
+UpdateDoctorProfileRequest:
+  type: object
+  description: 至少提供 name、title、introduction 中的一个非 null 字段；null 表示保留原值。
+  properties:
+    name:
+      type: string
+      maxLength: 64
+    title:
+      type: string
+      maxLength: 64
+    introduction:
+      type: string
+      maxLength: 500
+
+AdminHospitalResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/AdminHospital'
+
+AdminDepartmentResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/AdminDepartment'
+
+AdminDoctorResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/AdminDoctor'
+
+EmptyResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      type: object
+      nullable: true
+      example: null
+
+BookingSettings:
+  type: object
+  required: [capacityPerSession, registrationFee, currency, updatedAt]
+  properties:
+    capacityPerSession:
+      type: integer
+      example: 20
+    registrationFee:
+      $ref: '#/MoneyString'
+    currency:
+      type: string
+      enum: [CNY]
+      example: CNY
+    updatedAt:
+      $ref: '#/LocalDateTime'
+
+UpdateBookingSettingsRequest:
+  type: object
+  required: [capacityPerSession, registrationFee]
+  properties:
+    capacityPerSession:
+      type: integer
+      minimum: 1
+      example: 30
+    registrationFee:
+      type: number
+      minimum: 0.01
+      description: 最低 0.01 元，最多 8 位整数和 2 位小数。
+      example: 12.00
+
+BookingSettingsResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/BookingSettings'
+
+DoctorAccountItem:
+  type: object
+  required: [hospitalId, hospitalName, departmentId, departmentName, doctorId, doctorNo, doctorName, userId, email, bindingStatus, passwordHint]
+  properties:
+    hospitalId:
+      type: string
+      example: "1"
+    hospitalName:
+      type: string
+      example: 市中心医院
+    departmentId:
+      type: string
+      example: "11"
+    departmentName:
+      type: string
+      example: 心内科
+    doctorId:
+      type: string
+      example: "101"
+    doctorNo:
+      type: string
+      example: DOC000101
+    doctorName:
+      type: string
+      example: 李明
+    userId:
+      type: string
+      nullable: true
+      example: "12"
+    email:
+      type: string
+      format: email
+      nullable: true
+      example: test-doctor-001@example.local
+    bindingStatus:
+      type: string
+      enum: [BOUND, UNBOUND]
+      example: BOUND
+    passwordHint:
+      type: string
+      example: 初始密码见 .env.test 的 LOCAL_SEED_PASSWORD
+
+DoctorAccountList:
+  type: object
+  required: [environment, items]
+  properties:
+    environment:
+      type: string
+      example: test
+    items:
+      type: array
+      items:
+        $ref: '#/DoctorAccountItem'
+
+DoctorAccountListResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/DoctorAccountList'
+
+BindDoctorAccountRequest:
+  type: object
+  required: [userId]
+  properties:
+    userId:
+      type: string
+      description: 待绑定账号 ID，JSON 中按字符串传递。
+      example: "12"
+
+DoctorAccountBinding:
+  type: object
+  required: [doctorId, userId]
+  properties:
+    doctorId:
+      type: string
+      example: "101"
+    userId:
+      type: string
+      example: "12"
+
+DoctorAccountBindingResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/DoctorAccountBinding'

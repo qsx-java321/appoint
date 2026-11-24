@@ -6,13 +6,18 @@ info:
   license:
     name: UNLICENSED
   description: |
-    认证、用户与头像接口的 OpenAPI 契约试点。
+    认证、用户、头像、就诊人和医疗目录接口的 OpenAPI 契约。
 
     通用约定、业务规则和错误码见 [REST API 文档](../api.md)。
     当前契约覆盖：
 
     - Auth：注册验证码、验码、注册、登录
     - User：当前用户、上传头像、删除头像、读取头像
+    - Patient：就诊人列表、详情、新增、修改、启停
+    - Catalog：医院、科室、医生、场次查询
+    - AdminCatalog：医院、科室、医生档案管理
+    - BookingSettings：统一预约设置
+    - DoctorAccount：医生账号查询与首次绑定
 
     本地环境通过 `X-Appoint-Environment` 标识 demo/dev/test；直接调用后端时可省略。
     业务 API 使用统一响应结构 `{ code, message, data }`，错误时 `data=null`。
@@ -26,10 +31,24 @@ tags:
     description: 注册与登录
   - name: User
     description: 当前用户与头像
+  - name: Patient
+    description: 就诊人管理
+  - name: Catalog
+    description: 登录用户查询医院、科室、医生和场次
+  - name: AdminCatalog
+    description: 管理员维护医院、科室和医生档案
+  - name: BookingSettings
+    description: 管理员统一预约设置
+  - name: DoctorAccount
+    description: 管理员查询和首次绑定医生账号
 
 x-tagGroups:
   - name: 账号与用户
     tags: [Auth, User]
+  - name: 就诊人
+    tags: [Patient]
+  - name: 医疗目录
+    tags: [Catalog, AdminCatalog, BookingSettings, DoctorAccount]
 
 security:
   - bearerAuth: []
@@ -49,6 +68,38 @@ paths:
     $ref: './paths/users.yaml#/meAvatar'
   /users/{id}/avatar:
     $ref: './paths/users.yaml#/getAvatar'
+  /patients:
+    $ref: './paths/patients.yaml#/patients'
+  /patients/{id}:
+    $ref: './paths/patients.yaml#/patient'
+  /patients/{id}/status:
+    $ref: './paths/patients.yaml#/patientStatus'
+  /hospitals:
+    $ref: './paths/catalog.yaml#/hospitals'
+  /hospitals/{hospitalId}/departments:
+    $ref: './paths/catalog.yaml#/hospitalDepartments'
+  /departments/{departmentId}/doctors:
+    $ref: './paths/catalog.yaml#/departmentDoctors'
+  /doctors/{doctorId}/schedules:
+    $ref: './paths/catalog.yaml#/doctorSchedules'
+  /admin/hospitals:
+    $ref: './paths/admin-catalog.yaml#/adminHospitals'
+  /admin/hospitals/{hospitalId}:
+    $ref: './paths/admin-catalog.yaml#/adminHospital'
+  /admin/hospitals/{hospitalId}/departments:
+    $ref: './paths/admin-catalog.yaml#/adminHospitalDepartments'
+  /admin/departments/{departmentId}:
+    $ref: './paths/admin-catalog.yaml#/adminDepartment'
+  /admin/departments/{departmentId}/doctors:
+    $ref: './paths/admin-catalog.yaml#/adminDepartmentDoctors'
+  /admin/doctors/{doctorId}:
+    $ref: './paths/admin-catalog.yaml#/adminDoctor'
+  /admin/booking-settings:
+    $ref: './paths/booking-settings.yaml#/adminBookingSettings'
+  /admin/doctor-accounts:
+    $ref: './paths/doctor-accounts.yaml#/adminDoctorAccounts'
+  /admin/doctors/{doctorId}/account:
+    $ref: './paths/doctor-accounts.yaml#/adminDoctorAccount'
 
 components:
   securitySchemes:

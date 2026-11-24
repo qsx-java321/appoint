@@ -1,0 +1,199 @@
+patients:
+  post:
+    tags: [Patient]
+    operationId: createPatient
+    summary: 新增就诊人
+    description: |
+      为当前登录账号新增就诊人，初始 `enabled=true`。
+      证件类型目前只支持 `RESIDENT_ID_CARD`，证件号会去除首尾空白并转大写后校验。
+      同一账号下相同证件重复登记返回 409 / 4101。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/PatientCreateRequest'
+          example:
+            name: 张小明
+            documentType: RESIDENT_ID_CARD
+            documentNo: 11010519491231002X
+            contactPhone: "13800138000"
+            contactEmail: patient@example.com
+    responses:
+      '201':
+        description: 就诊人已创建
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/PatientResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "201"
+                name: 张小明
+                documentType: RESIDENT_ID_CARD
+                documentNoMasked: 1101**********002X
+                contactPhone: "13800138000"
+                contactEmail: patient@example.com
+                enabled: true
+                createdAt: 2026-11-14T09:00:00
+                updatedAt: 2026-11-14T09:00:00
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '409':
+        $ref: '../components/responses.yaml#/PatientDocumentExists'
+  get:
+    tags: [Patient]
+    operationId: listPatients
+    summary: 查询本人就诊人
+    description: 只返回当前登录账号的就诊人；没有数据时返回空数组。
+    responses:
+      '200':
+        description: 当前账号的就诊人列表
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/PatientListResult'
+            example:
+              code: 0
+              message: success
+              data:
+                - id: "201"
+                  name: 张小明
+                  documentType: RESIDENT_ID_CARD
+                  documentNoMasked: 1101**********002X
+                  contactPhone: "13800138000"
+                  contactEmail: patient@example.com
+                  enabled: true
+                  createdAt: 2026-11-14T09:00:00
+                  updatedAt: 2026-11-14T09:00:00
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+
+patient:
+  parameters:
+    - $ref: '../components/parameters.yaml#/PatientId'
+  get:
+    tags: [Patient]
+    operationId: getPatient
+    summary: 查询本人就诊人
+    description: 只能读取当前账号下的就诊人；其他账号的就诊人返回 403 / 2002。
+    responses:
+      '200':
+        description: 就诊人详情
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/PatientResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "201"
+                name: 张小明
+                documentType: RESIDENT_ID_CARD
+                documentNoMasked: 1101**********002X
+                contactPhone: "13800138000"
+                contactEmail: patient@example.com
+                enabled: true
+                createdAt: 2026-11-14T09:00:00
+                updatedAt: 2026-11-14T09:00:00
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  patch:
+    tags: [Patient]
+    operationId: updatePatient
+    summary: 修改本人就诊人
+    description: |
+      缺省或 null 的字段保留原值；提供的字段重新校验。
+      证件号变更后仍需满足 18 位居民身份证校验；同账号重复证件返回 409 / 4101。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/PatientUpdateRequest'
+          example:
+            contactPhone: "13900139000"
+    responses:
+      '200':
+        description: 更新后的就诊人
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/PatientResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "201"
+                name: 张小明
+                documentType: RESIDENT_ID_CARD
+                documentNoMasked: 1101**********002X
+                contactPhone: "13900139000"
+                contactEmail: patient@example.com
+                enabled: true
+                createdAt: 2026-11-14T09:00:00
+                updatedAt: 2026-11-14T10:00:00
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/PatientDocumentExists'
+
+patientStatus:
+  parameters:
+    - $ref: '../components/parameters.yaml#/PatientId'
+  patch:
+    tags: [Patient]
+    operationId: updatePatientStatus
+    summary: 启用或停用本人就诊人
+    description: 停用只影响后续下单，已创建预约保留原快照；重复设置相同状态仍返回当前资料。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/PatientStatusRequest'
+          example:
+            enabled: false
+    responses:
+      '200':
+        description: 更新后的就诊人
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/PatientResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "201"
+                name: 张小明
+                documentType: RESIDENT_ID_CARD
+                documentNoMasked: 1101**********002X
+                contactPhone: "13900139000"
+                contactEmail: patient@example.com
+                enabled: false
+                createdAt: 2026-11-14T09:00:00
+                updatedAt: 2026-11-14T10:05:00
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'

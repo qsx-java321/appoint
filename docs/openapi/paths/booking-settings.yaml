@@ -1,0 +1,66 @@
+adminBookingSettings:
+  get:
+    tags: [BookingSettings]
+    operationId: getBookingSettings
+    summary: 查询统一预约设置
+    description: 需要 ADMIN 角色。返回当前每场容量、挂号费和币种。
+    responses:
+      '200':
+        description: 当前预约设置
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/BookingSettingsResult'
+            example:
+              code: 0
+              message: success
+              data:
+                capacityPerSession: 20
+                registrationFee: "10.00"
+                currency: CNY
+                updatedAt: 2026-11-14T09:00:00
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  put:
+    tags: [BookingSettings]
+    operationId: updateBookingSettings
+    summary: 更新统一预约设置
+    description: |
+      需要 ADMIN 角色。两个字段必填：容量为正整数，费用最低 0.01 元，最多 8 位整数和 2 位小数。
+      更新后用于后续新生成的场次，已存在的场次保留创建时的容量和费用快照。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/UpdateBookingSettingsRequest'
+          example:
+            capacityPerSession: 30
+            registrationFee: 12.00
+    responses:
+      '200':
+        description: 更新后的预约设置
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/BookingSettingsResult'
+            example:
+              code: 0
+              message: success
+              data:
+                capacityPerSession: 30
+                registrationFee: "12.00"
+                currency: CNY
+                updatedAt: 2026-11-14T10:00:00
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

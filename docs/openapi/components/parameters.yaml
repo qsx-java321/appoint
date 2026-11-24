@@ -1,0 +1,39 @@
+PatientId:
+  name: id
+  in: path
+  required: true
+  description: 就诊人 ID。
+  schema:
+    type: integer
+    format: int64
+    example: 201
+
+HospitalId:
+  name: hospitalId
+  in: path
+  required: true
+  description: 医院 ID。
+  schema:
+    type: integer
+    format: int64
+    example: 1
+
+DepartmentId:
+  name: departmentId
+  in: path
+  required: true
+  description: 科室 ID。
+  schema:
+    type: integer
+    format: int64
+    example: 11
+
+DoctorId:
+  name: doctorId
+  in: path
+  required: true
+  description: 医生档案 ID。
+  schema:
+    type: integer
+    format: int64
+    example: 101

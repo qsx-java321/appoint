@@ -107,3 +107,69 @@ NotFound:
         code: 4001
         message: 请求的资源不存在
         data: null
+
+Forbidden:
+  description: 没有权限执行此操作。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 2002
+        message: 没有权限执行此操作
+        data: null
+
+PatientDocumentExists:
+  description: 该证件已登记为当前账号的就诊人。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4101
+        message: 该证件已登记为就诊人
+        data: null
+
+DepartmentNameExists:
+  description: 同一医院已存在该科室。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4401
+        message: 同一医院已存在该科室
+        data: null
+
+CatalogResourceInUse:
+  description: 医疗目录资源仍被下级资源引用，不能删除。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4402
+        message: 该资源仍被下级资源引用，不能删除
+        data: null
+
+DoctorAccountAlreadyBound:
+  description: 医生档案或账号已绑定，不支持换绑。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4501
+        message: 医生档案或账号已绑定，不支持换绑
+        data: null
+
+InternalError:
+  description: 服务暂时不可用。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 1002
+        message: 服务暂时不可用
+        data: null

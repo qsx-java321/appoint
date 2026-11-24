@@ -1,0 +1,89 @@
+adminDoctorAccounts:
+  get:
+    tags: [DoctorAccount]
+    operationId: listDoctorAccounts
+    summary: 查询医生账号绑定情况
+    description: |
+      需要 ADMIN 角色。返回当前后端所连接环境的全部医生及实际账号绑定，按医院、科室、医生编号排序。
+      未绑定账号的医生也会返回；`passwordHint` 只说明密码来源，不包含密码或哈希。
+    responses:
+      '200':
+        description: 医生账号绑定列表
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/DoctorAccountListResult'
+            example:
+              code: 0
+              message: success
+              data:
+                environment: test
+                items:
+                  - hospitalId: "1"
+                    hospitalName: 市中心医院
+                    departmentId: "11"
+                    departmentName: 心内科
+                    doctorId: "101"
+                    doctorNo: DOC000101
+                    doctorName: 李明
+                    userId: "12"
+                    email: test-doctor-001@example.local
+                    bindingStatus: BOUND
+                    passwordHint: 初始密码见 .env.test 的 LOCAL_SEED_PASSWORD
+                  - hospitalId: "1"
+                    hospitalName: 市中心医院
+                    departmentId: "11"
+                    departmentName: 心内科
+                    doctorId: "102"
+                    doctorNo: DOC000102
+                    doctorName: 王芳
+                    userId: null
+                    email: null
+                    bindingStatus: UNBOUND
+                    passwordHint: 未绑定账号
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+adminDoctorAccount:
+  parameters:
+    - $ref: '../components/parameters.yaml#/DoctorId'
+  put:
+    tags: [DoctorAccount]
+    operationId: bindDoctorAccount
+    summary: 首次绑定医生账号
+    description: |
+      需要 ADMIN 角色。首次绑定同时授予账号 DOCTOR 角色，账号重新登录后可使用医生接口。
+      医生档案或账号已有绑定时返回 409 / 4501，包括对同一关系的重复绑定；当前接口不支持换绑。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/BindDoctorAccountRequest'
+          example:
+            userId: "12"
+    responses:
+      '200':
+        description: 绑定成功
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/DoctorAccountBindingResult'
+            example:
+              code: 0
+              message: success
+              data:
+                doctorId: "101"
+                userId: "12"
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/DoctorAccountAlreadyBound'

@@ -1,15 +1,20 @@
 # OpenAPI 契约
 
-认证、用户与头像接口的机器可读契约试点。业务规则、通用约定和错误码仍以 [REST API](../api.md) 为准。
+认证、用户、头像、就诊人和医疗目录接口的机器可读契约。业务规则、通用约定和错误码仍以 [REST API](../api.md) 为准。
 
 ## 当前覆盖
 
 | Tag | 接口 |
 | --- | --- |
-| `Auth` | `POST /auth/register/code`、`POST /auth/register/verify`、`POST /auth/register`、`POST /auth/login` |
-| `User` | `GET /users/me`、`PUT /users/me/avatar`、`DELETE /users/me/avatar`、`GET /users/{id}/avatar` |
+| `Auth` | 注册验证码、验码、注册、登录 |
+| `User` | 当前用户、上传/删除/读取头像 |
+| `Patient` | 就诊人列表、详情、新增、修改、启停 |
+| `Catalog` | 医院、科室、医生、场次查询 |
+| `AdminCatalog` | 医院、科室、医生档案管理 |
+| `BookingSettings` | 统一预约设置查询与更新 |
+| `DoctorAccount` | 医生账号查询与首次绑定 |
 
-其余模块暂时保留在 `docs/api.md`，后续按模块迁移。
+尚未迁移：预约/支付、到院签到/接诊、消息中心、本地环境识别、test 调时。这些模块暂时保留在 `docs/api.md`。
 
 ## 目录
 
@@ -18,10 +23,16 @@ docs/openapi/
 ├── openapi.yaml              # 入口：servers、tags、security、paths
 ├── paths/
 │   ├── auth.yaml             # 注册与登录
-│   └── users.yaml            # 当前用户与头像
+│   ├── users.yaml            # 当前用户与头像
+│   ├── patients.yaml         # 就诊人管理
+│   ├── catalog.yaml          # 医院、科室、医生、场次查询
+│   ├── admin-catalog.yaml    # 管理员目录管理
+│   ├── booking-settings.yaml # 统一预约设置
+│   └── doctor-accounts.yaml  # 医生账号查询与绑定
 ├── components/
-│   ├── schemas.yaml          # User、Result、请求/响应模型
-│   └── responses.yaml        # 通用错误响应
+│   ├── schemas.yaml          # User、Patient、Catalog、Result 等模型
+│   ├── responses.yaml        # 通用错误响应
+│   └── parameters.yaml       # 路径参数
 ├── preview.html              # Scalar 本地预览页
 └── dist/openapi.yaml         # bundle 产物，供 Apifox/Postman 导入
 ```

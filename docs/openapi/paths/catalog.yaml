@@ -1,0 +1,133 @@
+hospitals:
+  get:
+    tags: [Catalog]
+    operationId: listHospitals
+    summary: 查询医院列表
+    description: 返回当前环境的全部医院。未登录返回 401。
+    responses:
+      '200':
+        description: 医院列表
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/HospitalListResult'
+            example:
+              code: 0
+              message: success
+              data:
+                - id: "1"
+                  name: 市中心医院
+                  address: 人民路 100 号
+                - id: "2"
+                  name: 新区医院
+                  address: 健康路 88 号
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+
+hospitalDepartments:
+  parameters:
+    - $ref: '../components/parameters.yaml#/HospitalId'
+  get:
+    tags: [Catalog]
+    operationId: listDepartments
+    summary: 查询医院科室
+    description: 父级医院不存在或没有科室时返回空数组，不返回 404。
+    responses:
+      '200':
+        description: 科室列表
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/DepartmentListResult'
+            example:
+              code: 0
+              message: success
+              data:
+                - id: "11"
+                  name: 心内科
+                - id: "12"
+                  name: 神经内科
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+
+departmentDoctors:
+  parameters:
+    - $ref: '../components/parameters.yaml#/DepartmentId'
+  get:
+    tags: [Catalog]
+    operationId: listDoctors
+    summary: 查询科室医生
+    description: 父级科室不存在或没有医生时返回空数组，不返回 404。
+    responses:
+      '200':
+        description: 医生列表
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/DoctorListResult'
+            example:
+              code: 0
+              message: success
+              data:
+                - id: "101"
+                  doctorNo: DOC000101
+                  name: 李明
+                  title: 主任医师
+                  introduction: 擅长心血管常见病诊治。
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+
+doctorSchedules:
+  parameters:
+    - $ref: '../components/parameters.yaml#/DoctorId'
+  get:
+    tags: [Catalog]
+    operationId: listSchedules
+    summary: 查询医生场次
+    description: |
+      返回业务今天、明天、后天共 12 个场次，按日期和固定时段排列。
+      医生不存在时返回空数组。`availability` 按 `STARTED`、`CUTOFF_REACHED`、`FULL`、`AVAILABLE`
+      的顺序判定；`bookable` 仅在 `AVAILABLE` 时为真。同一响应 12 个场次共享 `serverTime`。
+    responses:
+      '200':
+        description: 场次列表
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/ScheduleListResult'
+            example:
+              code: 0
+              message: success
+              data:
+                - doctorId: "101"
+                  doctorNo: DOC000101
+                  appointmentDate: 2026-11-14
+                  sessionType: MORNING_FIRST
+                  startTime: "08:00:00"
+                  endTime: "10:00:00"
+                  totalCapacity: 20
+                  availableCapacity: 18
+                  registrationFee: "10.00"
+                  feeCurrency: CNY
+                  bookable: true
+                  bookingClosesAt: 2026-11-14T07:45:00
+                  availability: AVAILABLE
+                  serverTime: 2026-11-14T07:30:00
+                - doctorId: "101"
+                  doctorNo: DOC000101
+                  appointmentDate: 2026-11-14
+                  sessionType: MORNING_SECOND
+                  startTime: "10:30:00"
+                  endTime: "12:00:00"
+                  totalCapacity: 20
+                  availableCapacity: 20
+                  registrationFee: "10.00"
+                  feeCurrency: CNY
+                  bookable: true
+                  bookingClosesAt: 2026-11-14T10:15:00
+                  availability: AVAILABLE
+                  serverTime: 2026-11-14T07:30:00
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
