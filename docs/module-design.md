@@ -1,10 +1,10 @@
 # 模块设计
 
-项目采用模块化单体，一套 Spring Boot 后端提供 REST API，Vue 前端通过 `/api` 访问。MySQL 保存业务数据，Redis 用于目录缓存、注册验证和预约令牌，Mailpit 接收本地注册邮件。RabbitMQ 用于站内通知的异步投递；预约、支付、签到和接诊的业务写入仍在 MySQL 内完成。
+项目采用模块化单体，一套 Spring Boot 后端提供 REST API，Vue 前端通过 `/api` 访问。MySQL 保存业务数据，Redis 用于目录缓存、注册验证和预约令牌，Mailpit 接收本地注册邮件。RabbitMQ 用于站内通知的异步投递；预约、支付、签到和接诊的业务写入仍在 MySQL 内完成。SeaweedFS 通过 S3 兼容接口保存用户头像图片。
 
 | 模块 | 职责 |
 | --- | --- |
-| `auth`、`user`、`patient` | 邮箱注册、JWT 登录、角色和就诊人 |
+| `auth`、`user`、`patient` | 邮箱注册、JWT 登录、角色、就诊人和用户头像 |
 | `catalog` | 医疗目录、场次查询、统一预约设置和医生账号绑定 |
 | `appointment`、`payment` | 暂占与库存、预约凭证、支付单 |
 | `coordination` | 创建预约、付款确认、取消和过期的事务编排 |
@@ -19,6 +19,7 @@
 - `appointment_create_requests` 按账号记录幂等键和创建回执。`appointment_active_claims` 用唯一约束限制同场次同就诊人和同证件的有效占用。
 - `visit_records` 在签到时创建，一张预约至多一条，保存就诊进度和动作时间。
 - `notification_outbox_events` 保存待发布通知事件，按预约和通知类型唯一；`user_notifications` 保存消息中心已入库快照，同样按预约和通知类型唯一，另有事件 ID 唯一约束。
+- `users` 保存当前头像的 `avatar_key`、`avatar_content_type` 和 `avatar_updated_at`；图片内容不进入数据库。
 
 当前基线只保留现行业务状态：预约为 `PENDING_PAYMENT`、`CONFIRMED`、`CANCELLED`、`EXPIRED`，支付为 `UNPAID`、`PAID`、`CLOSED`。已退出的管理员手工排班、支付尝试/退款和历史支付通知结构不再保留；现行站内通知使用 V3 新增的 `notification_outbox_events`，不使用通用 Inbox 表。修改 V1 后需重置 dev/test 数据库，不再兼容旧迁移链数据。
 
@@ -47,6 +48,16 @@
 `appoint.notification.messaging-enabled` 控制拓扑声明、发布器和消费者。本地 `demo`、`dev`、`test` 与 `rabbit-it` 为 `true`；`regression` 和 `mysql-it` 为 `false`，避免自动化测试连接 Broker。每个环境使用自己的 RabbitMQ vhost，队列名不带环境前缀。
 
 通知模块只通过预约模块提供的快照端口读取预约单，不访问就诊人或目录当前表。[事件记录器](../src/main/java/com/qsx/appoint/notification/application/DefaultNotificationEventRecorder.java) · [Outbox发布器](../src/main/java/com/qsx/appoint/notification/application/NotificationOutboxPublisher.java) · [消费者](../src/main/java/com/qsx/appoint/notification/messaging/NotificationConsumer.java)
+
+## 头像存储
+
+浏览器只访问 Spring Boot。上传时后端校验 JPEG/PNG/WebP 的文件头、大小和尺寸，生成 `avatars/{userId}/{UUID}.{ext}` 对象键并写入 SeaweedFS 的 S3 接口；随后更新 `users.avatar_key`、`avatar_content_type`、`avatar_updated_at`。数据库更新失败时删除刚写入的新对象；成功后再尽力删除旧对象，删除失败只留下孤立文件，不回滚用户操作。
+
+读取接口 `GET /api/v1/users/{id}/avatar` 免登录，由后端从 SeaweedFS 取回图片并设置 `Content-Type`、`ETag` 和长期缓存头。数据库只保存对象键，不保存对象存储 URL，便于以后替换存储实现。
+
+`AvatarStorage` 是业务层依赖的端口，`SeaweedS3AvatarStorage` 用 AWS SDK v2 的 path-style S3 客户端访问本地 SeaweedFS。三套环境使用 `appoint-avatars-demo`、`appoint-avatars-dev`、`appoint-avatars-test` 独立 bucket。
+
+[头像服务](../src/main/java/com/qsx/appoint/user/service/impl/UserAvatarServiceImpl.java) · [S3适配器](../src/main/java/com/qsx/appoint/user/avatar/SeaweedS3AvatarStorage.java)
 
 ## 注册与缓存
 

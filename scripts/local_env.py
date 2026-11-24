@@ -117,8 +117,14 @@ def init():
 
 def clean_env(name):
     env = {key: value for key, value in os.environ.items()
-           if not key.startswith(('SPRING_', 'APPOINT_', 'DB_', 'MYSQL_', 'RABBITMQ_', 'REDIS_', 'SERVER_', 'JWT_', 'CATALOG_', 'MOCK_PAY_'))}
+           if not key.startswith(('SPRING_', 'APPOINT_', 'DB_', 'MYSQL_', 'RABBITMQ_', 'REDIS_', 'SERVER_', 'JWT_', 'CATALOG_', 'MOCK_PAY_', 'SEAWEEDFS_'))}
     env['SPRING_PROFILES_ACTIVE'] = name
+    compose = ROOT / 'compose.env'
+    if compose.is_file():
+        values = read_properties(compose)
+        for key in ('SEAWEEDFS_ACCESS_KEY', 'SEAWEEDFS_SECRET_KEY'):
+            if values.get(key):
+                env[key] = values[key]
     return env
 
 
@@ -271,7 +277,7 @@ def stop_groups(records, verify_owner):
 
 def start(name):
     require_idle()
-    run(COMPOSE + ['up', '-d', '--wait', 'rabbitmq'])
+    run(COMPOSE + ['up', '-d', '--wait', 'rabbitmq', 'seaweedfs'])
     processes = []
     records = {}
     launch_id = uuid.uuid4().hex

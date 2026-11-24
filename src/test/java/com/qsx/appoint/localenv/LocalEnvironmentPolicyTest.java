@@ -28,13 +28,17 @@ class LocalEnvironmentPolicyTest {
                 .withProperty("spring.rabbitmq.virtual-host","/appoint-"+name).withProperty("spring.rabbitmq.host","127.0.0.1")
                 .withProperty("spring.rabbitmq.username","appoint_"+name).withProperty("spring.rabbitmq.password","fixture")
                 .withProperty("spring.data.redis.host","127.0.0.1").withProperty("appoint.jwt.secret","fixture-"+name+"-a-distinct-long-secret-of-at-least-48-characters")
+                .withProperty("appoint.avatar.endpoint","http://127.0.0.1:8333")
+                .withProperty("appoint.avatar.bucket","appoint-avatars-"+name)
+                .withProperty("appoint.avatar.access-key","fixture").withProperty("appoint.avatar.secret-key","fixture")
                 .withProperty("appoint.local-environment.seed-password","fixture-password-123");
     }
     @Test void rejectsCrossEnvironmentDatabaseNamespaceVhostPortAndMixedProfilesBeforeAnyConnection() {
         for(String name:java.util.List.of("dev","test","demo")) {
             LocalEnvironmentPolicy.validate(valid(name),name,directory);
             for(var override:java.util.Map.of("spring.datasource.url","jdbc:mysql://127.0.0.1:3306/other",
-                    "appoint.catalog-cache.namespace","other","spring.rabbitmq.virtual-host","/other","server.port","8099").entrySet()) {
+                    "appoint.catalog-cache.namespace","other","spring.rabbitmq.virtual-host","/other","server.port","8099",
+                    "appoint.avatar.bucket","appoint-avatars-other","appoint.avatar.endpoint","http://127.0.0.1:8334").entrySet()) {
                 var env=valid(name).withProperty(override.getKey(),override.getValue());
                 assertThatThrownBy(()->LocalEnvironmentPolicy.validate(env,name,directory)).isInstanceOf(IllegalArgumentException.class);
             }
@@ -86,7 +90,8 @@ class LocalEnvironmentPolicyTest {
         assertThatThrownBy(() -> LocalEnvironmentPolicy.validate(env, "test", directory))
                 .isInstanceOf(IllegalStateException.class).hasMessage("环境JWT密钥必须独立");
         Files.delete(directory.resolve(".env.dev"));
-        for (String field : java.util.List.of("spring.datasource.password", "spring.rabbitmq.password", "appoint.jwt.secret")) {
+        for (String field : java.util.List.of("spring.datasource.password", "spring.rabbitmq.password", "appoint.jwt.secret",
+                "appoint.avatar.access-key", "appoint.avatar.secret-key")) {
             var invalid = valid("test").withProperty(field, "");
             assertThatThrownBy(() -> LocalEnvironmentPolicy.validate(invalid, "test", directory))
                     .isInstanceOf(IllegalArgumentException.class);

@@ -10,7 +10,7 @@
 { "code": 0, "message": "success", "data": {} }
 ```
 
-注册、登录和本地环境探测可免 Bearer Token。业务接口使用 Bearer Token，管理员接口同时要求 `ADMIN` 角色。
+注册、登录、用户头像读取和本地环境探测可免 Bearer Token。业务接口使用 Bearer Token，管理员接口同时要求 `ADMIN` 角色。
 
 ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建预约的 `amount` 和预约设置、场次的 `registrationFee` 为字符串，预约详情的 `amount` 为 JSON 数值。
 
@@ -28,9 +28,23 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 
 验证码是六位数字字符串，保留前导零。验证码与注册票据默认各有效五分钟，重发覆盖旧码，成功验码后签发票据，提交注册时消费票据。
 
-邮箱按去除首尾空白、转小写处理。注册密码为 8–64 字符。用户对象为 `id`、`email`、`roles`，注册授予 `USER`。
+邮箱按去除首尾空白、转小写处理。注册密码为 8–64 字符。用户对象为 `id`、`email`、`roles`、`avatarUrl`，注册授予 `USER`，未设置头像时 `avatarUrl=null`。
 
 登录返回 `accessToken`、`tokenType`（`Bearer`）、`expiresIn`（7200 秒）和 `user`。后续请求携带 `Authorization: Bearer <accessToken>`。角色变更后重新登录以取得新的权限。
+
+## 用户头像
+
+头像只操作当前登录账号，不需要客户端指定用户 ID。读取接口无需登录，替换和删除需要 Bearer Token。
+
+| 方法与路径 | 请求 | 成功结果 |
+| --- | --- | --- |
+| `PUT /api/v1/users/me/avatar` | `multipart/form-data`，文件字段 `file` | 200，更新后的用户对象 |
+| `DELETE /api/v1/users/me/avatar` | 无请求体 | 200，`avatarUrl=null` 的用户对象；重复删除仍为 200 |
+| `GET /api/v1/users/{id}/avatar?v={version}` | 无请求体，可免登录 | 200，图片字节；没有头像时 `404 / 4001` |
+
+`PUT` 只接受 2 MB 以内的 JPEG、PNG 或 WebP。服务端按文件头判定格式，并校验 JPEG/PNG 的宽高不超过 4096 像素；SVG、GIF 和伪装文件返回 `400 / 3101`。缺少 `file` 字段返回 `400 / 1001`。multipart 请求体上限为 4 MB，超过时返回 `400 / 3101`。存储暂时不可用返回 `503 / 3102`。
+
+设置头像后，用户对象的 `avatarUrl` 形如 `/api/v1/users/{id}/avatar?v={对象文件名}`，替换头像会改变 `v`。读取响应带长期 `Cache-Control` 和 `ETag`；请求携带匹配的 `If-None-Match` 时返回 `304`。头像读取只按用户 ID 返回当前图片，不判断角色；知道用户 ID 即可查看，不建议上传敏感图片。
 
 ## 就诊人管理
 
@@ -305,6 +319,8 @@ data为`environment`（当前环境名称）和`items`数组。每项字段如�
 | 注册验证码错误 | `400 / 3003` |
 | 注册验证码不存在或过期 | `400 / 3004` |
 | 注册票据无效、过期、已消费或邮箱不匹配 | `400 / 3005` |
+| 头像格式、大小或尺寸不合法 | `400 / 3101` |
+| 头像对象存储暂时不可用 | `503 / 3102` |
 | 普通用户访问管理员接口、访问他人就诊人或预约/支付 | `403 / 2002` |
 | 资源不存在 | `404 / 4001` |
 | 本账号重复登记就诊人证件 | `409 / 4101` |

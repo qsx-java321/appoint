@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, watch } from "vue";
+import { computed, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuth } from "./stores/auth";
 
@@ -11,6 +11,16 @@ const staff = computed(() => admin.value || route.path === "/doctor");
 const publicPage = computed(
   () => route.path === "/login" || route.path === "/register",
 );
+const avatarUrl = computed(
+  () => auth.profile?.avatarUrl || auth.session?.user.avatarUrl || "",
+);
+const avatarInitial = computed(
+  () => auth.session?.user.email.trim().charAt(0).toUpperCase() || "?",
+);
+const avatarFailed = ref(false);
+watch(avatarUrl, () => {
+  avatarFailed.value = false;
+});
 watch(
   () => route.fullPath,
   () => document.querySelector(".account-menu")?.removeAttribute("open"),
@@ -74,7 +84,24 @@ function logout() {
       >
     </nav>
     <details v-if="!publicPage && auth.authenticated" class="account-menu">
-      <summary>{{ auth.session?.user.email }}</summary>
+      <summary>
+        <img
+          v-if="avatarUrl && !avatarFailed"
+          class="menu-avatar"
+          :src="avatarUrl"
+          alt=""
+          width="28"
+          height="28"
+          @error="avatarFailed = true"
+        />
+        <span
+          v-else
+          class="menu-avatar menu-avatar-fallback"
+          aria-hidden="true"
+          >{{ avatarInitial }}</span
+        >
+        <span class="menu-email">{{ auth.session?.user.email }}</span>
+      </summary>
       <div class="menu-items">
         <RouterLink to="/account">个人信息</RouterLink>
         <RouterLink v-if="auth.hasRole('DOCTOR')" to="/doctor"

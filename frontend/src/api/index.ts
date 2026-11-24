@@ -24,6 +24,12 @@ export const api = {
       data: { email, password, signupTicket },
     }),
   me: () => request<T.User>("/users/me"),
+  uploadAvatar: (file: File) => {
+    const data = new FormData();
+    data.append("file", file);
+    return request<T.User>("/users/me/avatar", { method: "PUT", data });
+  },
+  removeAvatar: () => request<T.User>("/users/me/avatar", { method: "DELETE" }),
   hospitals: () => request<T.Hospital[]>("/hospitals"),
   departments: (hospital: string) =>
     request<T.Department[]>(`/hospitals/${id(hospital)}/departments`),

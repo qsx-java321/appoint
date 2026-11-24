@@ -33,7 +33,15 @@ public class UserServiceImpl implements UserService {
         if (user == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
-        return new UserResponse(user.getId(), user.getEmail(), getRoleCodes(userId));
+        return new UserResponse(user.getId(), user.getEmail(), getRoleCodes(userId), avatarUrl(user));
+    }
+
+    private String avatarUrl(User user) {
+        if (user.getAvatarKey() == null) {
+            return null;
+        }
+        String fileName = user.getAvatarKey().substring(user.getAvatarKey().lastIndexOf('/') + 1);
+        return "/api/v1/users/" + user.getId() + "/avatar?v=" + fileName;
     }
 
     @Override

@@ -32,6 +32,13 @@ export function writeSession(login: Login): Session {
   sessionStorage.setItem(key, JSON.stringify(session));
   return session;
 }
+export function updateSessionUser(user: User): Session | null {
+  const session = readSession();
+  if (!session) return null;
+  const next = { ...session, user };
+  sessionStorage.setItem(key, JSON.stringify(next));
+  return next;
+}
 export function clearSession(expectedToken?: string) {
   if (expectedToken && readSession()?.token !== expectedToken) return;
   sessionStorage.removeItem(key);

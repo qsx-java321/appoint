@@ -78,6 +78,23 @@ public class LocalEnvironmentPolicy implements EnvironmentPostProcessor, Ordered
             // URI异常可能带出完整URL及其中的凭据。
             throw new IllegalArgumentException("数据库连接格式不支持");
         }
+        String avatarEndpointValue = env.getProperty("appoint.avatar.endpoint");
+        String avatarBucket = env.getProperty("appoint.avatar.bucket");
+        if (avatarEndpointValue == null || avatarBucket == null) {
+            throw new IllegalArgumentException("缺少头像存储配置");
+        }
+        URI avatarEndpoint;
+        try {
+            avatarEndpoint = URI.create(avatarEndpointValue);
+        } catch (IllegalArgumentException error) {
+            throw new IllegalArgumentException("头像存储地址格式不支持");
+        }
+        if (!List.of("localhost", "127.0.0.1").contains(avatarEndpoint.getHost())
+                || (!isolated && avatarEndpoint.getPort() != 8333)
+                || (isolated && avatarEndpoint.getPort() == 8333)
+                || !("appoint-avatars-" + name).equals(avatarBucket)) {
+            throw new IllegalArgumentException("头像存储目标不匹配");
+        }
         if (uri.getUserInfo() != null || !("/" + db).equals(uri.getPath())
                 || !List.of("localhost", "127.0.0.1").contains(uri.getHost()) || (!isolated && uri.getPort() != 3306) || (isolated && uri.getPort() == 3306)
                 || (!isolated && actualPort != BACKEND_PORT)
@@ -91,7 +108,7 @@ public class LocalEnvironmentPolicy implements EnvironmentPostProcessor, Ordered
                 || (isolated && env.getProperty("spring.data.redis.port", Integer.class, 6379) == 6379)
                 || !"127.0.0.1".equals(env.getProperty("server.address"))) throw new IllegalArgumentException("环境目标不匹配");
         for (String field : List.of("spring.datasource.username", "spring.datasource.password", "spring.rabbitmq.username",
-                "spring.rabbitmq.password", "appoint.jwt.secret")) {
+                "spring.rabbitmq.password", "appoint.jwt.secret", "appoint.avatar.access-key", "appoint.avatar.secret-key")) {
             String value = env.getRequiredProperty(field);
             if (value.isBlank() || value.startsWith("replace-")) throw new IllegalArgumentException("缺少本地配置");
         }

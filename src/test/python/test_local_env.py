@@ -37,7 +37,7 @@ class LocalEnvironmentTest(unittest.TestCase):
             local_env.start('dev')
 
         require_idle.assert_called_once_with()
-        compose.assert_called_once_with(local_env.COMPOSE + ['up', '-d', '--wait', 'rabbitmq'])
+        compose.assert_called_once_with(local_env.COMPOSE + ['up', '-d', '--wait', 'rabbitmq', 'seaweedfs'])
         self.assertIn('--spring.profiles.active=dev', launch.call_args_list[0].args[0][-1])
         self.assertEqual(launch.call_args_list[1].args[0], ['npm', 'run', 'dev'])
         self.assertEqual([call.args[0] for call in wait_ready.call_args_list], [backend, frontend])
@@ -72,6 +72,19 @@ class LocalEnvironmentTest(unittest.TestCase):
                     self.assertNotEqual(result.returncode, 0)
                     self.assertIn('已有启停或维护操作正在执行', result.stderr)
                     self.assertFalse((root / f'.local-env/{environment}.json').exists())
+
+    def test_backend_environment_receives_seaweedfs_credentials_from_compose_file(self):
+        with tempfile.TemporaryDirectory() as root:
+            directory = Path(root)
+            (directory / 'compose.env').write_text(
+                'SEAWEEDFS_ACCESS_KEY=local-key\nSEAWEEDFS_SECRET_KEY=local-secret\n')
+            with patch.object(local_env, 'ROOT', directory), patch.dict(
+                    local_env.os.environ, {'SEAWEEDFS_ACCESS_KEY': 'host-key'}, clear=True):
+                env = local_env.clean_env('dev')
+
+        self.assertEqual(env['SPRING_PROFILES_ACTIVE'], 'dev')
+        self.assertEqual(env['SEAWEEDFS_ACCESS_KEY'], 'local-key')
+        self.assertEqual(env['SEAWEEDFS_SECRET_KEY'], 'local-secret')
 
     def test_same_profile_from_another_launch_is_rejected(self):
         with patch.object(local_env, 'environment_status', return_value={

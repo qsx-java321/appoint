@@ -21,5 +21,7 @@ appoint:
   catalog-cache:
     enabled: true
     namespace: demo
+  avatar:
+    bucket: appoint-avatars-demo
   jwt:
     secret: ${JWT_SECRET}

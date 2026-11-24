@@ -14,6 +14,9 @@ public class User {
     private Long id;
     private String email;
     private String passwordHash;
+    private String avatarKey;
+    private String avatarContentType;
+    private LocalDateTime avatarUpdatedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

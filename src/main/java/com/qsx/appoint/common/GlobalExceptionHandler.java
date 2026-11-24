@@ -13,6 +13,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -29,10 +31,16 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class,
-            MissingRequestHeaderException.class, MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class,
-            HttpMessageNotReadableException.class})
+            MissingRequestHeaderException.class, MissingServletRequestParameterException.class, MissingServletRequestPartException.class,
+            MethodArgumentTypeMismatchException.class, HttpMessageNotReadableException.class})
     public ResponseEntity<Result<Void>> handleValidation(Exception exception) {
         return ResponseEntity.badRequest().body(Result.failure(ErrorCode.VALIDATION_ERROR));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Result<Void>> handleUploadTooLarge(MaxUploadSizeExceededException exception) {
+        return ResponseEntity.status(ErrorCode.AVATAR_INVALID.getHttpStatus())
+                .body(Result.failure(ErrorCode.AVATAR_INVALID));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

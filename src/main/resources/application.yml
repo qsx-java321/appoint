@@ -28,6 +28,10 @@ spring:
     locations: classpath:db/migration
   jackson:
     time-zone: Asia/Shanghai
+  servlet:
+    multipart:
+      max-file-size: 3MB
+      max-request-size: 4MB
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -63,6 +67,14 @@ appoint:
   jwt:
     secret: ${JWT_SECRET:change-this-to-a-long-local-development-secret-key-1234567890}
     expiration-seconds: 7200
+  avatar:
+    endpoint: ${SEAWEEDFS_ENDPOINT:http://127.0.0.1:8333}
+    region: ${SEAWEEDFS_REGION:us-east-1}
+    access-key: ${SEAWEEDFS_ACCESS_KEY:appoint}
+    secret-key: ${SEAWEEDFS_SECRET_KEY:appoint-local}
+    bucket: ${SEAWEEDFS_BUCKET:appoint-avatars-demo}
+    max-bytes: 2097152
+    max-dimension: 4096
   appointment:
     payment-timeout: 15m
   notification:

@@ -10,7 +10,7 @@
 | `dev` | 日常开发 | `appoint` | 普通重启保留，显式重置才清空 |
 | `test` | 手动验收和业务调时 | `appoint_test` | 普通重启保留，显式重置才清空 |
 
-三套环境共用 MySQL、Redis、RabbitMQ 和 Mailpit 容器，各使用独立的数据库账号、Redis 命名空间与 RabbitMQ vhost。前端 [5173](http://127.0.0.1:5173)、后端 8080 共用，一次运行一套。注册验证码在 [Mailpit](http://127.0.0.1:8025) 按 `[dev]`、`[test]` 或 `[demo]` 标题前缀和收件人查找。
+三套环境共用 MySQL、Redis、RabbitMQ、Mailpit 和 SeaweedFS 容器，各使用独立的数据库账号、Redis 命名空间、RabbitMQ vhost 与头像 bucket。前端 [5173](http://127.0.0.1:5173)、后端 8080 共用，一次运行一套。注册验证码在 [Mailpit](http://127.0.0.1:8025) 按 `[dev]`、`[test]` 或 `[demo]` 标题前缀和收件人查找。
 
 `init` 创建缺失的 `compose.env` 与 `.env.dev`、`.env.test`、`.env.demo`，启动容器并准备数据库账号和 RabbitMQ 权限。重复执行沿用已有配置和数据卷。已有数据卷使用初始化时的凭据，修改配置文件不会改写卷内账号。
 
@@ -89,6 +89,22 @@ RabbitMQ 管理界面为 [15672](http://127.0.0.1:15672)，使用 `compose.env` 
 
 `rabbit-it` 是独立测试档位，使用 Testcontainers 启动临时 MySQL、Redis 和 RabbitMQ，验证 Outbox → 发布 → 消费 → 通知表、重复投递幂等和无效消息重试后进入死信队列。运行命令见 [README 自动化测试](../README.md#自动化测试)。
 
+## 头像对象存储
+
+`seaweedfs` 容器使用 `chrislusf/seaweedfs:4.39` 的 `weed mini` 模式，S3 接口固定为 `127.0.0.1:8333`，数据保存在 `appoint-seaweedfs-data` 卷。启动时预创建三套环境 bucket：
+
+| 环境 | bucket |
+| --- | --- |
+| demo | `appoint-avatars-demo` |
+| dev | `appoint-avatars-dev` |
+| test | `appoint-avatars-test` |
+
+本地凭据默认 `appoint / appoint-local`，可在 `compose.env` 用 `SEAWEEDFS_ACCESS_KEY`、`SEAWEEDFS_SECRET_KEY` 覆盖；后端通过同名环境变量读取，未设置时使用与 Compose 一致的默认值。该凭据只用于本地，不用于生产。
+
+健康检查读取 master 的 `/cluster/status`。`init` 的 `docker compose up -d --wait` 会等待它健康；`start` 也会确保 RabbitMQ 和 SeaweedFS 已启动。bucket 已存在时重复启动不会清空头像对象。重置业务环境不会删除 SeaweedFS 卷，旧头像对象可能保留为孤立文件。
+
+常驻环境下，后端启动时还会校验头像 bucket 必须与当前环境匹配、S3 地址必须为本机 8333；配置被改到其他环境或端口时拒绝启动。
+
 ## Flyway 初始化基线
 
-后端启动时自动迁移，空库依次执行 V1、V2、V3。V1 是当前业务基线；V2 追加样例医疗目录；V3 只新增 `notification_outbox_events` 和 `user_notifications`，不修改已有业务表。修改 V1 后，已有 dev/test 库需通过[重置环境](#重置环境)重建，demo 每次启动自动重建。当前迁移链不再兼容旧基线的业务数据。
+后端启动时自动迁移，空库依次执行 V1、V2、V3、V4。V1 是当前业务基线；V2 追加样例医疗目录；V3 只新增 `notification_outbox_events` 和 `user_notifications`；V4 只给 `users` 增加 `avatar_key`、`avatar_content_type` 和 `avatar_updated_at`，不新增表。修改 V1 后，已有 dev/test 库需通过[重置环境](#重置环境)重建，demo 每次启动自动重建。当前迁移链不再兼容旧基线的业务数据。

@@ -19,6 +19,8 @@ public enum ErrorCode {
     REGISTRATION_CODE_EXPIRED(3004, "验证码已过期，请重新获取", HttpStatus.BAD_REQUEST),
     SIGNUP_TICKET_INVALID(3005, "注册凭证无效，请重新验证邮箱", HttpStatus.BAD_REQUEST),
     USER_NOT_FOUND(3002, "用户不存在", HttpStatus.NOT_FOUND),
+    AVATAR_INVALID(3101, "头像必须是 2 MB 以内的 JPEG、PNG 或 WebP 图片", HttpStatus.BAD_REQUEST),
+    AVATAR_STORAGE_ERROR(3102, "头像存储暂时不可用，请稍后重试", HttpStatus.SERVICE_UNAVAILABLE),
     RESOURCE_NOT_FOUND(4001, "请求的资源不存在", HttpStatus.NOT_FOUND),
     SCHEDULE_UNAVAILABLE(4002, "该号源已不可预约", HttpStatus.CONFLICT),
     ORDER_STATE_ERROR(4003, "订单当前状态不允许该操作", HttpStatus.CONFLICT),

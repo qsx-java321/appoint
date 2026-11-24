@@ -45,7 +45,8 @@ public class SecurityConfig {
                     if (lifecycle.flag("enabled")) {
                         auth.requestMatchers(HttpMethod.GET, LocalEnvironmentStatusController.PATH).permitAll();
                     }
-                    auth.requestMatchers("/api/v1/auth/**")
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/users/*/avatar").permitAll()
+                            .requestMatchers("/api/v1/auth/**")
                             .permitAll().anyRequest().authenticated();
                 })
                 .authenticationProvider(authenticationProvider())

@@ -55,6 +55,27 @@ services:
       retries: 10
     restart: "no"
 
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.39
+    container_name: appoint-seaweedfs
+    environment:
+      AWS_ACCESS_KEY_ID: ${SEAWEEDFS_ACCESS_KEY:-appoint}
+      AWS_SECRET_ACCESS_KEY: ${SEAWEEDFS_SECRET_KEY:-appoint-local}
+      S3_BUCKET: appoint-avatars-demo,appoint-avatars-dev,appoint-avatars-test
+    ports:
+      - "127.0.0.1:8333:8333"
+    volumes:
+      - appoint-seaweedfs-data:/data
+    networks:
+      - appoint-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9333/cluster/status >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: "no"
+
   rabbitmq:
     image: rabbitmq:4.3.2-management
     container_name: appoint-rabbitmq
@@ -82,6 +103,7 @@ volumes:
   appoint-redis-data:
   appoint-rabbitmq-data:
   appoint-mailpit-data:
+  appoint-seaweedfs-data:
 
 networks:
   appoint-network:

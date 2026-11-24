@@ -23,6 +23,14 @@ appoint:
     expiration-seconds: 7200
   appointment:
     payment-timeout: 15m
+  avatar:
+    endpoint: http://127.0.0.1:8333
+    region: us-east-1
+    access-key: test
+    secret-key: test
+    bucket: appoint-avatars-test
+    max-bytes: 2097152
+    max-dimension: 4096
   notification:
     messaging-enabled: false
   expiration:
