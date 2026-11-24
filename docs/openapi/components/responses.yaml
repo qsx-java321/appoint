@@ -1,0 +1,109 @@
+Unauthorized:
+  description: 未登录或 Token 无效。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 2001
+        message: 请先登录或重新登录
+        data: null
+
+ValidationError:
+  description: 请求参数不合法。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 1001
+        message: 请求参数不合法
+        data: null
+
+LoginFailed:
+  description: 邮箱或密码错误。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 2003
+        message: 邮箱或密码错误
+        data: null
+
+EmailExists:
+  description: 邮箱已注册。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 3001
+        message: 邮箱已注册
+        data: null
+
+RegistrationCodeInvalid:
+  description: 验证码错误。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 3003
+        message: 验证码错误
+        data: null
+
+RegistrationCodeExpired:
+  description: 验证码已过期。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 3004
+        message: 验证码已过期，请重新获取
+        data: null
+
+SignupTicketInvalid:
+  description: 注册票据无效、过期、已消费或邮箱不匹配。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 3005
+        message: 注册凭证无效，请重新验证邮箱
+        data: null
+
+AvatarInvalid:
+  description: 头像格式、大小或尺寸不合法。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 3101
+        message: 头像必须是 2 MB 以内的 JPEG、PNG 或 WebP 图片
+        data: null
+
+AvatarStorageUnavailable:
+  description: 头像对象存储暂时不可用。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 3102
+        message: 头像存储暂时不可用，请稍后重试
+        data: null
+
+NotFound:
+  description: 请求的资源不存在。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4001
+        message: 请求的资源不存在
+        data: null

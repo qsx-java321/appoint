@@ -1,0 +1,173 @@
+currentUser:
+  get:
+    tags: [User]
+    operationId: getCurrentUser
+    summary: 查询当前用户
+    description: 返回当前登录用户的基本信息、角色和头像地址。
+    responses:
+      '200':
+        description: 当前用户
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/UserResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "1"
+                email: demo-user@example.local
+                roles: [USER]
+                avatarUrl: /api/v1/users/1/avatar?v=0ffcbffe-d6d1-4f4c-aa86-9faf4acc911e.png
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+
+meAvatar:
+  put:
+    tags: [User]
+    operationId: uploadAvatar
+    summary: 上传或替换当前头像
+    description: |
+      只操作当前登录账号。服务端按文件头判定 JPEG/PNG/WebP，并校验大小不超过 2 MB、
+      JPEG/PNG 宽高不超过 4096 像素。成功后返回新的 `avatarUrl`，替换头像会生成新的版本号。
+      数据库更新失败时删除新写入的对象；旧对象在更新成功后尽力删除。
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            $ref: '../components/schemas.yaml#/AvatarUploadRequest'
+    responses:
+      '200':
+        description: 头像已更新
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/UserResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "1"
+                email: demo-user@example.local
+                roles: [USER]
+                avatarUrl: /api/v1/users/1/avatar?v=8d9c1a2b-4e6f-4a1b-9c3d-2f5e7a9b1c3d.png
+      '400':
+        description: 头像格式、大小、尺寸或 multipart 参数不合法
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/ErrorResult'
+            examples:
+              avatarInvalid:
+                value:
+                  code: 3101
+                  message: 头像必须是 2 MB 以内的 JPEG、PNG 或 WebP 图片
+                  data: null
+              validation:
+                value:
+                  code: 1001
+                  message: 请求参数不合法
+                  data: null
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '503':
+        $ref: '../components/responses.yaml#/AvatarStorageUnavailable'
+
+  delete:
+    tags: [User]
+    operationId: deleteAvatar
+    summary: 删除当前头像
+    description: 清空当前头像并尽力删除对象存储中的旧对象。重复删除仍返回 200，`avatarUrl` 保持 null。
+    responses:
+      '200':
+        description: 头像已删除
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/UserResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "1"
+                email: demo-user@example.local
+                roles: [USER]
+                avatarUrl: null
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+
+getAvatar:
+  get:
+    tags: [User]
+    operationId: getUserAvatar
+    summary: 读取用户头像图片
+    description: |
+      按用户 ID 返回当前头像图片，无需登录。响应带长期缓存头和 ETag；
+      `If-None-Match` 匹配时返回 304。用户没有头像、头像已删除或对象不存在时返回 404。
+    security: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 用户 ID。
+        schema:
+          type: integer
+          format: int64
+          example: 1
+      - name: v
+        in: query
+        required: false
+        description: 缓存版本号，通常为头像对象文件名。替换头像后变化。
+        schema:
+          type: string
+          example: 0ffcbffe-d6d1-4f4c-aa86-9faf4acc911e.png
+      - name: If-None-Match
+        in: header
+        required: false
+        description: 浏览器缓存校验值，与 ETag 匹配时返回 304。
+        schema:
+          type: string
+          example: '"0ffcbffe-d6d1-4f4c-aa86-9faf4acc911e.png"'
+    responses:
+      '200':
+        description: 头像图片
+        headers:
+          ETag:
+            description: 当前头像版本，值为对象文件名。
+            schema:
+              type: string
+              example: '"0ffcbffe-d6d1-4f4c-aa86-9faf4acc911e.png"'
+          Cache-Control:
+            description: 长期公共缓存。
+            schema:
+              type: string
+              example: max-age=31536000, public, immutable
+          X-Content-Type-Options:
+            description: 防止浏览器嗅探内容类型。
+            schema:
+              type: string
+              example: nosniff
+        content:
+          image/png:
+            schema:
+              $ref: '../components/schemas.yaml#/AvatarImage'
+          image/jpeg:
+            schema:
+              $ref: '../components/schemas.yaml#/AvatarImage'
+          image/webp:
+            schema:
+              $ref: '../components/schemas.yaml#/AvatarImage'
+      '304':
+        description: 头像未变化
+        headers:
+          ETag:
+            schema:
+              type: string
+          Cache-Control:
+            schema:
+              type: string
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '503':
+        $ref: '../components/responses.yaml#/AvatarStorageUnavailable'

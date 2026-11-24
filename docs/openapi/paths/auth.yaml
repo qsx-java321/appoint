@@ -1,0 +1,183 @@
+registerCode:
+  post:
+    tags: [Auth]
+    operationId: sendRegistrationCode
+    summary: 发送注册验证码
+    description: |
+      向指定邮箱发送六位数字验证码，验证码写入 Redis 并通过 Mailpit 投递。
+      邮箱已注册时返回 409 / 3001；验证码默认有效期五分钟，重发覆盖旧码。
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/SendRegistrationCodeRequest'
+          example:
+            email: new-user@example.local
+    responses:
+      '200':
+        description: 验证码已发送
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/RegistrationCodeResult'
+            example:
+              code: 0
+              message: success
+              data:
+                expiresIn: 300
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '409':
+        $ref: '../components/responses.yaml#/EmailExists'
+
+verifyRegistrationCode:
+  post:
+    tags: [Auth]
+    operationId: verifyRegistrationCode
+    summary: 校验注册验证码
+    description: |
+      校验验证码并签发一次性注册票据。验证码错误返回 400 / 3003；
+      验证码不存在或已过期返回 400 / 3004。验码成功后旧验证码被消费。
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/VerifyRegistrationCodeRequest'
+          example:
+            email: new-user@example.local
+            code: "012345"
+    responses:
+      '200':
+        description: 验证码正确，返回注册票据
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/SignupTicketResult'
+            example:
+              code: 0
+              message: success
+              data:
+                signupTicket: 6f8b7c1e-3f5d-4a8e-9b2c-1d4e6f8a0c2b
+                expiresIn: 300
+      '400':
+        description: 验证码错误或已过期
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/ErrorResult'
+            examples:
+              invalid:
+                value:
+                  code: 3003
+                  message: 验证码错误
+                  data: null
+              expired:
+                value:
+                  code: 3004
+                  message: 验证码已过期，请重新获取
+                  data: null
+              validation:
+                value:
+                  code: 1001
+                  message: 请求参数不合法
+                  data: null
+
+register:
+  post:
+    tags: [Auth]
+    operationId: register
+    summary: 注册账号
+    description: |
+      消费一次性注册票据并创建普通用户账号，初始角色为 USER。
+      注册票据无效、过期、已消费或邮箱不匹配返回 400 / 3005；邮箱已注册返回 409 / 3001。
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/RegisterRequest'
+          example:
+            email: new-user@example.local
+            password: "<PASSWORD>"
+            signupTicket: 6f8b7c1e-3f5d-4a8e-9b2c-1d4e6f8a0c2b
+    responses:
+      '201':
+        description: 注册成功
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/UserResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "2"
+                email: new-user@example.local
+                roles: [USER]
+                avatarUrl: null
+      '400':
+        description: 注册票据无效或请求参数不合法
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/ErrorResult'
+            examples:
+              ticketInvalid:
+                value:
+                  code: 3005
+                  message: 注册凭证无效，请重新验证邮箱
+                  data: null
+              validation:
+                value:
+                  code: 1001
+                  message: 请求参数不合法
+                  data: null
+      '409':
+        $ref: '../components/responses.yaml#/EmailExists'
+
+login:
+  post:
+    tags: [Auth]
+    operationId: login
+    summary: 登录
+    description: |
+      使用邮箱和密码登录，返回 JWT 与当前用户信息。
+      后续请求使用 `Authorization: Bearer <accessToken>`；角色变更后需重新登录。
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/LoginRequest'
+          example:
+            email: demo-user@example.local
+            password: "<LOCAL_SEED_PASSWORD>"
+    responses:
+      '200':
+        description: 登录成功
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/LoginResult'
+            example:
+              code: 0
+              message: success
+              data:
+                accessToken: "<JWT>"
+                tokenType: Bearer
+                expiresIn: 7200
+                user:
+                  id: "1"
+                  email: demo-user@example.local
+                  roles: [USER]
+                  avatarUrl: null
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/LoginFailed'

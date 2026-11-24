@@ -1,0 +1,191 @@
+User:
+  type: object
+  description: 当前登录用户或注册用户。
+  required: [id, email, roles, avatarUrl]
+  properties:
+    id:
+      type: string
+      description: 用户 ID。服务端 Long 统一序列化为字符串，避免前端精度丢失。
+      example: "1"
+    email:
+      type: string
+      format: email
+      example: demo-user@example.local
+    roles:
+      type: array
+      description: 当前数据库角色码。
+      items:
+        type: string
+        enum: [USER, DOCTOR, ADMIN]
+      example: [USER]
+    avatarUrl:
+      type: string
+      nullable: true
+      description: 当前头像相对地址；无头像时为 null。替换头像后版本号会变化。
+      example: /api/v1/users/1/avatar?v=0ffcbffe-d6d1-4f4c-aa86-9faf4acc911e.png
+
+UserResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/User'
+
+ErrorResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      description: 业务错误码，非 0。
+      example: 3101
+    message:
+      type: string
+      example: 头像必须是 2 MB 以内的 JPEG、PNG 或 WebP 图片
+    data:
+      type: object
+      nullable: true
+      example: null
+
+SendRegistrationCodeRequest:
+  type: object
+  required: [email]
+  properties:
+    email:
+      type: string
+      format: email
+      example: new-user@example.local
+
+RegistrationCodeResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      type: object
+      required: [expiresIn]
+      properties:
+        expiresIn:
+          type: integer
+          description: 验证码有效期，单位秒。
+          example: 300
+
+VerifyRegistrationCodeRequest:
+  type: object
+  required: [email, code]
+  properties:
+    email:
+      type: string
+      format: email
+      example: new-user@example.local
+    code:
+      type: string
+      description: 六位数字验证码，保留前导零。
+      pattern: '^[0-9]{6}$'
+      example: "012345"
+
+SignupTicketResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      type: object
+      required: [signupTicket, expiresIn]
+      properties:
+        signupTicket:
+          type: string
+          description: 一次性注册票据，提交注册时消费。
+          example: 6f8b7c1e-3f5d-4a8e-9b2c-1d4e6f8a0c2b
+        expiresIn:
+          type: integer
+          example: 300
+
+RegisterRequest:
+  type: object
+  required: [email, password, signupTicket]
+  properties:
+    email:
+      type: string
+      format: email
+      example: new-user@example.local
+    password:
+      type: string
+      minLength: 8
+      maxLength: 64
+      example: "<PASSWORD>"
+    signupTicket:
+      type: string
+      example: 6f8b7c1e-3f5d-4a8e-9b2c-1d4e6f8a0c2b
+
+LoginRequest:
+  type: object
+  required: [email, password]
+  properties:
+    email:
+      type: string
+      format: email
+      example: demo-user@example.local
+    password:
+      type: string
+      minLength: 8
+      maxLength: 64
+      example: "<LOCAL_SEED_PASSWORD>"
+
+LoginResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      type: object
+      required: [accessToken, tokenType, expiresIn, user]
+      properties:
+        accessToken:
+          type: string
+          example: "<JWT>"
+        tokenType:
+          type: string
+          enum: [Bearer]
+          example: Bearer
+        expiresIn:
+          type: integer
+          description: Token 有效期，单位秒。
+          example: 7200
+        user:
+          $ref: '#/User'
+
+AvatarUploadRequest:
+  type: object
+  required: [file]
+  properties:
+    file:
+      type: string
+      format: binary
+      description: JPEG、PNG 或 WebP 图片，不超过 2 MB。服务端按文件头判定格式。
+
+AvatarImage:
+  type: string
+  format: binary
+  description: 头像图片字节。

@@ -10,7 +10,7 @@
 ## 文档
 
 - 改业务行为时查[术语表](GLOSSARY.md)和[业务流程](docs/business-flow.md)。
-- 改接口时查 [REST API](docs/api.md)，改模块职责或事务时查[模块设计](docs/module-design.md)。
+- 改接口时查 [OpenAPI 契约](docs/openapi/README.md) 和 [REST API](docs/api.md) 的通用规则与业务说明，改模块职责或事务时查[模块设计](docs/module-design.md)。
 - 改启动、配置或数据保留规则时更新[环境指南](docs/environments.md)。对外入口或快速启动变化时更新 [README](README.md)。
 - 以源码和配置核对现行行为。每条规则在主要文档中讲清，其他位置使用链接。检查受影响的链接、接口契约和示例。
 

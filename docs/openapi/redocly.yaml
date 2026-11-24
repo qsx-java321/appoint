@@ -1,0 +1,6 @@
+extends:
+  - recommended
+
+rules:
+  # 内部学习项目暂不提供许可证 URL，保留 license.name 即可。
+  info-license-strict: off

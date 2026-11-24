@@ -1,5 +1,7 @@
 # REST API
 
+> 认证、用户与头像接口已提供 [OpenAPI 契约试点](openapi/README.md)。本节的字段表与示例用于过渡，后续以 OpenAPI 为准；其他模块仍在本文维护。
+
 本文定义当前接口。业务规则见[业务流程](business-flow.md)。
 
 ## 通用约定
@@ -18,6 +20,8 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 
 ## 账号注册、登录与当前用户
 
+> OpenAPI：`Auth`、`User` 两个 Tag。字段、Schema 和请求/响应示例以 [OpenAPI](openapi/README.md) 为准。
+
 | 方法与路径 | 参数 | 成功结果 |
 | --- | --- | --- |
 | `POST /api/v1/auth/register/code` | `email` | 200，`{"expiresIn":300}`，验证码发往 Mailpit |
@@ -33,6 +37,8 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 登录返回 `accessToken`、`tokenType`（`Bearer`）、`expiresIn`（7200 秒）和 `user`。后续请求携带 `Authorization: Bearer <accessToken>`。角色变更后重新登录以取得新的权限。
 
 ## 用户头像
+
+> OpenAPI：`User` Tag。字段、Schema、状态码和示例以 [OpenAPI](openapi/README.md) 为准。
 
 头像只操作当前登录账号，不需要客户端指定用户 ID。读取接口无需登录，替换和删除需要 Bearer Token。
 

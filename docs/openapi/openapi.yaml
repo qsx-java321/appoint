@@ -1,0 +1,59 @@
+openapi: 3.0.3
+
+info:
+  title: 医院预约系统 API
+  version: 1.0.0
+  license:
+    name: UNLICENSED
+  description: |
+    认证、用户与头像接口的 OpenAPI 契约试点。
+
+    通用约定、业务规则和错误码见 [REST API 文档](../api.md)。
+    当前契约覆盖：
+
+    - Auth：注册验证码、验码、注册、登录
+    - User：当前用户、上传头像、删除头像、读取头像
+
+    本地环境通过 `X-Appoint-Environment` 标识 demo/dev/test；直接调用后端时可省略。
+    业务 API 使用统一响应结构 `{ code, message, data }`，错误时 `data=null`。
+
+servers:
+  - url: http://127.0.0.1:8080/api/v1
+    description: 本地后端（demo/dev/test 共用 8080，按启动的 profile 切换）
+
+tags:
+  - name: Auth
+    description: 注册与登录
+  - name: User
+    description: 当前用户与头像
+
+x-tagGroups:
+  - name: 账号与用户
+    tags: [Auth, User]
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/register/code:
+    $ref: './paths/auth.yaml#/registerCode'
+  /auth/register/verify:
+    $ref: './paths/auth.yaml#/verifyRegistrationCode'
+  /auth/register:
+    $ref: './paths/auth.yaml#/register'
+  /auth/login:
+    $ref: './paths/auth.yaml#/login'
+  /users/me:
+    $ref: './paths/users.yaml#/currentUser'
+  /users/me/avatar:
+    $ref: './paths/users.yaml#/meAvatar'
+  /users/{id}/avatar:
+    $ref: './paths/users.yaml#/getAvatar'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "登录接口返回的 accessToken，放在 `Authorization: Bearer <token>`。"
