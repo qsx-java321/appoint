@@ -1,8 +1,8 @@
 # REST API
 
-> 认证、用户、头像、就诊人和医疗目录接口已提供 [OpenAPI 契约](openapi/README.md)。对应章节的字段表与示例用于过渡，后续以 OpenAPI 为准；预约、就诊、通知等模块仍在本文维护。
+> 认证、用户、头像、就诊人和医疗目录接口的字段、Schema、状态码和示例已迁移到 [OpenAPI 契约](openapi/README.md)。已迁移 Tag：`Auth`、`User`、`Patient`、`Catalog`、`AdminCatalog`、`BookingSettings`、`DoctorAccount`。本文只保留跨接口业务规则、错误码和链接；预约、就诊、通知、本地环境和 test 调时仍在本文维护。
 
-本文定义当前接口。业务规则见[业务流程](business-flow.md)。
+本文保留跨接口约定、业务规则和尚未迁移的接口说明。业务流程见[业务流程](business-flow.md)。
 
 ## 通用约定
 
@@ -16,109 +16,49 @@
 
 ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建预约的 `amount` 和预约设置、场次的 `registrationFee` 为字符串，预约详情的 `amount` 为 JSON 数值。
 
-日期使用 `yyyy-MM-dd`，时间使用 `HH:mm:ss`。业务时间按 `Asia/Shanghai` 解释，`LocalDateTime` 响应不带时区偏移。各节列出的业务响应字段位于统一包装的 `data` 中。错误时 `data=null`，详见[主要错误](#主要错误)。
+日期使用 `yyyy-MM-dd`，时间使用 `HH:mm:ss`。业务时间按 `Asia/Shanghai` 解释，`LocalDateTime` 响应不带时区偏移。各接口的业务响应字段位于统一包装的 `data` 中，字段定义见 OpenAPI；错误时 `data=null`，详见[主要错误](#主要错误)。
 
 ## 账号注册、登录与当前用户
 
-> OpenAPI：`Auth`、`User` 两个 Tag。字段、Schema 和请求/响应示例以 [OpenAPI](openapi/README.md) 为准。
+> OpenAPI：`Auth`、`User`。接口、字段、状态码和示例见[契约](openapi/README.md)。
 
-| 方法与路径 | 参数 | 成功结果 |
-| --- | --- | --- |
-| `POST /api/v1/auth/register/code` | `email` | 200，`{"expiresIn":300}`，验证码发往 Mailpit |
-| `POST /api/v1/auth/register/verify` | `email`、`code` | 200，`{"signupTicket":"<UUID>","expiresIn":300}` |
-| `POST /api/v1/auth/register` | `email`、`password`、`signupTicket` | 201，用户对象 |
-| `POST /api/v1/auth/login` | `email`、`password` | 200，Token 与用户对象 |
-| `GET /api/v1/users/me` | 无请求体，需要登录 | 200，当前用户对象 |
+注册流程为：发送六位数字验证码 → 校验验证码并取得一次性注册票据 → 提交票据完成注册。验证码保留前导零，验证码和注册票据默认各有效五分钟；重发覆盖旧验证码，验码成功后旧码被消费，提交注册时消费票据。
 
-验证码是六位数字字符串，保留前导零。验证码与注册票据默认各有效五分钟，重发覆盖旧码，成功验码后签发票据，提交注册时消费票据。
+邮箱去除首尾空白并转小写；注册密码为 8–64 字符；注册成功授予 `USER`。登录返回 Bearer Token，默认有效期 7200 秒；角色变更后需重新登录以取得新权限。当前用户接口需要登录，返回本人信息和当前头像地址。
 
-邮箱按去除首尾空白、转小写处理。注册密码为 8–64 字符。用户对象为 `id`、`email`、`roles`、`avatarUrl`，注册授予 `USER`，未设置头像时 `avatarUrl=null`。
-
-登录返回 `accessToken`、`tokenType`（`Bearer`）、`expiresIn`（7200 秒）和 `user`。后续请求携带 `Authorization: Bearer <accessToken>`。角色变更后重新登录以取得新的权限。
+相关错误码：邮箱已注册 `409 / 3001`，验证码错误 `400 / 3003`，验证码过期 `400 / 3004`，注册票据无效 `400 / 3005`，登录失败 `401 / 2003`。
 
 ## 用户头像
 
-> OpenAPI：`User` Tag。字段、Schema、状态码和示例以 [OpenAPI](openapi/README.md) 为准。
+> OpenAPI：`User`。接口、字段、状态码和示例见[契约](openapi/README.md)。
 
-头像只操作当前登录账号，不需要客户端指定用户 ID。读取接口无需登录，替换和删除需要 Bearer Token。
+头像只操作当前登录账号，不需要客户端指定用户 ID。读取接口免登录，替换和删除需要 Bearer Token。
 
-| 方法与路径 | 请求 | 成功结果 |
-| --- | --- | --- |
-| `PUT /api/v1/users/me/avatar` | `multipart/form-data`，文件字段 `file` | 200，更新后的用户对象 |
-| `DELETE /api/v1/users/me/avatar` | 无请求体 | 200，`avatarUrl=null` 的用户对象；重复删除仍为 200 |
-| `GET /api/v1/users/{id}/avatar?v={version}` | 无请求体，可免登录 | 200，图片字节；没有头像时 `404 / 4001` |
+上传只接受 2 MB 以内的 JPEG、PNG 或 WebP。服务端按文件头判定格式，并校验 JPEG/PNG 的宽高不超过 4096 像素；SVG、GIF 和伪装文件返回 `400 / 3101`。缺少 `file` 字段返回 `400 / 1001`；multipart 请求体上限为 4 MB，超过时返回 `400 / 3101`；存储暂时不可用返回 `503 / 3102`。
 
-`PUT` 只接受 2 MB 以内的 JPEG、PNG 或 WebP。服务端按文件头判定格式，并校验 JPEG/PNG 的宽高不超过 4096 像素；SVG、GIF 和伪装文件返回 `400 / 3101`。缺少 `file` 字段返回 `400 / 1001`。multipart 请求体上限为 4 MB，超过时返回 `400 / 3101`。存储暂时不可用返回 `503 / 3102`。
-
-设置头像后，用户对象的 `avatarUrl` 形如 `/api/v1/users/{id}/avatar?v={对象文件名}`，替换头像会改变 `v`。读取响应带长期 `Cache-Control` 和 `ETag`；请求携带匹配的 `If-None-Match` 时返回 `304`。头像读取只按用户 ID 返回当前图片，不判断角色；知道用户 ID 即可查看，不建议上传敏感图片。
+设置头像后，用户对象的 `avatarUrl` 形如 `/api/v1/users/{id}/avatar?v={对象文件名}`，替换头像会改变 `v`。读取响应带长期 `Cache-Control` 和 `ETag`；请求携带匹配的 `If-None-Match` 时返回 `304`。头像按用户 ID 公开读取，不判断角色；知道用户 ID 即可查看，不建议上传敏感图片。删除头像后 `avatarUrl=null`，重复删除仍成功；旧对象在数据库更新成功后尽力删除。
 
 ## 就诊人管理
 
-> OpenAPI：`Patient` Tag。字段、Schema、状态码和示例以 [OpenAPI](openapi/README.md) 为准。
+> OpenAPI：`Patient`。接口、字段、状态码和示例见[契约](openapi/README.md)。
 
-所有接口只操作当前账号的就诊人，不接受客户端指定归属账号。就诊人 ID 与账号用户 ID 不同。
+所有接口只操作当前账号的就诊人，不接受客户端指定归属账号。就诊人 ID 与账号用户 ID 不同。新增就诊人初始启用。
 
-| 方法与路径 | 请求 | 成功响应 |
-| --- | --- | --- |
-| `POST /api/v1/patients` | 完整就诊人资料 | 201，就诊人对象，初始 `enabled=true` |
-| `GET /api/v1/patients` | 无请求体 | 200，本人就诊人数组；无数据为 `[]` |
-| `GET /api/v1/patients/{id}` | 无请求体 | 200，就诊人对象 |
-| `PATCH /api/v1/patients/{id}` | 部分就诊人资料 | 200，更新后的就诊人对象 |
-| `PATCH /api/v1/patients/{id}/status` | `{"enabled":false}` 或 `{"enabled":true}` | 200，就诊人对象 |
+创建时姓名、证件类型、证件号、联系电话、联系邮箱都必填且不能为纯空白；长度上限依次为 `64 / 32 / 32 / 32 / 120`。证件类型目前只支持 `RESIDENT_ID_CARD`，证件号去除首尾空白并转大写，校验 18 位格式、出生日期、部分编码及校验位；不进行外部实名认证。联系电话要求非空和长度合法，联系邮箱另校验格式并转小写。
 
-创建请求示例
+资料修改中缺省或 `null` 字段保留原值，已填写字段须重新校验；状态修改需要布尔值 `enabled`。停用影响后续下单，已创建预约保留原有快照。响应只返回脱敏证件号，不返回证件号原文。
 
-```json
-{
-  "name": "示例就诊人",
-  "documentType": "RESIDENT_ID_CARD",
-  "documentNo": "11010519491231002X",
-  "contactPhone": "13800138000",
-  "contactEmail": "patient@example.com"
-}
-```
-
-创建时五个字段都必填且不能为纯空白；长度上限依次为 `64 / 32 / 32 / 32 / 120`。目前证件类型只支持 `RESIDENT_ID_CARD`，证件号码去除首尾空白并转大写，校验 18 位格式、出生日期、部分编码及校验位；不进行外部实名认证。联系电话要求非空和长度合法，联系邮箱另校验格式并转小写。
-
-资料 PATCH 中缺省或 `null` 字段保留原值，已填写字段须通过校验。状态 PATCH 需要布尔值 `enabled`。停用影响后续下单，已创建预约保留原有快照。
-
-就诊人对象为 `id`、`name`、`documentType`、`documentNoMasked`、`contactPhone`、`contactEmail`、`enabled`、`createdAt`、`updatedAt`。
+相关错误码：参数不合法 `400 / 1001`，访问他人就诊人 `403 / 2002`，资源不存在 `404 / 4001`，同账号重复登记证件 `409 / 4101`。
 
 ## 目录与场次
 
-> OpenAPI：`Catalog` Tag。字段、Schema 和示例以 [OpenAPI](openapi/README.md) 为准。
+> OpenAPI：`Catalog`。接口、字段、状态码和示例见[契约](openapi/README.md)。
 
-| 方法与路径 | 用途 | 权限 |
-| --- | --- | --- |
-| `GET /api/v1/hospitals` | 查询医院 | 登录 |
-| `GET /api/v1/hospitals/{hospitalId}/departments` | 查询科室 | 登录 |
-| `GET /api/v1/departments/{departmentId}/doctors` | 查询医生 | 登录 |
-| `GET /api/v1/doctors/{doctorId}/schedules` | 查询今天、明天、后天的 12 个场次 | 登录 |
+目录查询需要登录。父级医院或科室不存在、或者没有下级时，科室、医生数组为空；医生不存在时场次数组为空。
 
-以上 GET 均返回 **200** 和数组。医院项为 `id/name/address`，科室项为 `id/name`，医生项为 `id/doctorNo/name/title/introduction`。父级 ID 不存在或没有下级时，科室、医生数组为空；医生不存在时场次数组为空。场次项字段如下：
+场次查询返回业务今天、明天、后天共 12 个场次，按日期和固定时段排列。`availability` 按 `STARTED`、`CUTOFF_REACHED`、`FULL`、`AVAILABLE` 的顺序判定；`bookable` 仅在 `AVAILABLE` 时为真。同一响应十二个场次共享 `serverTime`。[场次类型及其时间](business-flow.md#场次设置与库存)
 
-```json
-{
-  "doctorId": "1",
-  "doctorNo": "DOC000001",
-  "appointmentDate": "2026-11-11",
-  "sessionType": "MORNING_FIRST",
-  "startTime": "08:00:00",
-  "endTime": "10:00:00",
-  "totalCapacity": 20,
-  "availableCapacity": 20,
-  "registrationFee": "10.00",
-  "feeCurrency": "CNY",
-  "bookable": true,
-  "bookingClosesAt": "2026-11-11T07:45:00",
-  "availability": "AVAILABLE",
-  "serverTime": "2026-11-11T07:30:00"
-}
-```
-
-场次类型及其时间见[场次设置与库存](business-flow.md#场次设置与库存)。
-
-`availability` 按 `STARTED`、`CUTOFF_REACHED`、`FULL`、`AVAILABLE` 的顺序判定。`bookable` 仅在 `AVAILABLE` 时为真。同一响应十二个场次共享 `serverTime`。
+场次查询依赖当前统一预约设置；设置记录缺失时返回 `500 / 1002`。
 
 ## 创建预约
 
@@ -225,82 +165,31 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 
 ## 管理员医院、科室与医生目录
 
-> OpenAPI：`AdminCatalog` Tag。字段、Schema 和示例以 [OpenAPI](openapi/README.md) 为准。
+> OpenAPI：`AdminCatalog`。接口、字段、状态码和示例见[契约](openapi/README.md)。
 
-以下九个接口都要求登录且具有 `ADMIN` 角色；普通用户返回 `403 / 2002`。
+以下接口都要求登录且具有 `ADMIN` 角色；普通用户返回 `403 / 2002`。
 
-| 方法与路径 | 请求字段 | 成功响应 |
-| --- | --- | --- |
-| `POST /api/v1/admin/hospitals` | 必填 `name/address` | 201，医院对象 |
-| `PATCH /api/v1/admin/hospitals/{hospitalId}` | `name/address` 至少一个非 null | 200，医院对象 |
-| `DELETE /api/v1/admin/hospitals/{hospitalId}` | 无请求体 | 200，`data=null` |
-| `POST /api/v1/admin/hospitals/{hospitalId}/departments` | 必填 `name` | 201，管理用科室对象 |
-| `PATCH /api/v1/admin/departments/{departmentId}` | 必填 `name` | 200，管理用科室对象 |
-| `DELETE /api/v1/admin/departments/{departmentId}` | 无请求体 | 200，`data=null` |
-| `POST /api/v1/admin/departments/{departmentId}/doctors` | 必填 `name/title`，可选 `introduction` | 201，管理用医生对象 |
-| `PATCH /api/v1/admin/doctors/{doctorId}` | `name/title/introduction` 至少一个非 null | 200，管理用医生对象 |
-| `DELETE /api/v1/admin/doctors/{doctorId}` | 无请求体 | 200，`data=null` |
-
-医院名称、地址上限为 100、200 字符；科室名称上限为 100；医生姓名、职称、介绍上限为 64、64、500。提供的文本会去除首尾空白，非 null 的纯空白值被拒绝。创建医生可省略或传 null 的介绍；医生 PATCH 的 null 表示保留，不提供清空介绍或调整所属科室、医生编号的能力。
-
-响应对象：
-
-| 对象 | 字段 |
-| --- | --- |
-| 医院 | `id/name/address` |
-| 管理用科室 | `id/hospitalId/name` |
-| 管理用医生 | `id/doctorNo/departmentId/name/title/introduction` |
+医院名称、地址上限为 100、200 字符；科室名称上限为 100；医生姓名、职称、介绍上限为 64、64、500。提供的文本会去除首尾空白，非 null 的纯空白值被拒绝。创建医生可省略或传 null 的介绍；医生修改的 null 表示保留，不提供清空介绍或调整所属科室、医生编号的能力。
 
 医生编号由系统生成，修改资料不改变编号。父级或目标资源不存在返回 `404 / 4001`；同医院科室名称重复返回 `409 / 4401`。医院仍有科室、科室仍有医生、医生仍有关联场次（包括历史场次）或数据库引用阻止删除时，返回 `409 / 4402`，不级联删除业务数据。
 
 ## 管理员统一预约设置
 
-> OpenAPI：`BookingSettings` Tag。字段、Schema 和示例以 [OpenAPI](openapi/README.md) 为准。
+> OpenAPI：`BookingSettings`。接口、字段、状态码和示例见[契约](openapi/README.md)。
 
-| 方法与路径 | 用途 |
-| --- | --- |
-| `GET /api/v1/admin/booking-settings` | 查询当前设置 |
-| `PUT /api/v1/admin/booking-settings` | 完整更新设置 |
-
-更新请求：
-
-```json
-{
-  "capacityPerSession": 30,
-  "registrationFee": 12.00
-}
-```
-
-两个接口均要求 `ADMIN`，返回 **200**。响应为 `capacityPerSession`、`registrationFee`（字符串）、`currency`、`updatedAt`。PUT 的两个字段必填，容量为正整数，费用最低为 0.01 元，最多八位整数和两位小数。非法输入返回 `400 / 1001`。[设置生效范围](business-flow.md#场次设置与库存)
+两个接口均要求 `ADMIN`。更新时容量和挂号费都必填：容量为正整数，费用最低 0.01 元，最多八位整数和两位小数；非法输入返回 `400 / 1001`。币种固定为 CNY。更新后用于后续新生成的场次，已存在的场次保留创建时的容量和费用快照。[设置生效范围](business-flow.md#场次设置与库存)
 
 ## 管理员医生账号
 
-> OpenAPI：`DoctorAccount` Tag。字段、Schema 和示例以 [OpenAPI](openapi/README.md) 为准。
+> OpenAPI：`DoctorAccount`。接口、字段、状态码和示例见[契约](openapi/README.md)。
 
 ### 管理员医生账号查询
 
-`GET /api/v1/admin/doctor-accounts`仅允许`ADMIN`访问，无请求参数，成功返回200。查询当前后端所连接环境的全部医生，按医院ID、科室ID、医生编号、医生ID排序；读取实际目录和账号绑定，不使用目录缓存，未绑定账号的医生也返回。无医生时`items=[]`。
-
-data为`environment`（当前环境名称）和`items`数组。每项字段如下，ID沿用字符串约定：
-
-| 字段 | 含义 |
-| --- | --- |
-| hospitalId、hospitalName | 所属医院ID及当前名称 |
-| departmentId、departmentName | 所属科室ID及当前名称 |
-| doctorId、doctorNo、doctorName | 医生ID、编号及当前姓名 |
-| userId、email | 绑定的账号ID和邮箱，未绑定时均为null |
-| bindingStatus | BOUND（已绑定）或UNBOUND（未绑定） |
-| passwordHint | 密码说明，不含密码或密码哈希 |
-
-预置医生的 `passwordHint` 指向对应环境的 `LOCAL_SEED_PASSWORD`。[预置账号](environments.md#预置目录和账号)
+查询要求 `ADMIN`，返回当前后端所连接环境的全部医生及实际账号绑定，按医院 ID、科室 ID、医生编号、医生 ID 排序。读取实际目录和绑定，不使用目录缓存；未绑定账号的医生也返回，无医生时 `items=[]`。`passwordHint` 只说明密码来源，不包含密码或密码哈希；预置医生的提示指向对应环境的 `LOCAL_SEED_PASSWORD`。[预置账号](environments.md#预置目录和账号)
 
 ### 首次绑定
 
-| 方法与路径 | 权限及请求 | 成功响应 |
-| --- | --- | --- |
-| `PUT /api/v1/admin/doctors/{doctorId}/account` | `ADMIN`，请求体为 `{"userId":"12"}` | 200，`data` 为 `doctorId` 和 `userId`，均为字符串 |
-
-首次绑定同时授予账号 `DOCTOR` 角色，账号重新登录后即可使用医生接口。医生或账号已有绑定时返回 `409 / 4501`，包括对同一关系的重复绑定。当前接口只支持首次绑定。
+首次绑定要求 `ADMIN`，同时授予账号 `DOCTOR` 角色，账号重新登录后即可使用医生接口。医生或账号已有绑定时返回 `409 / 4501`，包括对同一关系的重复绑定；当前接口只支持首次绑定。医生不存在返回 `404 / 4001`，请求缺少用户 ID 返回 `400 / 1001`。
 
 ## 本地环境识别
 
@@ -323,6 +212,8 @@ data为`environment`（当前环境名称）和`items`数组。每项字段如�
 | `DELETE /api/v1/test-control/clock` | 恢复实时 |
 
 ## 主要错误
+
+OpenAPI 契约按操作列出状态码和示例；本表保留跨模块错误码索引。
 
 | 场景 | HTTP / code |
 | --- | --- |
