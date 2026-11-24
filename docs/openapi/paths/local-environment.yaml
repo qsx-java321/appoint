@@ -1,0 +1,51 @@
+localEnvironmentStatus:
+  get:
+    tags: [LocalEnvironment]
+    operationId: getLocalEnvironmentStatus
+    summary: 探测本地环境状态
+    description: |
+      常驻环境提供的免登录探测接口。后端已能接受流量时返回 200；已启动但尚未就绪时返回 503。
+      响应直接返回状态对象，不使用统一 `{ code, message, data }` 包装，并设置 `Cache-Control: no-store`。
+      由本地脚本启动时 `launchId` 为当次启动标识；单独启动后端时通常为 `null`。
+    security: []
+    responses:
+      '200':
+        description: 环境已就绪
+        headers:
+          Cache-Control:
+            schema:
+              type: string
+              example: no-store
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/LocalEnvironmentStatus'
+            example:
+              profile: demo
+              ready: true
+              launchId: 9f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+      '409':
+        description: 请求头中的环境标识与当前 profile 不一致
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/ErrorResult'
+            example:
+              code: 1003
+              message: 运行环境已切换，请刷新页面
+              data: null
+      '503':
+        description: 环境尚未就绪
+        headers:
+          Cache-Control:
+            schema:
+              type: string
+              example: no-store
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/LocalEnvironmentStatus'
+            example:
+              profile: demo
+              ready: false
+              launchId: 9f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b

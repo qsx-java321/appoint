@@ -173,3 +173,146 @@ InternalError:
         code: 1002
         message: 服务暂时不可用
         data: null
+
+LocalEnvironmentMismatch:
+  description: 本地请求的环境标识与当前 profile 冲突。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 1003
+        message: 运行环境已切换，请刷新页面
+        data: null
+
+PatientDisabled:
+  description: 就诊人已停用，不能创建预约。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4102
+        message: 该就诊人已停用
+        data: null
+
+ScheduleUnavailable:
+  description: 号源约满或场次不可用。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4002
+        message: 该号源已不可预约
+        data: null
+
+ScheduleCutoffReached:
+  description: 日期不在今天至后天，或已到场次下单截止。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4202
+        message: 已到预约截止时间
+        data: null
+
+DuplicateActiveAppointment:
+  description: 该就诊人已持有本场有效预约。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4204
+        message: 该就诊人已持有本场有效预约
+        data: null
+
+OrderStateError:
+  description: 当前订单状态不允许该操作。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4003
+        message: 订单当前状态不允许该操作
+        data: null
+
+PaymentExpired:
+  description: 已超过最晚支付时刻。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4004
+        message: 支付期限已过
+        data: null
+
+IdempotencyConflict:
+  description: 幂等键已用于其他预约请求。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4103
+        message: 幂等键已用于其他预约请求
+        data: null
+
+BookingTokenInvalid:
+  description: 预约令牌无效或已过期，且没有已提交回执。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4104
+        message: 预约令牌无效或已过期，请重新提交
+        data: null
+
+RetryableConcurrencyError:
+  description: 并发冲突，需要使用原令牌和请求体重试。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 5001
+        message: 请求暂时无法处理，请使用原幂等键重试
+        data: null
+
+VisitStateError:
+  description: 预约或就诊状态不允许该操作。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4502
+        message: 当前日期或就诊进度不允许该操作
+        data: null
+
+CheckInNotOpen:
+  description: 尚未到签到开放时间。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4503
+        message: 尚未到签到开放时间
+        data: null
+
+CheckInClosed:
+  description: 已超过预约场次签到截止时间。
+  content:
+    application/json:
+      schema:
+        $ref: './schemas.yaml#/ErrorResult'
+      example:
+        code: 4504
+        message: 已超过预约场次签到截止时间
+        data: null

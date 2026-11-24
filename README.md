@@ -32,8 +32,8 @@ python3 scripts/local_env.py start demo
 | 想做什么 | 阅读入口 |
 | --- | --- |
 | 填写演示就诊人 | [就诊人示例](docs/patient-examples.md) |
-| 联调 HTTP 接口 | [REST API](docs/api.md) |
-| 浏览或导入 OpenAPI 契约 | [OpenAPI 试点](docs/openapi/README.md) |
+| 通用约定与业务规则 | [REST API](docs/api.md) |
+| 联调或导入 API 契约 | [OpenAPI 契约](docs/openapi/README.md) |
 | 切换或重置环境、调时或查日志 | [本地环境指南](docs/environments.md) |
 | 单独开发或构建前端 | [前端说明](frontend/README.md) |
 

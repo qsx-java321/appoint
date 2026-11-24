@@ -5,7 +5,8 @@ info:
   license:
     name: UNLICENSED
   description: |
-    认证、用户、头像、就诊人和医疗目录接口的 OpenAPI 契约。
+    医院预约系统 API 的 OpenAPI 契约，覆盖账号、就诊人、医疗目录、预约支付、签到接诊、
+    消息中心、本地环境和 test 调时。
 
     通用约定、业务规则和错误码见 [REST API 文档](../api.md)。
     当前契约覆盖：
@@ -17,6 +18,11 @@ info:
     - AdminCatalog：医院、科室、医生档案管理
     - BookingSettings：统一预约设置
     - DoctorAccount：医生账号查询与首次绑定
+    - Appointment：预约令牌、创建、详情、列表、支付、取消
+    - Visit：到院签到、医生场次、开始/完成接诊
+    - Notification：消息中心列表与详情
+    - LocalEnvironment：本地环境状态探测
+    - TestClock：test 环境业务时间查询、设置和恢复
 
     本地环境通过 `X-Appoint-Environment` 标识 demo/dev/test；直接调用后端时可省略。
     业务 API 使用统一响应结构 `{ code, message, data }`，错误时 `data=null`。
@@ -40,6 +46,16 @@ tags:
     description: 管理员统一预约设置
   - name: DoctorAccount
     description: 管理员查询和首次绑定医生账号
+  - name: Appointment
+    description: 预约令牌、创建、详情、列表、支付和取消
+  - name: Visit
+    description: 到院签到、医生场次和接诊动作
+  - name: Notification
+    description: 消息中心
+  - name: LocalEnvironment
+    description: 本地环境状态探测
+  - name: TestClock
+    description: test 环境业务时间调时
 paths:
   /auth/register/code:
     post:
@@ -1216,6 +1232,1005 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/DoctorAccountAlreadyBound'
+  /appointments/token:
+    post:
+      tags:
+        - Appointment
+      operationId: issueBookingToken
+      summary: 领取预约令牌
+      description: |
+        为当前账号签发一次性预约令牌，有效期 600 秒。
+        创建预约时把令牌放入 `Idempotency-Key` 请求头；网络重试沿用同一令牌和请求体。
+      responses:
+        '200':
+          description: 预约令牌
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingTokenResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  token: 6f8b7c1e-3f5d-4a8e-9b2c-1d4e6f8a0c2b
+                  expiresIn: 600
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /appointments:
+    post:
+      tags:
+        - Appointment
+      operationId: createAppointment
+      summary: 创建预约
+      description: |
+        首次成功返回 201；同一令牌、同一内容重放返回 200 和原回执；
+        原请求仍在提交时返回 202。令牌绑定的内容与本次提交不同返回 409 / 4103；
+        无效或过期且未创建预约的令牌返回 409 / 4104。
+        日期须在业务今天至后天内，且早于场次开始前 15 分钟。
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAppointmentRequest'
+            example:
+              doctorId: '1'
+              appointmentDate: '2026-11-14'
+              sessionType: MORNING_FIRST
+              patientId: '201'
+      responses:
+        '200':
+          description: 幂等重放，返回首次创建回执
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAppointmentResult'
+              example:
+                code: 0
+                message: 该请求已创建预约，请查询详情获取当前状态
+                data:
+                  appointmentOrderId: '301'
+                  appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                  appointmentStatus: PENDING_PAYMENT
+                  paymentOrderId: '501'
+                  paymentNo: PAY6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                  paymentStatus: UNPAID
+                  amount: '10.00'
+                  currency: CNY
+                  createdAt: '2026-11-14T09:00:00'
+                  paymentExpiresAt: '2026-11-14T09:15:00'
+                  serverTime: '2026-11-14T09:00:00'
+        '201':
+          description: 首次创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAppointmentResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  appointmentOrderId: '301'
+                  appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                  appointmentStatus: PENDING_PAYMENT
+                  paymentOrderId: '501'
+                  paymentNo: PAY6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                  paymentStatus: UNPAID
+                  amount: '10.00'
+                  currency: CNY
+                  createdAt: '2026-11-14T09:00:00'
+                  paymentExpiresAt: '2026-11-14T09:15:00'
+                  serverTime: '2026-11-14T09:00:00'
+        '202':
+          description: 原请求仍在提交，继续使用原令牌和请求体重试
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingAppointmentResult'
+              example:
+                code: 0
+                message: 原预约正在提交
+                data:
+                  pending: true
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 预约创建冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+              examples:
+                scheduleUnavailable:
+                  value:
+                    code: 4002
+                    message: 该号源已不可预约
+                    data: null
+                cutoffReached:
+                  value:
+                    code: 4202
+                    message: 已到预约截止时间
+                    data: null
+                duplicateActiveAppointment:
+                  value:
+                    code: 4204
+                    message: 该就诊人已持有本场有效预约
+                    data: null
+                patientDisabled:
+                  value:
+                    code: 4102
+                    message: 该就诊人已停用
+                    data: null
+                idempotencyConflict:
+                  value:
+                    code: 4103
+                    message: 幂等键已用于其他预约请求
+                    data: null
+                tokenInvalid:
+                  value:
+                    code: 4104
+                    message: 预约令牌无效或已过期，请重新提交
+                    data: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/RetryableConcurrencyError'
+  /appointments/my:
+    get:
+      tags:
+        - Appointment
+      operationId: listMyAppointments
+      summary: 查询本人预约列表
+      description: 不接收其他账号 ID；默认按就诊日期、场次开始时间和预约 ID 降序。`order=ASC` 时改为升序。
+      parameters:
+        - name: order
+          in: query
+          required: false
+          description: 排序方向，默认 DESC。
+          schema:
+            type: string
+            enum:
+              - ASC
+              - DESC
+            default: DESC
+            example: DESC
+      responses:
+        '200':
+          description: 本人预约列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentListResult'
+              example:
+                code: 0
+                message: success
+                data: []
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /appointments/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AppointmentId'
+    get:
+      tags:
+        - Appointment
+      operationId: getAppointment
+      summary: 查询本人预约详情
+      description: 只能读取当前账号的预约；不存在返回 404 / 4001，非本人返回 403 / 2002。
+      responses:
+        '200':
+          description: 预约详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '301'
+                  appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                  scheduleId: '401'
+                  appointmentDate: '2026-11-14'
+                  startTime: '08:00:00'
+                  endTime: '10:00:00'
+                  status: CONFIRMED
+                  visitNumber: 1
+                  createdAt: '2026-11-14T09:00:00'
+                  paymentOrderId: '501'
+                  paymentStatus: PAID
+                  workflowStatus: CONFIRMED
+                  amount: 10
+                  currency: CNY
+                  paidAt: '2026-11-14T09:05:00'
+                  paymentExpiresAt: '2026-11-14T09:15:00'
+                  closedAt: null
+                  serverTime: '2026-11-14T10:00:00'
+                  paymentExpired: false
+                  canPay: false
+                  canCancel: false
+                  patient:
+                    id: '201'
+                    name: 张小明
+                    documentType: RESIDENT_ID_CARD
+                    documentNoMasked: 1101**********002X
+                    contactPhone: '13800138000'
+                    contactEmail: patient@example.com
+                  doctor:
+                    id: '101'
+                    doctorNo: DOC000101
+                    name: 李明
+                    title: 主任医师
+                    department:
+                      id: '11'
+                      name: 心内科
+                    hospital:
+                      id: '1'
+                      name: 市中心医院
+                      address: 人民路 100 号
+                  sessionType: MORNING_FIRST
+                  visit:
+                    status: NOT_CHECKED_IN
+                    checkedInAt: null
+                    startedAt: null
+                    completedAt: null
+                    canCheckIn: false
+                    checkInOpensAt: '2026-11-14T07:30:00'
+                    checkInClosesAt: '2026-11-14T10:00:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /appointments/{id}/pay:
+    parameters:
+      - $ref: '#/components/parameters/AppointmentId'
+    post:
+      tags:
+        - Appointment
+      operationId: payAppointment
+      summary: 模拟支付
+      description: |
+        只允许待支付、支付单未付且未超过最晚支付时刻的预约。
+        重复支付已确认订单返回原支付时间和就诊序号；已过期返回 409 / 4004；其他不允许的状态返回 409 / 4003。
+      responses:
+        '200':
+          description: 支付后的预约详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '301'
+                  appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                  scheduleId: '401'
+                  appointmentDate: '2026-11-14'
+                  startTime: '08:00:00'
+                  endTime: '10:00:00'
+                  status: CONFIRMED
+                  visitNumber: 1
+                  createdAt: '2026-11-14T09:00:00'
+                  paymentOrderId: '501'
+                  paymentStatus: PAID
+                  workflowStatus: CONFIRMED
+                  amount: 10
+                  currency: CNY
+                  paidAt: '2026-11-14T09:05:00'
+                  paymentExpiresAt: '2026-11-14T09:15:00'
+                  closedAt: null
+                  serverTime: '2026-11-14T09:05:00'
+                  paymentExpired: false
+                  canPay: false
+                  canCancel: false
+                  patient:
+                    id: '201'
+                    name: 张小明
+                    documentType: RESIDENT_ID_CARD
+                    documentNoMasked: 1101**********002X
+                    contactPhone: '13800138000'
+                    contactEmail: patient@example.com
+                  doctor:
+                    id: '101'
+                    doctorNo: DOC000101
+                    name: 李明
+                    title: 主任医师
+                    department:
+                      id: '11'
+                      name: 心内科
+                    hospital:
+                      id: '1'
+                      name: 市中心医院
+                      address: 人民路 100 号
+                  sessionType: MORNING_FIRST
+                  visit:
+                    status: NOT_CHECKED_IN
+                    checkedInAt: null
+                    startedAt: null
+                    completedAt: null
+                    canCheckIn: false
+                    checkInOpensAt: '2026-11-14T07:30:00'
+                    checkInClosesAt: '2026-11-14T10:00:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 支付资格冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+              examples:
+                orderState:
+                  value:
+                    code: 4003
+                    message: 订单当前状态不允许该操作
+                    data: null
+                paymentExpired:
+                  value:
+                    code: 4004
+                    message: 支付期限已过
+                    data: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /appointments/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/AppointmentId'
+    post:
+      tags:
+        - Appointment
+      operationId: cancelAppointment
+      summary: 取消预约
+      description: |
+        只允许关闭未支付的待支付预约。已取消或已过期的预约重复取消返回当前详情。
+        待支付预约已超时但尚未被后台关单时，取消会按过期关闭并释放名额。
+        已确认预约不允许取消，返回 409 / 4003。
+        用户取消后 `workflowStatus` 和 `visit` 为 null；下方示例省略这两个可空字段。
+      responses:
+        '200':
+          description: 取消后的预约详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '301'
+                  appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                  scheduleId: '401'
+                  appointmentDate: '2026-11-14'
+                  startTime: '08:00:00'
+                  endTime: '10:00:00'
+                  status: CANCELLED
+                  visitNumber: null
+                  createdAt: '2026-11-14T09:00:00'
+                  paymentOrderId: '501'
+                  paymentStatus: CLOSED
+                  amount: 10
+                  currency: CNY
+                  paidAt: null
+                  paymentExpiresAt: '2026-11-14T09:15:00'
+                  closedAt: '2026-11-14T09:05:00'
+                  serverTime: '2026-11-14T09:05:00'
+                  paymentExpired: false
+                  canPay: false
+                  canCancel: false
+                  patient:
+                    id: '201'
+                    name: 张小明
+                    documentType: RESIDENT_ID_CARD
+                    documentNoMasked: 1101**********002X
+                    contactPhone: '13800138000'
+                    contactEmail: patient@example.com
+                  doctor:
+                    id: '101'
+                    doctorNo: DOC000101
+                    name: 李明
+                    title: 主任医师
+                    department:
+                      id: '11'
+                      name: 心内科
+                    hospital:
+                      id: '1'
+                      name: 市中心医院
+                      address: 人民路 100 号
+                  sessionType: MORNING_FIRST
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/OrderStateError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /appointments/{id}/check-in:
+    parameters:
+      - $ref: '#/components/parameters/AppointmentId'
+    post:
+      tags:
+        - Visit
+      operationId: checkIn
+      summary: 到院签到
+      description: |
+        用户只能为本人已确认且尚未签到的预约签到。签到开放时间为场次开始前 30 分钟，
+        截止时间为场次结束时间。签到记录与「签到成功」通知在同一事务提交。
+        重复签到或状态不符返回 409 / 4502；未到窗口返回 409 / 4503；已过截止返回 409 / 4504。
+      responses:
+        '200':
+          description: 签到后的预约详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '301'
+                  appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                  scheduleId: '401'
+                  appointmentDate: '2026-11-14'
+                  startTime: '08:00:00'
+                  endTime: '10:00:00'
+                  status: CONFIRMED
+                  visitNumber: 1
+                  createdAt: '2026-11-14T09:00:00'
+                  paymentOrderId: '501'
+                  paymentStatus: PAID
+                  workflowStatus: CONFIRMED
+                  amount: 10
+                  currency: CNY
+                  paidAt: '2026-11-14T09:05:00'
+                  paymentExpiresAt: '2026-11-14T09:15:00'
+                  closedAt: null
+                  serverTime: '2026-11-14T07:35:00'
+                  paymentExpired: false
+                  canPay: false
+                  canCancel: false
+                  patient:
+                    id: '201'
+                    name: 张小明
+                    documentType: RESIDENT_ID_CARD
+                    documentNoMasked: 1101**********002X
+                    contactPhone: '13800138000'
+                    contactEmail: patient@example.com
+                  doctor:
+                    id: '101'
+                    doctorNo: DOC000101
+                    name: 李明
+                    title: 主任医师
+                    department:
+                      id: '11'
+                      name: 心内科
+                    hospital:
+                      id: '1'
+                      name: 市中心医院
+                      address: 人民路 100 号
+                  sessionType: MORNING_FIRST
+                  visit:
+                    status: WAITING
+                    checkedInAt: '2026-11-14T07:35:00'
+                    startedAt: null
+                    completedAt: null
+                    canCheckIn: false
+                    checkInOpensAt: '2026-11-14T07:30:00'
+                    checkInClosesAt: '2026-11-14T10:00:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 签到资格冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+              examples:
+                visitState:
+                  value:
+                    code: 4502
+                    message: 当前日期或就诊进度不允许该操作
+                    data: null
+                notOpen:
+                  value:
+                    code: 4503
+                    message: 尚未到签到开放时间
+                    data: null
+                closed:
+                  value:
+                    code: 4504
+                    message: 已超过预约场次签到截止时间
+                    data: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /doctor/sessions:
+    get:
+      tags:
+        - Visit
+      operationId: listDoctorSessions
+      summary: 查询医生当日四场概览
+      description: |
+        需要 DOCTOR 角色。按固定四个场次返回当日概览，空场次补零。
+        `date` 省略时使用业务今天。未绑定医生档案的账号返回 403 / 2002。
+      parameters:
+        - name: date
+          in: query
+          required: false
+          description: 业务日期，省略时使用业务今天。
+          schema:
+            type: string
+            format: date
+            example: '2026-11-14'
+      responses:
+        '200':
+          description: 四场概览
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorSessionListResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  - appointmentDate: '2026-11-14'
+                    sessionType: MORNING_FIRST
+                    startTime: '08:00:00'
+                    endTime: '10:00:00'
+                    confirmedCount: 12
+                    notCheckedInCount: 3
+                    waitingCount: 4
+                    inProgressCount: 1
+                    completedCount: 4
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /doctor/appointments:
+    get:
+      tags:
+        - Visit
+      operationId: listDoctorAppointments
+      summary: 查询医生场次名单
+      description: |
+        需要 DOCTOR 角色。只返回本人已确认预约，按就诊序号升序。
+        `date` 和 `sessionType` 都必填；场次类型非法返回 400 / 1001。
+      parameters:
+        - name: date
+          in: query
+          required: true
+          description: 业务日期。
+          schema:
+            type: string
+            format: date
+            example: '2026-11-14'
+        - $ref: '#/components/parameters/SessionTypeQuery'
+      responses:
+        '200':
+          description: 场次名单
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorRowListResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  - appointmentId: '301'
+                    visitNumber: 1
+                    patientName: 张小明
+                    visitStatus: WAITING
+                    checkedInAt: '2026-11-14T07:35:00'
+                    canStartVisit: true
+                    canCompleteVisit: false
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /doctor/appointments/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AppointmentId'
+    get:
+      tags:
+        - Visit
+      operationId: getDoctorAppointment
+      summary: 查询医生预约详情
+      description: 需要 DOCTOR 角色。只能读取本人已确认预约；不存在或不属于本人返回 404 / 4001。
+      responses:
+        '200':
+          description: 医生只读详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorDetailResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  appointmentId: '301'
+                  appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                  visitNumber: 1
+                  appointmentDate: '2026-11-14'
+                  sessionType: MORNING_FIRST
+                  startTime: '08:00:00'
+                  endTime: '10:00:00'
+                  patient:
+                    id: '201'
+                    name: 张小明
+                    documentType: RESIDENT_ID_CARD
+                    documentNoMasked: 1101**********002X
+                  doctor:
+                    id: '101'
+                    doctorNo: DOC000101
+                    name: 李明
+                    title: 主任医师
+                    department:
+                      id: '11'
+                      name: 心内科
+                    hospital:
+                      id: '1'
+                      name: 市中心医院
+                      address: 人民路 100 号
+                  visit:
+                    status: WAITING
+                    checkedInAt: '2026-11-14T07:35:00'
+                    startedAt: null
+                    completedAt: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /doctor/appointments/{id}/start-visit:
+    parameters:
+      - $ref: '#/components/parameters/AppointmentId'
+    post:
+      tags:
+        - Visit
+      operationId: startVisit
+      summary: 开始接诊
+      description: 需要 DOCTOR 角色。只允许本人已确认且处于候诊中的预约；成功后返回最新详情，并写入「开始接诊」通知。
+      responses:
+        '200':
+          description: 开始接诊后的医生详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorDetailResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  appointmentId: '301'
+                  appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                  visitNumber: 1
+                  appointmentDate: '2026-11-14'
+                  sessionType: MORNING_FIRST
+                  startTime: '08:00:00'
+                  endTime: '10:00:00'
+                  patient:
+                    id: '201'
+                    name: 张小明
+                    documentType: RESIDENT_ID_CARD
+                    documentNoMasked: 1101**********002X
+                  doctor:
+                    id: '101'
+                    doctorNo: DOC000101
+                    name: 李明
+                    title: 主任医师
+                    department:
+                      id: '11'
+                      name: 心内科
+                    hospital:
+                      id: '1'
+                      name: 市中心医院
+                      address: 人民路 100 号
+                  visit:
+                    status: IN_PROGRESS
+                    checkedInAt: '2026-11-14T07:35:00'
+                    startedAt: '2026-11-14T08:05:00'
+                    completedAt: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/VisitStateError'
+  /doctor/appointments/{id}/complete-visit:
+    parameters:
+      - $ref: '#/components/parameters/AppointmentId'
+    post:
+      tags:
+        - Visit
+      operationId: completeVisit
+      summary: 完成接诊
+      description: 需要 DOCTOR 角色。只允许本人已确认且处于就诊中的预约；成功后返回最新详情，并写入「完成接诊」通知。
+      responses:
+        '200':
+          description: 完成接诊后的医生详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorDetailResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  appointmentId: '301'
+                  appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                  visitNumber: 1
+                  appointmentDate: '2026-11-14'
+                  sessionType: MORNING_FIRST
+                  startTime: '08:00:00'
+                  endTime: '10:00:00'
+                  patient:
+                    id: '201'
+                    name: 张小明
+                    documentType: RESIDENT_ID_CARD
+                    documentNoMasked: 1101**********002X
+                  doctor:
+                    id: '101'
+                    doctorNo: DOC000101
+                    name: 李明
+                    title: 主任医师
+                    department:
+                      id: '11'
+                      name: 心内科
+                    hospital:
+                      id: '1'
+                      name: 市中心医院
+                      address: 人民路 100 号
+                  visit:
+                    status: COMPLETED
+                    checkedInAt: '2026-11-14T07:35:00'
+                    startedAt: '2026-11-14T08:05:00'
+                    completedAt: '2026-11-14T08:30:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/VisitStateError'
+  /notifications:
+    get:
+      tags:
+        - Notification
+      operationId: listNotifications
+      summary: 查询本人通知列表
+      description: |
+        只读取当前登录账号的站内通知，不判断角色。按 `occurredAt` 降序、`id` 降序排列，首版不分页。
+        无通知时返回空数组。
+      responses:
+        '200':
+          description: 通知列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationListResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  - id: '901'
+                    type: APPOINTMENT_CONFIRMED
+                    title: 预约成功
+                    patientName: 张小明
+                    occurredAt: '2026-11-14T09:05:00'
+                  - id: '902'
+                    type: CHECKED_IN
+                    title: 签到成功
+                    patientName: 张小明
+                    occurredAt: '2026-11-14T07:35:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /notifications/{id}:
+    parameters:
+      - $ref: '#/components/parameters/NotificationId'
+    get:
+      tags:
+        - Notification
+      operationId: getNotification
+      summary: 查询本人通知详情
+      description: |
+        通知不存在或不属于当前账号时统一返回 404 / 4001，不区分两种情况。
+        `detail` 是事件生成时保存的完整文案，后续修改就诊人或医疗目录不会改变。
+      responses:
+        '200':
+          description: 通知详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationDetailResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  id: '901'
+                  type: APPOINTMENT_CONFIRMED
+                  title: 预约成功
+                  patientName: 张小明
+                  occurredAt: '2026-11-14T09:05:00'
+                  detail: 您为张小明预约的市中心医院心内科李明医生已确认，请按时到院。
+                  appointmentId: '301'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /local-environment:
+    get:
+      tags:
+        - LocalEnvironment
+      operationId: getLocalEnvironmentStatus
+      summary: 探测本地环境状态
+      description: |
+        常驻环境提供的免登录探测接口。后端已能接受流量时返回 200；已启动但尚未就绪时返回 503。
+        响应直接返回状态对象，不使用统一 `{ code, message, data }` 包装，并设置 `Cache-Control: no-store`。
+        由本地脚本启动时 `launchId` 为当次启动标识；单独启动后端时通常为 `null`。
+      security: []
+      responses:
+        '200':
+          description: 环境已就绪
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalEnvironmentStatus'
+              example:
+                profile: demo
+                ready: true
+                launchId: 9f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+        '409':
+          description: 请求头中的环境标识与当前 profile 不一致
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+              example:
+                code: 1003
+                message: 运行环境已切换，请刷新页面
+                data: null
+        '503':
+          description: 环境尚未就绪
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalEnvironmentStatus'
+              example:
+                profile: demo
+                ready: false
+                launchId: 9f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+  /test-control/clock:
+    get:
+      tags:
+        - TestClock
+      operationId: getBusinessClock
+      summary: 查询业务时间
+      description: |
+        仅在 test 环境存在，需要 ADMIN 角色。返回当前业务时间和模式：
+        `realtime` 为实时，`adjusted` 为已调时。其他环境该接口不存在。
+      responses:
+        '200':
+          description: 当前业务时间
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessClockResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  businessTime: '2026-11-20T07:20:00+08:00'
+                  mode: adjusted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - TestClock
+      operationId: setBusinessClock
+      summary: 设置业务时间
+      description: |
+        仅在 test 环境存在，需要 ADMIN 角色。设置后业务时钟继续走秒。
+        调时影响下单、支付、过期扫描和签到；Redis 有效期和 JWT 仍使用真实时间。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetBusinessClockRequest'
+            example:
+              instant: '2026-11-20T07:20:00+08:00'
+      responses:
+        '200':
+          description: 设置后的业务时间
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessClockResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  businessTime: '2026-11-20T07:20:00+08:00'
+                  mode: adjusted
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - TestClock
+      operationId: resetBusinessClock
+      summary: 恢复实时业务时间
+      description: |
+        仅在 test 环境存在，需要 ADMIN 角色。恢复实时后，已提交的操作结果不回滚；
+        后端重启或执行本接口都会恢复实时。
+      responses:
+        '200':
+          description: 已恢复实时
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessClockResult'
+              example:
+                code: 0
+                message: success
+                data:
+                  businessTime: '2026-11-20T09:30:00+08:00'
+                  mode: realtime
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     bearerAuth:
@@ -2152,6 +3167,795 @@ components:
           example: success
         data:
           $ref: '#/components/schemas/DoctorAccountBinding'
+    BookingToken:
+      type: object
+      required:
+        - token
+        - expiresIn
+      properties:
+        token:
+          type: string
+          format: uuid
+          description: 一次性预约令牌，提交创建预约时放入 Idempotency-Key 请求头。
+          example: 6f8b7c1e-3f5d-4a8e-9b2c-1d4e6f8a0c2b
+        expiresIn:
+          type: integer
+          description: 令牌有效期，单位秒。
+          example: 600
+    BookingTokenResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/BookingToken'
+    CreateAppointmentRequest:
+      type: object
+      required:
+        - doctorId
+        - appointmentDate
+        - sessionType
+        - patientId
+      properties:
+        doctorId:
+          type: string
+          example: '1'
+        appointmentDate:
+          $ref: '#/components/schemas/LocalDate'
+        sessionType:
+          type: string
+          enum:
+            - MORNING_FIRST
+            - MORNING_SECOND
+            - AFTERNOON_FIRST
+            - AFTERNOON_SECOND
+          example: MORNING_FIRST
+        patientId:
+          type: string
+          description: 当前账号下的就诊人 ID。
+          example: '201'
+    CreateAppointmentResponse:
+      type: object
+      description: 首次创建或幂等重放返回的预约与支付单回执；实时状态通过预约详情查询。
+      required:
+        - appointmentOrderId
+        - appointmentNo
+        - appointmentStatus
+        - paymentOrderId
+        - paymentNo
+        - paymentStatus
+        - amount
+        - currency
+        - createdAt
+        - paymentExpiresAt
+        - serverTime
+      properties:
+        appointmentOrderId:
+          type: string
+          example: '301'
+        appointmentNo:
+          type: string
+          example: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+        appointmentStatus:
+          type: string
+          enum:
+            - PENDING_PAYMENT
+          example: PENDING_PAYMENT
+        paymentOrderId:
+          type: string
+          example: '501'
+        paymentNo:
+          type: string
+          example: PAY6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+        paymentStatus:
+          type: string
+          enum:
+            - UNPAID
+          example: UNPAID
+        amount:
+          $ref: '#/components/schemas/MoneyString'
+        currency:
+          type: string
+          enum:
+            - CNY
+          example: CNY
+        createdAt:
+          $ref: '#/components/schemas/LocalDateTime'
+        paymentExpiresAt:
+          $ref: '#/components/schemas/LocalDateTime'
+        serverTime:
+          $ref: '#/components/schemas/LocalDateTime'
+    CreateAppointmentResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/CreateAppointmentResponse'
+    PendingAppointment:
+      type: object
+      required:
+        - pending
+      properties:
+        pending:
+          type: boolean
+          example: true
+    PendingAppointmentResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: 原预约正在提交
+        data:
+          $ref: '#/components/schemas/PendingAppointment'
+    NullableLocalDateTime:
+      type: string
+      nullable: true
+      description: 业务本地时间，Asia/Shanghai，格式 yyyy-MM-ddTHH:mm:ss；未发生时为 null。
+      example: '2026-11-14T09:10:00'
+    AppointmentPatient:
+      type: object
+      required:
+        - id
+        - name
+        - documentType
+        - documentNoMasked
+        - contactPhone
+        - contactEmail
+      properties:
+        id:
+          type: string
+          example: '201'
+        name:
+          type: string
+          example: 张小明
+        documentType:
+          type: string
+          enum:
+            - RESIDENT_ID_CARD
+          example: RESIDENT_ID_CARD
+        documentNoMasked:
+          type: string
+          example: 1101**********002X
+        contactPhone:
+          type: string
+          example: '13800138000'
+        contactEmail:
+          type: string
+          format: email
+          example: patient@example.com
+    AppointmentDepartment:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          example: '11'
+        name:
+          type: string
+          example: 心内科
+    AppointmentHospital:
+      type: object
+      required:
+        - id
+        - name
+        - address
+      properties:
+        id:
+          type: string
+          example: '1'
+        name:
+          type: string
+          example: 市中心医院
+        address:
+          type: string
+          example: 人民路 100 号
+    AppointmentDoctor:
+      type: object
+      description: 预约创建时的医生、科室和医院快照。
+      required:
+        - id
+        - doctorNo
+        - name
+        - title
+        - department
+        - hospital
+      properties:
+        id:
+          type: string
+          example: '101'
+        doctorNo:
+          type: string
+          example: DOC000101
+        name:
+          type: string
+          example: 李明
+        title:
+          type: string
+          example: 主任医师
+        department:
+          $ref: '#/components/schemas/AppointmentDepartment'
+        hospital:
+          $ref: '#/components/schemas/AppointmentHospital'
+    AppointmentVisit:
+      type: object
+      description: 已确认预约的就诊进度；未确认预约在 Appointment 中为 null。
+      required:
+        - status
+        - checkedInAt
+        - startedAt
+        - completedAt
+        - canCheckIn
+        - checkInOpensAt
+        - checkInClosesAt
+      properties:
+        status:
+          type: string
+          enum:
+            - NOT_CHECKED_IN
+            - WAITING
+            - IN_PROGRESS
+            - COMPLETED
+          example: NOT_CHECKED_IN
+        checkedInAt:
+          $ref: '#/components/schemas/NullableLocalDateTime'
+        startedAt:
+          $ref: '#/components/schemas/NullableLocalDateTime'
+        completedAt:
+          $ref: '#/components/schemas/NullableLocalDateTime'
+        canCheckIn:
+          type: boolean
+          example: false
+        checkInOpensAt:
+          $ref: '#/components/schemas/LocalDateTime'
+        checkInClosesAt:
+          $ref: '#/components/schemas/LocalDateTime'
+    Appointment:
+      type: object
+      description: 本人预约详情及列表项，包含创建时的凭证快照和当前支付/就诊进度。
+      required:
+        - id
+        - appointmentNo
+        - scheduleId
+        - appointmentDate
+        - startTime
+        - endTime
+        - status
+        - visitNumber
+        - createdAt
+        - paymentOrderId
+        - paymentStatus
+        - amount
+        - currency
+        - paidAt
+        - paymentExpiresAt
+        - closedAt
+        - serverTime
+        - paymentExpired
+        - canPay
+        - canCancel
+        - patient
+        - doctor
+        - sessionType
+      properties:
+        id:
+          type: string
+          example: '301'
+        appointmentNo:
+          type: string
+          example: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+        scheduleId:
+          type: string
+          example: '401'
+        appointmentDate:
+          $ref: '#/components/schemas/LocalDate'
+        startTime:
+          $ref: '#/components/schemas/LocalTime'
+        endTime:
+          $ref: '#/components/schemas/LocalTime'
+        status:
+          type: string
+          enum:
+            - PENDING_PAYMENT
+            - CONFIRMED
+            - CANCELLED
+            - EXPIRED
+          example: CONFIRMED
+        visitNumber:
+          type: integer
+          nullable: true
+          example: 1
+        createdAt:
+          $ref: '#/components/schemas/LocalDateTime'
+        paymentOrderId:
+          type: string
+          example: '501'
+        paymentStatus:
+          type: string
+          enum:
+            - UNPAID
+            - PAID
+            - CLOSED
+          example: PAID
+        workflowStatus:
+          type: string
+          nullable: true
+          description: 预约与支付的组合展示状态；用户取消后为 null。
+          enum:
+            - WAITING_FOR_PAYMENT
+            - CONFIRMED
+            - EXPIRED
+          example: CONFIRMED
+        amount:
+          type: number
+          description: 预约详情中的金额为 JSON 数值；创建回执中的 amount 为字符串。
+          example: 10
+        currency:
+          type: string
+          enum:
+            - CNY
+          example: CNY
+        paidAt:
+          $ref: '#/components/schemas/NullableLocalDateTime'
+        paymentExpiresAt:
+          $ref: '#/components/schemas/NullableLocalDateTime'
+        closedAt:
+          $ref: '#/components/schemas/NullableLocalDateTime'
+        serverTime:
+          $ref: '#/components/schemas/LocalDateTime'
+        paymentExpired:
+          type: boolean
+          example: false
+        canPay:
+          type: boolean
+          example: false
+        canCancel:
+          type: boolean
+          example: false
+        patient:
+          $ref: '#/components/schemas/AppointmentPatient'
+        doctor:
+          $ref: '#/components/schemas/AppointmentDoctor'
+        sessionType:
+          type: string
+          enum:
+            - MORNING_FIRST
+            - MORNING_SECOND
+            - AFTERNOON_FIRST
+            - AFTERNOON_SECOND
+          example: MORNING_FIRST
+        visit:
+          type: object
+          nullable: true
+          description: 已确认预约的就诊进度；未确认或用户取消后为 null。
+          allOf:
+            - $ref: '#/components/schemas/AppointmentVisit'
+    AppointmentListResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Appointment'
+    AppointmentResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/Appointment'
+    DoctorSession:
+      type: object
+      required:
+        - appointmentDate
+        - sessionType
+        - startTime
+        - endTime
+        - confirmedCount
+        - notCheckedInCount
+        - waitingCount
+        - inProgressCount
+        - completedCount
+      properties:
+        appointmentDate:
+          $ref: '#/components/schemas/LocalDate'
+        sessionType:
+          type: string
+          enum:
+            - MORNING_FIRST
+            - MORNING_SECOND
+            - AFTERNOON_FIRST
+            - AFTERNOON_SECOND
+          example: MORNING_FIRST
+        startTime:
+          $ref: '#/components/schemas/LocalTime'
+        endTime:
+          $ref: '#/components/schemas/LocalTime'
+        confirmedCount:
+          type: integer
+          example: 12
+        notCheckedInCount:
+          type: integer
+          example: 3
+        waitingCount:
+          type: integer
+          example: 4
+        inProgressCount:
+          type: integer
+          example: 1
+        completedCount:
+          type: integer
+          example: 4
+    DoctorSessionListResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DoctorSession'
+    DoctorAppointmentRow:
+      type: object
+      required:
+        - appointmentId
+        - visitNumber
+        - patientName
+        - visitStatus
+        - checkedInAt
+        - canStartVisit
+        - canCompleteVisit
+      properties:
+        appointmentId:
+          type: string
+          example: '301'
+        visitNumber:
+          type: integer
+          example: 1
+        patientName:
+          type: string
+          example: 张小明
+        visitStatus:
+          type: string
+          enum:
+            - NOT_CHECKED_IN
+            - WAITING
+            - IN_PROGRESS
+            - COMPLETED
+          example: WAITING
+        checkedInAt:
+          $ref: '#/components/schemas/NullableLocalDateTime'
+        canStartVisit:
+          type: boolean
+          example: true
+        canCompleteVisit:
+          type: boolean
+          example: false
+    DoctorRowListResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DoctorAppointmentRow'
+    DoctorPatient:
+      type: object
+      required:
+        - id
+        - name
+        - documentType
+        - documentNoMasked
+      properties:
+        id:
+          type: string
+          example: '201'
+        name:
+          type: string
+          example: 张小明
+        documentType:
+          type: string
+          enum:
+            - RESIDENT_ID_CARD
+          example: RESIDENT_ID_CARD
+        documentNoMasked:
+          type: string
+          example: 1101**********002X
+    DoctorVisitProgress:
+      type: object
+      required:
+        - status
+        - checkedInAt
+        - startedAt
+        - completedAt
+      properties:
+        status:
+          type: string
+          enum:
+            - NOT_CHECKED_IN
+            - WAITING
+            - IN_PROGRESS
+            - COMPLETED
+          example: IN_PROGRESS
+        checkedInAt:
+          $ref: '#/components/schemas/NullableLocalDateTime'
+        startedAt:
+          $ref: '#/components/schemas/NullableLocalDateTime'
+        completedAt:
+          $ref: '#/components/schemas/NullableLocalDateTime'
+    DoctorAppointmentDetail:
+      type: object
+      required:
+        - appointmentId
+        - appointmentNo
+        - visitNumber
+        - appointmentDate
+        - sessionType
+        - startTime
+        - endTime
+        - patient
+        - doctor
+        - visit
+      properties:
+        appointmentId:
+          type: string
+          example: '301'
+        appointmentNo:
+          type: string
+          example: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+        visitNumber:
+          type: integer
+          example: 1
+        appointmentDate:
+          $ref: '#/components/schemas/LocalDate'
+        sessionType:
+          type: string
+          enum:
+            - MORNING_FIRST
+            - MORNING_SECOND
+            - AFTERNOON_FIRST
+            - AFTERNOON_SECOND
+          example: MORNING_FIRST
+        startTime:
+          $ref: '#/components/schemas/LocalTime'
+        endTime:
+          $ref: '#/components/schemas/LocalTime'
+        patient:
+          $ref: '#/components/schemas/DoctorPatient'
+        doctor:
+          $ref: '#/components/schemas/AppointmentDoctor'
+        visit:
+          $ref: '#/components/schemas/DoctorVisitProgress'
+    DoctorDetailResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/DoctorAppointmentDetail'
+    NotificationSummary:
+      type: object
+      required:
+        - id
+        - type
+        - title
+        - patientName
+        - occurredAt
+      properties:
+        id:
+          type: string
+          example: '901'
+        type:
+          type: string
+          enum:
+            - APPOINTMENT_CONFIRMED
+            - CHECKED_IN
+            - VISIT_STARTED
+            - VISIT_COMPLETED
+          example: APPOINTMENT_CONFIRMED
+        title:
+          type: string
+          example: 预约成功
+        patientName:
+          type: string
+          example: 张小明
+        occurredAt:
+          $ref: '#/components/schemas/LocalDateTime'
+    NotificationListResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationSummary'
+    NotificationDetail:
+      type: object
+      required:
+        - id
+        - type
+        - title
+        - patientName
+        - occurredAt
+        - detail
+        - appointmentId
+      properties:
+        id:
+          type: string
+          example: '901'
+        type:
+          type: string
+          enum:
+            - APPOINTMENT_CONFIRMED
+            - CHECKED_IN
+            - VISIT_STARTED
+            - VISIT_COMPLETED
+          example: APPOINTMENT_CONFIRMED
+        title:
+          type: string
+          example: 预约成功
+        patientName:
+          type: string
+          example: 张小明
+        occurredAt:
+          $ref: '#/components/schemas/LocalDateTime'
+        detail:
+          type: string
+          example: 您为张小明预约的市中心医院心内科李明医生已确认，请按时到院。
+        appointmentId:
+          type: string
+          example: '301'
+    NotificationDetailResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/NotificationDetail'
+    LocalEnvironmentStatus:
+      type: object
+      required:
+        - profile
+        - ready
+        - launchId
+      properties:
+        profile:
+          type: string
+          example: demo
+        ready:
+          type: boolean
+          example: true
+        launchId:
+          type: string
+          nullable: true
+          example: 9f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+    BusinessClock:
+      type: object
+      required:
+        - businessTime
+        - mode
+      properties:
+        businessTime:
+          type: string
+          format: date-time
+          description: 业务时间，带时区偏移。
+          example: '2026-11-20T07:20:00+08:00'
+        mode:
+          type: string
+          enum:
+            - realtime
+            - adjusted
+          example: adjusted
+    BusinessClockResult:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/BusinessClock'
+    SetBusinessClockRequest:
+      type: object
+      required:
+        - instant
+      properties:
+        instant:
+          type: string
+          format: date-time
+          description: 带时区偏移的 ISO 时间字符串。
+          example: '2026-11-20T07:20:00+08:00'
   responses:
     ValidationError:
       description: 请求参数不合法。
@@ -2273,6 +4077,36 @@ components:
             code: 4501
             message: 医生档案或账号已绑定，不支持换绑
             data: null
+    RetryableConcurrencyError:
+      description: 并发冲突，需要使用原令牌和请求体重试。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResult'
+          example:
+            code: 5001
+            message: 请求暂时无法处理，请使用原幂等键重试
+            data: null
+    OrderStateError:
+      description: 当前订单状态不允许该操作。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResult'
+          example:
+            code: 4003
+            message: 订单当前状态不允许该操作
+            data: null
+    VisitStateError:
+      description: 预约或就诊状态不允许该操作。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResult'
+          example:
+            code: 4502
+            message: 当前日期或就诊进度不允许该操作
+            data: null
   parameters:
     PatientId:
       name: id
@@ -2310,6 +4144,46 @@ components:
         type: integer
         format: int64
         example: 101
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 通过 `/appointments/token` 领取的预约令牌；网络重试沿用同一令牌和请求体。
+      schema:
+        type: string
+        format: uuid
+        example: 6f8b7c1e-3f5d-4a8e-9b2c-1d4e6f8a0c2b
+    AppointmentId:
+      name: id
+      in: path
+      required: true
+      description: 预约单 ID。
+      schema:
+        type: integer
+        format: int64
+        example: 301
+    SessionTypeQuery:
+      name: sessionType
+      in: query
+      required: true
+      description: 固定场次类型。
+      schema:
+        type: string
+        enum:
+          - MORNING_FIRST
+          - MORNING_SECOND
+          - AFTERNOON_FIRST
+          - AFTERNOON_SECOND
+        example: MORNING_FIRST
+    NotificationId:
+      name: id
+      in: path
+      required: true
+      description: 站内通知 ID。
+      schema:
+        type: integer
+        format: int64
+        example: 901
 x-tagGroups:
   - name: 账号与用户
     tags:
@@ -2324,3 +4198,16 @@ x-tagGroups:
       - AdminCatalog
       - BookingSettings
       - DoctorAccount
+  - name: 预约与支付
+    tags:
+      - Appointment
+  - name: 到院与接诊
+    tags:
+      - Visit
+  - name: 消息中心
+    tags:
+      - Notification
+  - name: 本地运维
+    tags:
+      - LocalEnvironment
+      - TestClock

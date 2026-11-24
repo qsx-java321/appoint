@@ -1,6 +1,6 @@
 # OpenAPI 契约
 
-认证、用户、头像、就诊人和医疗目录接口的机器可读契约。接口字段、Schema、状态码和示例以本目录为准；跨接口业务规则、通用约定和错误码索引见 [REST API](../api.md)。
+医院预约系统全部 REST API 的机器可读契约。接口字段、Schema、状态码和示例以本目录为准；跨接口业务规则、通用约定和错误码索引见 [REST API](../api.md)。
 
 ## 当前覆盖
 
@@ -13,28 +13,38 @@
 | `AdminCatalog` | 医院、科室、医生档案管理 |
 | `BookingSettings` | 统一预约设置查询与更新 |
 | `DoctorAccount` | 医生账号查询与首次绑定 |
+| `Appointment` | 预约令牌、创建、详情、列表、支付、取消 |
+| `Visit` | 到院签到、医生场次、开始/完成接诊 |
+| `Notification` | 消息中心列表与详情 |
+| `LocalEnvironment` | 本地环境状态探测 |
+| `TestClock` | test 环境业务时间查询、设置和恢复 |
 
-尚未迁移：预约/支付、到院签到/接诊、消息中心、本地环境识别、test 调时。这些模块暂时保留在 `docs/api.md`。
+当前 REST API 已全部迁移。`docs/api.md` 继续保留跨接口约定、业务规则和错误码索引。
 
 ## 目录
 
 ```text
 docs/openapi/
-├── openapi.yaml              # 入口：servers、tags、security、paths
+├── openapi.yaml               # 入口：servers、tags、security、paths
 ├── paths/
-│   ├── auth.yaml             # 注册与登录
-│   ├── users.yaml            # 当前用户与头像
-│   ├── patients.yaml         # 就诊人管理
-│   ├── catalog.yaml          # 医院、科室、医生、场次查询
-│   ├── admin-catalog.yaml    # 管理员目录管理
-│   ├── booking-settings.yaml # 统一预约设置
-│   └── doctor-accounts.yaml  # 医生账号查询与绑定
+│   ├── auth.yaml              # 注册与登录
+│   ├── users.yaml             # 当前用户与头像
+│   ├── patients.yaml          # 就诊人管理
+│   ├── catalog.yaml           # 医院、科室、医生、场次查询
+│   ├── admin-catalog.yaml     # 管理员目录管理
+│   ├── booking-settings.yaml  # 统一预约设置
+│   ├── doctor-accounts.yaml   # 医生账号查询与绑定
+│   ├── appointments.yaml      # 预约创建、查询、支付、取消
+│   ├── visits.yaml            # 签到与医生接诊
+│   ├── notifications.yaml     # 消息中心
+│   ├── local-environment.yaml # 本地环境识别
+│   └── test-clock.yaml        # test 业务调时
 ├── components/
-│   ├── schemas.yaml          # User、Patient、Catalog、Result 等模型
-│   ├── responses.yaml        # 通用错误响应
-│   └── parameters.yaml       # 路径参数
-├── preview.html              # Scalar 本地预览页
-└── dist/openapi.yaml         # bundle 产物，供 Apifox/Postman 导入
+│   ├── schemas.yaml           # 全部请求/响应模型
+│   ├── responses.yaml         # 通用错误响应
+│   └── parameters.yaml        # 路径、查询和请求头参数
+├── preview.html               # Scalar 本地预览页
+└── dist/openapi.yaml          # bundle 产物，供 Apifox/Postman 导入
 ```
 
 `openapi.yaml`、`paths/`、`components/` 是维护源文件；`dist/openapi.yaml` 是生成文件，不要手工修改。

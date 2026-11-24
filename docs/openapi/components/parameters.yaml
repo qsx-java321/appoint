@@ -37,3 +37,43 @@ DoctorId:
     type: integer
     format: int64
     example: 101
+
+AppointmentId:
+  name: id
+  in: path
+  required: true
+  description: 预约单 ID。
+  schema:
+    type: integer
+    format: int64
+    example: 301
+
+NotificationId:
+  name: id
+  in: path
+  required: true
+  description: 站内通知 ID。
+  schema:
+    type: integer
+    format: int64
+    example: 901
+
+IdempotencyKey:
+  name: Idempotency-Key
+  in: header
+  required: true
+  description: 通过 `/appointments/token` 领取的预约令牌；网络重试沿用同一令牌和请求体。
+  schema:
+    type: string
+    format: uuid
+    example: 6f8b7c1e-3f5d-4a8e-9b2c-1d4e6f8a0c2b
+
+SessionTypeQuery:
+  name: sessionType
+  in: query
+  required: true
+  description: 固定场次类型。
+  schema:
+    type: string
+    enum: [MORNING_FIRST, MORNING_SECOND, AFTERNOON_FIRST, AFTERNOON_SECOND]
+    example: MORNING_FIRST

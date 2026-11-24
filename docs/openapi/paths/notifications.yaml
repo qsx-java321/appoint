@@ -1,0 +1,64 @@
+notifications:
+  get:
+    tags: [Notification]
+    operationId: listNotifications
+    summary: 查询本人通知列表
+    description: |
+      只读取当前登录账号的站内通知，不判断角色。按 `occurredAt` 降序、`id` 降序排列，首版不分页。
+      无通知时返回空数组。
+    responses:
+      '200':
+        description: 通知列表
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/NotificationListResult'
+            example:
+              code: 0
+              message: success
+              data:
+                - id: "901"
+                  type: APPOINTMENT_CONFIRMED
+                  title: 预约成功
+                  patientName: 张小明
+                  occurredAt: 2026-11-14T09:05:00
+                - id: "902"
+                  type: CHECKED_IN
+                  title: 签到成功
+                  patientName: 张小明
+                  occurredAt: 2026-11-14T07:35:00
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+
+notification:
+  parameters:
+    - $ref: '../components/parameters.yaml#/NotificationId'
+  get:
+    tags: [Notification]
+    operationId: getNotification
+    summary: 查询本人通知详情
+    description: |
+      通知不存在或不属于当前账号时统一返回 404 / 4001，不区分两种情况。
+      `detail` 是事件生成时保存的完整文案，后续修改就诊人或医疗目录不会改变。
+    responses:
+      '200':
+        description: 通知详情
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/NotificationDetailResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "901"
+                type: APPOINTMENT_CONFIRMED
+                title: 预约成功
+                patientName: 张小明
+                occurredAt: 2026-11-14T09:05:00
+                detail: 您为张小明预约的市中心医院心内科李明医生已确认，请按时到院。
+                appointmentId: "301"
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'

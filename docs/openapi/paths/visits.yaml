@@ -1,0 +1,357 @@
+checkIn:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AppointmentId'
+  post:
+    tags: [Visit]
+    operationId: checkIn
+    summary: 到院签到
+    description: |
+      用户只能为本人已确认且尚未签到的预约签到。签到开放时间为场次开始前 30 分钟，
+      截止时间为场次结束时间。签到记录与「签到成功」通知在同一事务提交。
+      重复签到或状态不符返回 409 / 4502；未到窗口返回 409 / 4503；已过截止返回 409 / 4504。
+    responses:
+      '200':
+        description: 签到后的预约详情
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/AppointmentResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "301"
+                appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                scheduleId: "401"
+                appointmentDate: 2026-11-14
+                startTime: "08:00:00"
+                endTime: "10:00:00"
+                status: CONFIRMED
+                visitNumber: 1
+                createdAt: 2026-11-14T09:00:00
+                paymentOrderId: "501"
+                paymentStatus: PAID
+                workflowStatus: CONFIRMED
+                amount: 10.00
+                currency: CNY
+                paidAt: 2026-11-14T09:05:00
+                paymentExpiresAt: 2026-11-14T09:15:00
+                closedAt: null
+                serverTime: 2026-11-14T07:35:00
+                paymentExpired: false
+                canPay: false
+                canCancel: false
+                patient:
+                  id: "201"
+                  name: 张小明
+                  documentType: RESIDENT_ID_CARD
+                  documentNoMasked: 1101**********002X
+                  contactPhone: "13800138000"
+                  contactEmail: patient@example.com
+                doctor:
+                  id: "101"
+                  doctorNo: DOC000101
+                  name: 李明
+                  title: 主任医师
+                  department:
+                    id: "11"
+                    name: 心内科
+                  hospital:
+                    id: "1"
+                    name: 市中心医院
+                    address: 人民路 100 号
+                sessionType: MORNING_FIRST
+                visit:
+                  status: WAITING
+                  checkedInAt: 2026-11-14T07:35:00
+                  startedAt: null
+                  completedAt: null
+                  canCheckIn: false
+                  checkInOpensAt: 2026-11-14T07:30:00
+                  checkInClosesAt: 2026-11-14T10:00:00
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        description: 签到资格冲突
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/ErrorResult'
+            examples:
+              visitState:
+                value:
+                  code: 4502
+                  message: 当前日期或就诊进度不允许该操作
+                  data: null
+              notOpen:
+                value:
+                  code: 4503
+                  message: 尚未到签到开放时间
+                  data: null
+              closed:
+                value:
+                  code: 4504
+                  message: 已超过预约场次签到截止时间
+                  data: null
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+doctorSessions:
+  get:
+    tags: [Visit]
+    operationId: listDoctorSessions
+    summary: 查询医生当日四场概览
+    description: |
+      需要 DOCTOR 角色。按固定四个场次返回当日概览，空场次补零。
+      `date` 省略时使用业务今天。未绑定医生档案的账号返回 403 / 2002。
+    parameters:
+      - name: date
+        in: query
+        required: false
+        description: 业务日期，省略时使用业务今天。
+        schema:
+          type: string
+          format: date
+          example: 2026-11-14
+    responses:
+      '200':
+        description: 四场概览
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/DoctorSessionListResult'
+            example:
+              code: 0
+              message: success
+              data:
+                - appointmentDate: 2026-11-14
+                  sessionType: MORNING_FIRST
+                  startTime: "08:00:00"
+                  endTime: "10:00:00"
+                  confirmedCount: 12
+                  notCheckedInCount: 3
+                  waitingCount: 4
+                  inProgressCount: 1
+                  completedCount: 4
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+doctorAppointments:
+  get:
+    tags: [Visit]
+    operationId: listDoctorAppointments
+    summary: 查询医生场次名单
+    description: |
+      需要 DOCTOR 角色。只返回本人已确认预约，按就诊序号升序。
+      `date` 和 `sessionType` 都必填；场次类型非法返回 400 / 1001。
+    parameters:
+      - name: date
+        in: query
+        required: true
+        description: 业务日期。
+        schema:
+          type: string
+          format: date
+          example: 2026-11-14
+      - $ref: '../components/parameters.yaml#/SessionTypeQuery'
+    responses:
+      '200':
+        description: 场次名单
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/DoctorRowListResult'
+            example:
+              code: 0
+              message: success
+              data:
+                - appointmentId: "301"
+                  visitNumber: 1
+                  patientName: 张小明
+                  visitStatus: WAITING
+                  checkedInAt: 2026-11-14T07:35:00
+                  canStartVisit: true
+                  canCompleteVisit: false
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+doctorAppointment:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AppointmentId'
+  get:
+    tags: [Visit]
+    operationId: getDoctorAppointment
+    summary: 查询医生预约详情
+    description: 需要 DOCTOR 角色。只能读取本人已确认预约；不存在或不属于本人返回 404 / 4001。
+    responses:
+      '200':
+        description: 医生只读详情
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/DoctorDetailResult'
+            example:
+              code: 0
+              message: success
+              data:
+                appointmentId: "301"
+                appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                visitNumber: 1
+                appointmentDate: 2026-11-14
+                sessionType: MORNING_FIRST
+                startTime: "08:00:00"
+                endTime: "10:00:00"
+                patient:
+                  id: "201"
+                  name: 张小明
+                  documentType: RESIDENT_ID_CARD
+                  documentNoMasked: 1101**********002X
+                doctor:
+                  id: "101"
+                  doctorNo: DOC000101
+                  name: 李明
+                  title: 主任医师
+                  department:
+                    id: "11"
+                    name: 心内科
+                  hospital:
+                    id: "1"
+                    name: 市中心医院
+                    address: 人民路 100 号
+                visit:
+                  status: WAITING
+                  checkedInAt: 2026-11-14T07:35:00
+                  startedAt: null
+                  completedAt: null
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+startVisit:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AppointmentId'
+  post:
+    tags: [Visit]
+    operationId: startVisit
+    summary: 开始接诊
+    description: 需要 DOCTOR 角色。只允许本人已确认且处于候诊中的预约；成功后返回最新详情，并写入「开始接诊」通知。
+    responses:
+      '200':
+        description: 开始接诊后的医生详情
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/DoctorDetailResult'
+            example:
+              code: 0
+              message: success
+              data:
+                appointmentId: "301"
+                appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                visitNumber: 1
+                appointmentDate: 2026-11-14
+                sessionType: MORNING_FIRST
+                startTime: "08:00:00"
+                endTime: "10:00:00"
+                patient:
+                  id: "201"
+                  name: 张小明
+                  documentType: RESIDENT_ID_CARD
+                  documentNoMasked: 1101**********002X
+                doctor:
+                  id: "101"
+                  doctorNo: DOC000101
+                  name: 李明
+                  title: 主任医师
+                  department:
+                    id: "11"
+                    name: 心内科
+                  hospital:
+                    id: "1"
+                    name: 市中心医院
+                    address: 人民路 100 号
+                visit:
+                  status: IN_PROGRESS
+                  checkedInAt: 2026-11-14T07:35:00
+                  startedAt: 2026-11-14T08:05:00
+                  completedAt: null
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/VisitStateError'
+
+completeVisit:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AppointmentId'
+  post:
+    tags: [Visit]
+    operationId: completeVisit
+    summary: 完成接诊
+    description: 需要 DOCTOR 角色。只允许本人已确认且处于就诊中的预约；成功后返回最新详情，并写入「完成接诊」通知。
+    responses:
+      '200':
+        description: 完成接诊后的医生详情
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/DoctorDetailResult'
+            example:
+              code: 0
+              message: success
+              data:
+                appointmentId: "301"
+                appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                visitNumber: 1
+                appointmentDate: 2026-11-14
+                sessionType: MORNING_FIRST
+                startTime: "08:00:00"
+                endTime: "10:00:00"
+                patient:
+                  id: "201"
+                  name: 张小明
+                  documentType: RESIDENT_ID_CARD
+                  documentNoMasked: 1101**********002X
+                doctor:
+                  id: "101"
+                  doctorNo: DOC000101
+                  name: 李明
+                  title: 主任医师
+                  department:
+                    id: "11"
+                    name: 心内科
+                  hospital:
+                    id: "1"
+                    name: 市中心医院
+                    address: 人民路 100 号
+                visit:
+                  status: COMPLETED
+                  checkedInAt: 2026-11-14T07:35:00
+                  startedAt: 2026-11-14T08:05:00
+                  completedAt: 2026-11-14T08:30:00
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/VisitStateError'

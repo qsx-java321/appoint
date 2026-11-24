@@ -44,7 +44,7 @@ flowchart LR
 
 总容量等于可用、暂占和已确认名额之和。付款将名额从暂占转为已确认，取消或过期则将暂占还给可用库存。
 
-完整验证签到和接诊可使用 [test 业务调时](environments.md#test-业务调时)。接口字段见 [REST API](api.md)，写入规则见[模块设计](module-design.md)。
+完整验证签到和接诊可使用 [test 业务调时](environments.md#test-业务调时)。接口字段见 [OpenAPI 契约](openapi/README.md)，通用规则见 [REST API](api.md)，写入规则见[模块设计](module-design.md)。
 
 ## 站内通知
 

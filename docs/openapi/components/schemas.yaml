@@ -804,3 +804,620 @@ DoctorAccountBindingResult:
       example: success
     data:
       $ref: '#/DoctorAccountBinding'
+
+NullableLocalDateTime:
+  type: string
+  nullable: true
+  description: 业务本地时间，Asia/Shanghai，格式 yyyy-MM-ddTHH:mm:ss；未发生时为 null。
+  example: 2026-11-14T09:10:00
+
+BookingToken:
+  type: object
+  required: [token, expiresIn]
+  properties:
+    token:
+      type: string
+      format: uuid
+      description: 一次性预约令牌，提交创建预约时放入 Idempotency-Key 请求头。
+      example: 6f8b7c1e-3f5d-4a8e-9b2c-1d4e6f8a0c2b
+    expiresIn:
+      type: integer
+      description: 令牌有效期，单位秒。
+      example: 600
+
+BookingTokenResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/BookingToken'
+
+CreateAppointmentRequest:
+  type: object
+  required: [doctorId, appointmentDate, sessionType, patientId]
+  properties:
+    doctorId:
+      type: string
+      example: "1"
+    appointmentDate:
+      $ref: '#/LocalDate'
+    sessionType:
+      type: string
+      enum: [MORNING_FIRST, MORNING_SECOND, AFTERNOON_FIRST, AFTERNOON_SECOND]
+      example: MORNING_FIRST
+    patientId:
+      type: string
+      description: 当前账号下的就诊人 ID。
+      example: "201"
+
+PendingAppointment:
+  type: object
+  required: [pending]
+  properties:
+    pending:
+      type: boolean
+      example: true
+
+CreateAppointmentResponse:
+  type: object
+  description: 首次创建或幂等重放返回的预约与支付单回执；实时状态通过预约详情查询。
+  required: [appointmentOrderId, appointmentNo, appointmentStatus, paymentOrderId, paymentNo, paymentStatus, amount, currency, createdAt, paymentExpiresAt, serverTime]
+  properties:
+    appointmentOrderId:
+      type: string
+      example: "301"
+    appointmentNo:
+      type: string
+      example: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+    appointmentStatus:
+      type: string
+      enum: [PENDING_PAYMENT]
+      example: PENDING_PAYMENT
+    paymentOrderId:
+      type: string
+      example: "501"
+    paymentNo:
+      type: string
+      example: PAY6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+    paymentStatus:
+      type: string
+      enum: [UNPAID]
+      example: UNPAID
+    amount:
+      $ref: '#/MoneyString'
+    currency:
+      type: string
+      enum: [CNY]
+      example: CNY
+    createdAt:
+      $ref: '#/LocalDateTime'
+    paymentExpiresAt:
+      $ref: '#/LocalDateTime'
+    serverTime:
+      $ref: '#/LocalDateTime'
+
+CreateAppointmentResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/CreateAppointmentResponse'
+
+PendingAppointmentResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: 原预约正在提交
+    data:
+      $ref: '#/PendingAppointment'
+
+AppointmentPatient:
+  type: object
+  required: [id, name, documentType, documentNoMasked, contactPhone, contactEmail]
+  properties:
+    id:
+      type: string
+      example: "201"
+    name:
+      type: string
+      example: 张小明
+    documentType:
+      type: string
+      enum: [RESIDENT_ID_CARD]
+      example: RESIDENT_ID_CARD
+    documentNoMasked:
+      type: string
+      example: 1101**********002X
+    contactPhone:
+      type: string
+      example: "13800138000"
+    contactEmail:
+      type: string
+      format: email
+      example: patient@example.com
+
+AppointmentDepartment:
+  type: object
+  required: [id, name]
+  properties:
+    id:
+      type: string
+      example: "11"
+    name:
+      type: string
+      example: 心内科
+
+AppointmentHospital:
+  type: object
+  required: [id, name, address]
+  properties:
+    id:
+      type: string
+      example: "1"
+    name:
+      type: string
+      example: 市中心医院
+    address:
+      type: string
+      example: 人民路 100 号
+
+AppointmentDoctor:
+  type: object
+  description: 预约创建时的医生、科室和医院快照。
+  required: [id, doctorNo, name, title, department, hospital]
+  properties:
+    id:
+      type: string
+      example: "101"
+    doctorNo:
+      type: string
+      example: DOC000101
+    name:
+      type: string
+      example: 李明
+    title:
+      type: string
+      example: 主任医师
+    department:
+      $ref: '#/AppointmentDepartment'
+    hospital:
+      $ref: '#/AppointmentHospital'
+
+AppointmentVisit:
+  type: object
+  description: 已确认预约的就诊进度；未确认预约在 Appointment 中为 null。
+  required: [status, checkedInAt, startedAt, completedAt, canCheckIn, checkInOpensAt, checkInClosesAt]
+  properties:
+    status:
+      type: string
+      enum: [NOT_CHECKED_IN, WAITING, IN_PROGRESS, COMPLETED]
+      example: NOT_CHECKED_IN
+    checkedInAt:
+      $ref: '#/NullableLocalDateTime'
+    startedAt:
+      $ref: '#/NullableLocalDateTime'
+    completedAt:
+      $ref: '#/NullableLocalDateTime'
+    canCheckIn:
+      type: boolean
+      example: false
+    checkInOpensAt:
+      $ref: '#/LocalDateTime'
+    checkInClosesAt:
+      $ref: '#/LocalDateTime'
+
+Appointment:
+  type: object
+  description: 本人预约详情及列表项，包含创建时的凭证快照和当前支付/就诊进度。
+  required: [id, appointmentNo, scheduleId, appointmentDate, startTime, endTime, status, visitNumber, createdAt, paymentOrderId, paymentStatus, amount, currency, paidAt, paymentExpiresAt, closedAt, serverTime, paymentExpired, canPay, canCancel, patient, doctor, sessionType]
+  properties:
+    id:
+      type: string
+      example: "301"
+    appointmentNo:
+      type: string
+      example: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+    scheduleId:
+      type: string
+      example: "401"
+    appointmentDate:
+      $ref: '#/LocalDate'
+    startTime:
+      $ref: '#/LocalTime'
+    endTime:
+      $ref: '#/LocalTime'
+    status:
+      type: string
+      enum: [PENDING_PAYMENT, CONFIRMED, CANCELLED, EXPIRED]
+      example: CONFIRMED
+    visitNumber:
+      type: integer
+      nullable: true
+      example: 1
+    createdAt:
+      $ref: '#/LocalDateTime'
+    paymentOrderId:
+      type: string
+      example: "501"
+    paymentStatus:
+      type: string
+      enum: [UNPAID, PAID, CLOSED]
+      example: PAID
+    workflowStatus:
+      type: string
+      nullable: true
+      description: 预约与支付的组合展示状态；用户取消后为 null。
+      enum: [WAITING_FOR_PAYMENT, CONFIRMED, EXPIRED]
+      example: CONFIRMED
+    amount:
+      type: number
+      description: 预约详情中的金额为 JSON 数值；创建回执中的 amount 为字符串。
+      example: 10.00
+    currency:
+      type: string
+      enum: [CNY]
+      example: CNY
+    paidAt:
+      $ref: '#/NullableLocalDateTime'
+    paymentExpiresAt:
+      $ref: '#/NullableLocalDateTime'
+    closedAt:
+      $ref: '#/NullableLocalDateTime'
+    serverTime:
+      $ref: '#/LocalDateTime'
+    paymentExpired:
+      type: boolean
+      example: false
+    canPay:
+      type: boolean
+      example: false
+    canCancel:
+      type: boolean
+      example: false
+    patient:
+      $ref: '#/AppointmentPatient'
+    doctor:
+      $ref: '#/AppointmentDoctor'
+    sessionType:
+      type: string
+      enum: [MORNING_FIRST, MORNING_SECOND, AFTERNOON_FIRST, AFTERNOON_SECOND]
+      example: MORNING_FIRST
+    visit:
+      type: object
+      nullable: true
+      description: 已确认预约的就诊进度；未确认或用户取消后为 null。
+      allOf:
+        - $ref: '#/AppointmentVisit'
+
+AppointmentResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/Appointment'
+
+AppointmentListResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      type: array
+      items:
+        $ref: '#/Appointment'
+
+DoctorSession:
+  type: object
+  required: [appointmentDate, sessionType, startTime, endTime, confirmedCount, notCheckedInCount, waitingCount, inProgressCount, completedCount]
+  properties:
+    appointmentDate:
+      $ref: '#/LocalDate'
+    sessionType:
+      type: string
+      enum: [MORNING_FIRST, MORNING_SECOND, AFTERNOON_FIRST, AFTERNOON_SECOND]
+      example: MORNING_FIRST
+    startTime:
+      $ref: '#/LocalTime'
+    endTime:
+      $ref: '#/LocalTime'
+    confirmedCount:
+      type: integer
+      example: 12
+    notCheckedInCount:
+      type: integer
+      example: 3
+    waitingCount:
+      type: integer
+      example: 4
+    inProgressCount:
+      type: integer
+      example: 1
+    completedCount:
+      type: integer
+      example: 4
+
+DoctorSessionListResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      type: array
+      items:
+        $ref: '#/DoctorSession'
+
+DoctorAppointmentRow:
+  type: object
+  required: [appointmentId, visitNumber, patientName, visitStatus, checkedInAt, canStartVisit, canCompleteVisit]
+  properties:
+    appointmentId:
+      type: string
+      example: "301"
+    visitNumber:
+      type: integer
+      example: 1
+    patientName:
+      type: string
+      example: 张小明
+    visitStatus:
+      type: string
+      enum: [NOT_CHECKED_IN, WAITING, IN_PROGRESS, COMPLETED]
+      example: WAITING
+    checkedInAt:
+      $ref: '#/NullableLocalDateTime'
+    canStartVisit:
+      type: boolean
+      example: true
+    canCompleteVisit:
+      type: boolean
+      example: false
+
+DoctorRowListResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      type: array
+      items:
+        $ref: '#/DoctorAppointmentRow'
+
+DoctorPatient:
+  type: object
+  required: [id, name, documentType, documentNoMasked]
+  properties:
+    id:
+      type: string
+      example: "201"
+    name:
+      type: string
+      example: 张小明
+    documentType:
+      type: string
+      enum: [RESIDENT_ID_CARD]
+      example: RESIDENT_ID_CARD
+    documentNoMasked:
+      type: string
+      example: 1101**********002X
+
+DoctorVisitProgress:
+  type: object
+  required: [status, checkedInAt, startedAt, completedAt]
+  properties:
+    status:
+      type: string
+      enum: [NOT_CHECKED_IN, WAITING, IN_PROGRESS, COMPLETED]
+      example: IN_PROGRESS
+    checkedInAt:
+      $ref: '#/NullableLocalDateTime'
+    startedAt:
+      $ref: '#/NullableLocalDateTime'
+    completedAt:
+      $ref: '#/NullableLocalDateTime'
+
+DoctorAppointmentDetail:
+  type: object
+  required: [appointmentId, appointmentNo, visitNumber, appointmentDate, sessionType, startTime, endTime, patient, doctor, visit]
+  properties:
+    appointmentId:
+      type: string
+      example: "301"
+    appointmentNo:
+      type: string
+      example: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+    visitNumber:
+      type: integer
+      example: 1
+    appointmentDate:
+      $ref: '#/LocalDate'
+    sessionType:
+      type: string
+      enum: [MORNING_FIRST, MORNING_SECOND, AFTERNOON_FIRST, AFTERNOON_SECOND]
+      example: MORNING_FIRST
+    startTime:
+      $ref: '#/LocalTime'
+    endTime:
+      $ref: '#/LocalTime'
+    patient:
+      $ref: '#/DoctorPatient'
+    doctor:
+      $ref: '#/AppointmentDoctor'
+    visit:
+      $ref: '#/DoctorVisitProgress'
+
+DoctorDetailResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/DoctorAppointmentDetail'
+
+NotificationSummary:
+  type: object
+  required: [id, type, title, patientName, occurredAt]
+  properties:
+    id:
+      type: string
+      example: "901"
+    type:
+      type: string
+      enum: [APPOINTMENT_CONFIRMED, CHECKED_IN, VISIT_STARTED, VISIT_COMPLETED]
+      example: APPOINTMENT_CONFIRMED
+    title:
+      type: string
+      example: 预约成功
+    patientName:
+      type: string
+      example: 张小明
+    occurredAt:
+      $ref: '#/LocalDateTime'
+
+NotificationDetail:
+  type: object
+  required: [id, type, title, patientName, occurredAt, detail, appointmentId]
+  properties:
+    id:
+      type: string
+      example: "901"
+    type:
+      type: string
+      enum: [APPOINTMENT_CONFIRMED, CHECKED_IN, VISIT_STARTED, VISIT_COMPLETED]
+      example: APPOINTMENT_CONFIRMED
+    title:
+      type: string
+      example: 预约成功
+    patientName:
+      type: string
+      example: 张小明
+    occurredAt:
+      $ref: '#/LocalDateTime'
+    detail:
+      type: string
+      example: 您为张小明预约的市中心医院心内科李明医生已确认，请按时到院。
+    appointmentId:
+      type: string
+      example: "301"
+
+NotificationListResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      type: array
+      items:
+        $ref: '#/NotificationSummary'
+
+NotificationDetailResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/NotificationDetail'
+
+LocalEnvironmentStatus:
+  type: object
+  required: [profile, ready, launchId]
+  properties:
+    profile:
+      type: string
+      example: demo
+    ready:
+      type: boolean
+      example: true
+    launchId:
+      type: string
+      nullable: true
+      example: 9f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+
+BusinessClock:
+  type: object
+  required: [businessTime, mode]
+  properties:
+    businessTime:
+      type: string
+      format: date-time
+      description: 业务时间，带时区偏移。
+      example: 2026-11-20T07:20:00+08:00
+    mode:
+      type: string
+      enum: [realtime, adjusted]
+      example: adjusted
+
+BusinessClockResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 0
+    message:
+      type: string
+      example: success
+    data:
+      $ref: '#/BusinessClock'
+
+SetBusinessClockRequest:
+  type: object
+  required: [instant]
+  properties:
+    instant:
+      type: string
+      format: date-time
+      description: 带时区偏移的 ISO 时间字符串。
+      example: 2026-11-20T07:20:00+08:00

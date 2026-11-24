@@ -1,0 +1,429 @@
+bookingToken:
+  post:
+    tags: [Appointment]
+    operationId: issueBookingToken
+    summary: 领取预约令牌
+    description: |
+      为当前账号签发一次性预约令牌，有效期 600 秒。
+      创建预约时把令牌放入 `Idempotency-Key` 请求头；网络重试沿用同一令牌和请求体。
+    responses:
+      '200':
+        description: 预约令牌
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/BookingTokenResult'
+            example:
+              code: 0
+              message: success
+              data:
+                token: 6f8b7c1e-3f5d-4a8e-9b2c-1d4e6f8a0c2b
+                expiresIn: 600
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+
+appointments:
+  post:
+    tags: [Appointment]
+    operationId: createAppointment
+    summary: 创建预约
+    description: |
+      首次成功返回 201；同一令牌、同一内容重放返回 200 和原回执；
+      原请求仍在提交时返回 202。令牌绑定的内容与本次提交不同返回 409 / 4103；
+      无效或过期且未创建预约的令牌返回 409 / 4104。
+      日期须在业务今天至后天内，且早于场次开始前 15 分钟。
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/CreateAppointmentRequest'
+          example:
+            doctorId: "1"
+            appointmentDate: 2026-11-14
+            sessionType: MORNING_FIRST
+            patientId: "201"
+    responses:
+      '201':
+        description: 首次创建成功
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/CreateAppointmentResult'
+            example:
+              code: 0
+              message: success
+              data:
+                appointmentOrderId: "301"
+                appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                appointmentStatus: PENDING_PAYMENT
+                paymentOrderId: "501"
+                paymentNo: PAY6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                paymentStatus: UNPAID
+                amount: "10.00"
+                currency: CNY
+                createdAt: 2026-11-14T09:00:00
+                paymentExpiresAt: 2026-11-14T09:15:00
+                serverTime: 2026-11-14T09:00:00
+      '200':
+        description: 幂等重放，返回首次创建回执
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/CreateAppointmentResult'
+            example:
+              code: 0
+              message: 该请求已创建预约，请查询详情获取当前状态
+              data:
+                appointmentOrderId: "301"
+                appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                appointmentStatus: PENDING_PAYMENT
+                paymentOrderId: "501"
+                paymentNo: PAY6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                paymentStatus: UNPAID
+                amount: "10.00"
+                currency: CNY
+                createdAt: 2026-11-14T09:00:00
+                paymentExpiresAt: 2026-11-14T09:15:00
+                serverTime: 2026-11-14T09:00:00
+      '202':
+        description: 原请求仍在提交，继续使用原令牌和请求体重试
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/PendingAppointmentResult'
+            example:
+              code: 0
+              message: 原预约正在提交
+              data:
+                pending: true
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        description: 预约创建冲突
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/ErrorResult'
+            examples:
+              scheduleUnavailable:
+                value:
+                  code: 4002
+                  message: 该号源已不可预约
+                  data: null
+              cutoffReached:
+                value:
+                  code: 4202
+                  message: 已到预约截止时间
+                  data: null
+              duplicateActiveAppointment:
+                value:
+                  code: 4204
+                  message: 该就诊人已持有本场有效预约
+                  data: null
+              patientDisabled:
+                value:
+                  code: 4102
+                  message: 该就诊人已停用
+                  data: null
+              idempotencyConflict:
+                value:
+                  code: 4103
+                  message: 幂等键已用于其他预约请求
+                  data: null
+              tokenInvalid:
+                value:
+                  code: 4104
+                  message: 预约令牌无效或已过期，请重新提交
+                  data: null
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+      '503':
+        $ref: '../components/responses.yaml#/RetryableConcurrencyError'
+
+appointment:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AppointmentId'
+  get:
+    tags: [Appointment]
+    operationId: getAppointment
+    summary: 查询本人预约详情
+    description: 只能读取当前账号的预约；不存在返回 404 / 4001，非本人返回 403 / 2002。
+    responses:
+      '200':
+        description: 预约详情
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/AppointmentResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "301"
+                appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                scheduleId: "401"
+                appointmentDate: 2026-11-14
+                startTime: "08:00:00"
+                endTime: "10:00:00"
+                status: CONFIRMED
+                visitNumber: 1
+                createdAt: 2026-11-14T09:00:00
+                paymentOrderId: "501"
+                paymentStatus: PAID
+                workflowStatus: CONFIRMED
+                amount: 10.00
+                currency: CNY
+                paidAt: 2026-11-14T09:05:00
+                paymentExpiresAt: 2026-11-14T09:15:00
+                closedAt: null
+                serverTime: 2026-11-14T10:00:00
+                paymentExpired: false
+                canPay: false
+                canCancel: false
+                patient:
+                  id: "201"
+                  name: 张小明
+                  documentType: RESIDENT_ID_CARD
+                  documentNoMasked: 1101**********002X
+                  contactPhone: "13800138000"
+                  contactEmail: patient@example.com
+                doctor:
+                  id: "101"
+                  doctorNo: DOC000101
+                  name: 李明
+                  title: 主任医师
+                  department:
+                    id: "11"
+                    name: 心内科
+                  hospital:
+                    id: "1"
+                    name: 市中心医院
+                    address: 人民路 100 号
+                sessionType: MORNING_FIRST
+                visit:
+                  status: NOT_CHECKED_IN
+                  checkedInAt: null
+                  startedAt: null
+                  completedAt: null
+                  canCheckIn: false
+                  checkInOpensAt: 2026-11-14T07:30:00
+                  checkInClosesAt: 2026-11-14T10:00:00
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+myAppointments:
+  get:
+    tags: [Appointment]
+    operationId: listMyAppointments
+    summary: 查询本人预约列表
+    description: 不接收其他账号 ID；默认按就诊日期、场次开始时间和预约 ID 降序。`order=ASC` 时改为升序。
+    parameters:
+      - name: order
+        in: query
+        required: false
+        description: 排序方向，默认 DESC。
+        schema:
+          type: string
+          enum: [ASC, DESC]
+          default: DESC
+          example: DESC
+    responses:
+      '200':
+        description: 本人预约列表
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/AppointmentListResult'
+            example:
+              code: 0
+              message: success
+              data: []
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+payAppointment:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AppointmentId'
+  post:
+    tags: [Appointment]
+    operationId: payAppointment
+    summary: 模拟支付
+    description: |
+      只允许待支付、支付单未付且未超过最晚支付时刻的预约。
+      重复支付已确认订单返回原支付时间和就诊序号；已过期返回 409 / 4004；其他不允许的状态返回 409 / 4003。
+    responses:
+      '200':
+        description: 支付后的预约详情
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/AppointmentResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "301"
+                appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                scheduleId: "401"
+                appointmentDate: 2026-11-14
+                startTime: "08:00:00"
+                endTime: "10:00:00"
+                status: CONFIRMED
+                visitNumber: 1
+                createdAt: 2026-11-14T09:00:00
+                paymentOrderId: "501"
+                paymentStatus: PAID
+                workflowStatus: CONFIRMED
+                amount: 10.00
+                currency: CNY
+                paidAt: 2026-11-14T09:05:00
+                paymentExpiresAt: 2026-11-14T09:15:00
+                closedAt: null
+                serverTime: 2026-11-14T09:05:00
+                paymentExpired: false
+                canPay: false
+                canCancel: false
+                patient:
+                  id: "201"
+                  name: 张小明
+                  documentType: RESIDENT_ID_CARD
+                  documentNoMasked: 1101**********002X
+                  contactPhone: "13800138000"
+                  contactEmail: patient@example.com
+                doctor:
+                  id: "101"
+                  doctorNo: DOC000101
+                  name: 李明
+                  title: 主任医师
+                  department:
+                    id: "11"
+                    name: 心内科
+                  hospital:
+                    id: "1"
+                    name: 市中心医院
+                    address: 人民路 100 号
+                sessionType: MORNING_FIRST
+                visit:
+                  status: NOT_CHECKED_IN
+                  checkedInAt: null
+                  startedAt: null
+                  completedAt: null
+                  canCheckIn: false
+                  checkInOpensAt: 2026-11-14T07:30:00
+                  checkInClosesAt: 2026-11-14T10:00:00
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        description: 支付资格冲突
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/ErrorResult'
+            examples:
+              orderState:
+                value:
+                  code: 4003
+                  message: 订单当前状态不允许该操作
+                  data: null
+              paymentExpired:
+                value:
+                  code: 4004
+                  message: 支付期限已过
+                  data: null
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+cancelAppointment:
+  parameters:
+    - $ref: '../components/parameters.yaml#/AppointmentId'
+  post:
+    tags: [Appointment]
+    operationId: cancelAppointment
+    summary: 取消预约
+    description: |
+      只允许关闭未支付的待支付预约。已取消或已过期的预约重复取消返回当前详情。
+      待支付预约已超时但尚未被后台关单时，取消会按过期关闭并释放名额。
+      已确认预约不允许取消，返回 409 / 4003。
+      用户取消后 `workflowStatus` 和 `visit` 为 null；下方示例省略这两个可空字段。
+    responses:
+      '200':
+        description: 取消后的预约详情
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/AppointmentResult'
+            example:
+              code: 0
+              message: success
+              data:
+                id: "301"
+                appointmentNo: AP6f8b7c1e3f5d4a8e9b2c1d4e6f8a0c2b
+                scheduleId: "401"
+                appointmentDate: 2026-11-14
+                startTime: "08:00:00"
+                endTime: "10:00:00"
+                status: CANCELLED
+                visitNumber: null
+                createdAt: 2026-11-14T09:00:00
+                paymentOrderId: "501"
+                paymentStatus: CLOSED
+                amount: 10.00
+                currency: CNY
+                paidAt: null
+                paymentExpiresAt: 2026-11-14T09:15:00
+                closedAt: 2026-11-14T09:05:00
+                serverTime: 2026-11-14T09:05:00
+                paymentExpired: false
+                canPay: false
+                canCancel: false
+                patient:
+                  id: "201"
+                  name: 张小明
+                  documentType: RESIDENT_ID_CARD
+                  documentNoMasked: 1101**********002X
+                  contactPhone: "13800138000"
+                  contactEmail: patient@example.com
+                doctor:
+                  id: "101"
+                  doctorNo: DOC000101
+                  name: 李明
+                  title: 主任医师
+                  department:
+                    id: "11"
+                    name: 心内科
+                  hospital:
+                    id: "1"
+                    name: 市中心医院
+                    address: 人民路 100 号
+                sessionType: MORNING_FIRST
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/OrderStateError'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

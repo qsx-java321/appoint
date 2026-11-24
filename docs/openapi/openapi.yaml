@@ -6,7 +6,8 @@ info:
   license:
     name: UNLICENSED
   description: |
-    认证、用户、头像、就诊人和医疗目录接口的 OpenAPI 契约。
+    医院预约系统 API 的 OpenAPI 契约，覆盖账号、就诊人、医疗目录、预约支付、签到接诊、
+    消息中心、本地环境和 test 调时。
 
     通用约定、业务规则和错误码见 [REST API 文档](../api.md)。
     当前契约覆盖：
@@ -18,6 +19,11 @@ info:
     - AdminCatalog：医院、科室、医生档案管理
     - BookingSettings：统一预约设置
     - DoctorAccount：医生账号查询与首次绑定
+    - Appointment：预约令牌、创建、详情、列表、支付、取消
+    - Visit：到院签到、医生场次、开始/完成接诊
+    - Notification：消息中心列表与详情
+    - LocalEnvironment：本地环境状态探测
+    - TestClock：test 环境业务时间查询、设置和恢复
 
     本地环境通过 `X-Appoint-Environment` 标识 demo/dev/test；直接调用后端时可省略。
     业务 API 使用统一响应结构 `{ code, message, data }`，错误时 `data=null`。
@@ -41,6 +47,16 @@ tags:
     description: 管理员统一预约设置
   - name: DoctorAccount
     description: 管理员查询和首次绑定医生账号
+  - name: Appointment
+    description: 预约令牌、创建、详情、列表、支付和取消
+  - name: Visit
+    description: 到院签到、医生场次和接诊动作
+  - name: Notification
+    description: 消息中心
+  - name: LocalEnvironment
+    description: 本地环境状态探测
+  - name: TestClock
+    description: test 环境业务时间调时
 
 x-tagGroups:
   - name: 账号与用户
@@ -49,6 +65,14 @@ x-tagGroups:
     tags: [Patient]
   - name: 医疗目录
     tags: [Catalog, AdminCatalog, BookingSettings, DoctorAccount]
+  - name: 预约与支付
+    tags: [Appointment]
+  - name: 到院与接诊
+    tags: [Visit]
+  - name: 消息中心
+    tags: [Notification]
+  - name: 本地运维
+    tags: [LocalEnvironment, TestClock]
 
 security:
   - bearerAuth: []
@@ -100,6 +124,38 @@ paths:
     $ref: './paths/doctor-accounts.yaml#/adminDoctorAccounts'
   /admin/doctors/{doctorId}/account:
     $ref: './paths/doctor-accounts.yaml#/adminDoctorAccount'
+  /appointments/token:
+    $ref: './paths/appointments.yaml#/bookingToken'
+  /appointments:
+    $ref: './paths/appointments.yaml#/appointments'
+  /appointments/my:
+    $ref: './paths/appointments.yaml#/myAppointments'
+  /appointments/{id}:
+    $ref: './paths/appointments.yaml#/appointment'
+  /appointments/{id}/pay:
+    $ref: './paths/appointments.yaml#/payAppointment'
+  /appointments/{id}/cancel:
+    $ref: './paths/appointments.yaml#/cancelAppointment'
+  /appointments/{id}/check-in:
+    $ref: './paths/visits.yaml#/checkIn'
+  /doctor/sessions:
+    $ref: './paths/visits.yaml#/doctorSessions'
+  /doctor/appointments:
+    $ref: './paths/visits.yaml#/doctorAppointments'
+  /doctor/appointments/{id}:
+    $ref: './paths/visits.yaml#/doctorAppointment'
+  /doctor/appointments/{id}/start-visit:
+    $ref: './paths/visits.yaml#/startVisit'
+  /doctor/appointments/{id}/complete-visit:
+    $ref: './paths/visits.yaml#/completeVisit'
+  /notifications:
+    $ref: './paths/notifications.yaml#/notifications'
+  /notifications/{id}:
+    $ref: './paths/notifications.yaml#/notification'
+  /local-environment:
+    $ref: './paths/local-environment.yaml#/localEnvironmentStatus'
+  /test-control/clock:
+    $ref: './paths/test-clock.yaml#/testClock'
 
 components:
   securitySchemes:

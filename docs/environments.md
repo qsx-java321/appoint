@@ -69,7 +69,7 @@ python3 scripts/local_env.py clock test set --instant 2026-11-20T07:20:00+08:00
 python3 scripts/local_env.py clock test reset
 ```
 
-设置后业务时钟继续走秒，后端重启或执行 `clock test reset` 后恢复实时。调时会影响下单、支付、过期扫描和签到，并可能使已有待支付预约到期。回拨时间保留已提交的操作结果。Redis 有效期和 JWT 使用真实时间。脚本使用预置管理员初始密码，修改过该账号密码时可使用有效管理员凭据调用[调时 API](api.md#test环境业务调时)。
+设置后业务时钟继续走秒，后端重启或执行 `clock test reset` 后恢复实时。调时会影响下单、支付、过期扫描和签到，并可能使已有待支付预约到期。回拨时间保留已提交的操作结果。Redis 有效期和 JWT 使用真实时间。脚本使用预置管理员初始密码，修改过该账号密码时可使用有效管理员凭据调用[调时 API](openapi/README.md)（`TestClock`）。
 
 ## 通知与 RabbitMQ
 

@@ -1,0 +1,89 @@
+testClock:
+  get:
+    tags: [TestClock]
+    operationId: getBusinessClock
+    summary: 查询业务时间
+    description: |
+      仅在 test 环境存在，需要 ADMIN 角色。返回当前业务时间和模式：
+      `realtime` 为实时，`adjusted` 为已调时。其他环境该接口不存在。
+    responses:
+      '200':
+        description: 当前业务时间
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/BusinessClockResult'
+            example:
+              code: 0
+              message: success
+              data:
+                businessTime: 2026-11-20T07:20:00+08:00
+                mode: adjusted
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  put:
+    tags: [TestClock]
+    operationId: setBusinessClock
+    summary: 设置业务时间
+    description: |
+      仅在 test 环境存在，需要 ADMIN 角色。设置后业务时钟继续走秒。
+      调时影响下单、支付、过期扫描和签到；Redis 有效期和 JWT 仍使用真实时间。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/SetBusinessClockRequest'
+          example:
+            instant: 2026-11-20T07:20:00+08:00
+    responses:
+      '200':
+        description: 设置后的业务时间
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/BusinessClockResult'
+            example:
+              code: 0
+              message: success
+              data:
+                businessTime: 2026-11-20T07:20:00+08:00
+                mode: adjusted
+      '400':
+        $ref: '../components/responses.yaml#/ValidationError'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+  delete:
+    tags: [TestClock]
+    operationId: resetBusinessClock
+    summary: 恢复实时业务时间
+    description: |
+      仅在 test 环境存在，需要 ADMIN 角色。恢复实时后，已提交的操作结果不回滚；
+      后端重启或执行本接口都会恢复实时。
+    responses:
+      '200':
+        description: 已恢复实时
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas.yaml#/BusinessClockResult'
+            example:
+              code: 0
+              message: success
+              data:
+                businessTime: 2026-11-20T09:30:00+08:00
+                mode: realtime
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'

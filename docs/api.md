@@ -1,8 +1,8 @@
 # REST API
 
-> 认证、用户、头像、就诊人和医疗目录接口的字段、Schema、状态码和示例已迁移到 [OpenAPI 契约](openapi/README.md)。已迁移 Tag：`Auth`、`User`、`Patient`、`Catalog`、`AdminCatalog`、`BookingSettings`、`DoctorAccount`。本文只保留跨接口业务规则、错误码和链接；预约、就诊、通知、本地环境和 test 调时仍在本文维护。
+> 全部 REST API 的字段、Schema、状态码和示例已迁移到 [OpenAPI 契约](openapi/README.md)。已迁移 Tag：`Auth`、`User`、`Patient`、`Catalog`、`AdminCatalog`、`BookingSettings`、`DoctorAccount`、`Appointment`、`Visit`、`Notification`、`LocalEnvironment`、`TestClock`。本文只保留跨接口业务规则、错误码和链接。
 
-本文保留跨接口约定、业务规则和尚未迁移的接口说明。业务流程见[业务流程](business-flow.md)。
+本文保留跨接口约定、业务规则和错误码索引。业务流程见[业务流程](business-flow.md)。
 
 ## 通用约定
 
@@ -62,106 +62,45 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 
 ## 创建预约
 
-已登录用户调用 `POST /api/v1/appointments/token` 领取令牌，无请求体。成功返回 `200`，`data` 为 `{"token":"<UUID>","expiresIn":600}`。调用 `POST /api/v1/appointments` 时，将领取到的令牌放入 `Idempotency-Key` 请求头。
+> OpenAPI：`Appointment`。接口、字段、状态码和示例见[契约](openapi/README.md)。
 
-请求示例
+已登录用户先领取预约令牌（默认 600 秒），创建预约时放入 `Idempotency-Key` 请求头。令牌作用于当前账号，比较内容为规范化后的医生、日期、场次类型和就诊人；同令牌同内容且原请求已完成时返回原回执，内容不同返回 `409 / 4103`，令牌无效或过期且未创建预约返回 `409 / 4104`。已取消或过期后重新预约须领取新令牌。
 
-```json
-{
-  "doctorId": "1",
-  "appointmentDate": "2026-11-11",
-  "sessionType": "MORNING_FIRST",
-  "patientId": "201"
-}
-```
+日期须在业务今天至后天内，且早于场次开始前 15 分钟；服务端确定金额、创建时间和支付截止。首次成功返回 `201`，幂等重放返回 `200`，原请求仍在提交返回 `202`。网络超时或 `503 / 5001` 时沿用原令牌和请求体重试。[下单幂等设计](booking-idempotency.md)
 
-将示例日期替换为可预约日期。日期超出窗口或达到下单截止返回 `409 / 4202`。服务端确定金额、创建时间和支付截止。
-
-令牌作用于当前账号，比较内容为规范化后的 `doctorId + appointmentDate + sessionType + patientId`。同令牌同内容且原请求已完成时返回原回执。令牌已绑定的内容与本次提交不同时返回 `409 / 4103`，无效或过期且未创建预约的令牌返回 `409 / 4104`。已取消或过期后重新预约须领取新令牌。
-
-| HTTP 状态 | `data` |
-| --- | --- |
-| `201` 首次创建 | `appointmentOrderId`、`appointmentNo`、`appointmentStatus`、`paymentOrderId`、`paymentNo`、`paymentStatus`、`amount`、`currency`、`createdAt`、`paymentExpiresAt`、`serverTime` |
-| `200` 重放 | 与首次创建相同的回执，当前状态通过详情查询 |
-| `202` 原请求正在提交 | `{"pending":true}`，再次提交时沿用原令牌和请求体 |
-
-网络超时或 `503 / 5001` 时也沿用原令牌和请求体。[下单幂等设计](booking-idempotency.md)
+相关错误码：号源约满或场次不可用 `409 / 4002`，日期窗口或截止不符 `409 / 4202`，同场有效预约重复 `409 / 4204`，使用停用就诊人 `409 / 4102`，参数不合法 `400 / 1001`。
 
 ## 预约查询和生命周期
 
-以下接口均要求登录，仅允许本人操作，无请求体。
+> OpenAPI：`Appointment`。接口、字段、状态码和示例见[契约](openapi/README.md)。
 
-| 方法与路径 | 用途 | 成功结果 |
-| --- | --- | --- |
-| `GET /api/v1/appointments/{id}` | 查询预约详情 | 200，详情对象 |
-| `GET /api/v1/appointments/my` | 查询本人预约 | 200，详情数组，依次按就诊日期、场次开始时间和预约 ID 排序。`order` 可为 `ASC` 或 `DESC`，默认降序 |
-| `POST /api/v1/appointments/{id}/pay` | 同步模拟付款 | 200，已确认的预约详情，包含支付时间和就诊序号 |
-| `POST /api/v1/appointments/{id}/cancel` | 关闭未支付预约 | 200，关闭后的详情。重复取消返回当前详情 |
+以下接口均要求登录，仅允许本人操作；预约不存在返回 `404 / 4001`，非本人返回 `403 / 2002`。列表默认按就诊日期、场次开始时间和预约 ID 降序，`order=ASC` 时改为升序。
 
-支付和取消均使用预约单 ID。待支付预约超时后付款，或尝试付款给已过期预约，返回 `409 / 4004`。取消已确认预约返回 `409 / 4003`。如果待支付预约已超时但尚未被后台关单，取消接口会按过期关闭并释放名额。重复支付已确认的订单返回原支付时间和就诊序号。[时间规则](business-flow.md#关键时间)
+`status` 是预约生命周期，`paymentStatus` 是支付单状态，`workflowStatus` 是组合展示状态；用户取消后 `workflowStatus=null`。`paymentExpired` 在预约已过期，或仍待支付且超过最晚支付时间时为真；后台关单前即可显示 `workflowStatus=EXPIRED`，而持久化 `status` 仍为 `PENDING_PAYMENT`。`canPay` 和 `canCancel` 只在待支付、支付单未付款且处于支付期限内时为真。详情包含创建时的就诊人、医生、科室和医院快照；证件号脱敏；`visit` 仅已确认预约非 null。
 
-### 详情字段
-
-| 类别 | 字段 |
-| --- | --- |
-| 预约 | `id`、`appointmentNo`、`scheduleId`、`appointmentDate`、`startTime`、`endTime`、`sessionType`、`status`、`visitNumber` |
-| 支付 | `paymentOrderId`、`paymentStatus`、`amount`、`currency`、`paidAt`。未付款时 `paidAt` 为 `null` |
-| 时间 | `createdAt`、`paymentExpiresAt`、`closedAt`、`serverTime`。最晚支付时间可为 `null` |
-| 操作与提示 | `workflowStatus`、`paymentExpired`、`canPay`、`canCancel` |
-| 凭证与就诊 | `patient`（证件号脱敏）、`doctor`（包含科室与医院快照）、`visit`（已确认预约的就诊进度） |
-
-`paymentExpired` 在预约已过期，或者仍待支付且超过最晚支付时间时为真。后一种情况在后台关单前即可显示 `workflowStatus=EXPIRED`，而持久化的 `status` 仍为 `PENDING_PAYMENT`。`canPay` 和 `canCancel` 只在预约仍待支付、支付单未付款且处于支付期限内时为真。`workflowStatus` 可以为 `null`，例如用户已取消的预约。
+支付只允许待支付、支付单未付且未超过最晚支付时刻的预约；已过期返回 `409 / 4004`，其他不允许的状态返回 `409 / 4003`。重复支付已确认订单返回原支付时间和就诊序号。取消只允许关闭未支付的待支付预约；已取消或已过期的预约重复取消返回当前详情；已确认预约取消返回 `409 / 4003`。如果待支付预约已超时但尚未被后台关单，取消会按过期关闭并释放名额。[时间规则](business-flow.md#关键时间)
 
 支付单关联缺失或不一致返回 `500 / 1002`。
 
 ## 到院签到与门诊接诊
 
-所有成功响应为200。用户动作限定本人预约，医生动作限定本人已确认预约；写入口重新校验状态，成功后查询并返回最新详情。
+> OpenAPI：`Visit`。接口、字段、状态码和示例见[契约](openapi/README.md)。
 
-| 方法与路径 | 权限及输入 | 返回data |
-| --- | --- | --- |
-| `POST /api/v1/appointments/{appointmentId}/check-in` | 本人；无body | 完整用户预约详情 |
-| `GET /api/v1/doctor/sessions` | DOCTOR；可选date，默认业务今天 | 四场概览数组 |
-| `GET /api/v1/doctor/appointments` | DOCTOR；必填date、sessionType | 场次名单数组 |
-| `GET /api/v1/doctor/appointments/{appointmentId}` | DOCTOR | 医生只读详情 |
-| `POST /api/v1/doctor/appointments/{appointmentId}/start-visit` | DOCTOR；无body | 更新后的医生详情 |
-| `POST /api/v1/doctor/appointments/{appointmentId}/complete-visit` | DOCTOR；无body | 更新后的医生详情 |
+用户签到只能操作本人已确认且尚未签到的预约。签到开放时间为场次开始前 30 分钟，截止时间为场次结束时间；签到记录与「签到成功」通知在同一事务提交，成功后返回完整预约详情。重复或状态不符返回 `409 / 4502`，未到窗口返回 `409 / 4503`，已过截止返回 `409 / 4504`。
 
-日期、场次和 ID 格式沿用通用约定。医生账号权限由[首次绑定](#首次绑定)授予。
+医生接口要求 `DOCTOR` 角色，只能操作本人已确认预约。场次概览按固定四场返回，省略 `date` 时使用业务今天，空场次补零；名单必须提供 `date` 和 `sessionType`，按就诊序号升序。医生详情只能读取本人已确认预约，不存在或不属于本人返回 `404 / 4001`。开始接诊只允许候诊中的预约，完成接诊只允许就诊中的预约；状态不符返回 `409 / 4502`，成功返回最新详情并写入对应通知。
 
-| 响应对象 | 字段 |
-| --- | --- |
-| 用户就诊进度 | `status`、`checkedInAt`、`startedAt`、`completedAt`、`canCheckIn`、`checkInOpensAt`、`checkInClosesAt` |
-| 医生场次概览 | `appointmentDate`、`sessionType`、`startTime`、`endTime`、`confirmedCount`、`notCheckedInCount`、`waitingCount`、`inProgressCount`、`completedCount` |
-| 医生人员名单项 | `appointmentId`、`visitNumber`、`patientName`、`visitStatus`、`checkedInAt`、`canStartVisit`、`canCompleteVisit` |
-| 医生只读详情 | `appointmentId`、`appointmentNo`、`visitNumber`、`appointmentDate`、`sessionType`、`startTime`、`endTime`、`patient`、`doctor`、`visit` |
-| 医生详情就诊人 | `id`、`name`、`documentType`、`documentNoMasked` |
-| 医生详情就诊进度 | `status`、`checkedInAt`、`startedAt`、`completedAt` |
+用户详情的 `visit` 仅已确认预约非 null；无记录时推导 `NOT_CHECKED_IN`，签到后 `WAITING`，开始后 `IN_PROGRESS`，完成后 `COMPLETED`；未发生的时间为 null。`visit.canCheckIn` 表示查询时的签到资格，`checkInOpensAt`、`checkInClosesAt` 取自预约快照。[签到时间规则](business-flow.md#关键时间)
 
-用户详情的`visit`仅已确认预约非null；无记录时推导NOT_CHECKED_IN，签到后WAITING，开始后IN_PROGRESS，完成后COMPLETED。未发生的时间为null。
-
-`visit.canCheckIn` 表示查询时的签到资格。`checkInOpensAt`、`checkInClosesAt` 取自预约快照。[签到时间规则](business-flow.md#关键时间)
-
-签到重复操作返回 `409 / 4502`，保留首次成功时间。未到窗口返回 `409 / 4503`，首次签到达到或超过截止返回 `409 / 4504`。
-
-医生概览按开始时间返回四项，空场次补零。名单按 `visitNumber` 升序。`canStartVisit`、`canCompleteVisit` 表示各动作的当前资格。
-
-普通用户访问医生接口返回 403，医生读取其他医生的预约详情返回 404，越权写入返回 403。
+普通用户访问医生接口返回 `403 / 2002`；医生账号权限由[首次绑定](#首次绑定)授予。
 
 ## 消息中心
 
-以下接口要求登录，只读取当前账号自己的通知，不判断 `USER`、`DOCTOR` 或 `ADMIN` 角色。
+> OpenAPI：`Notification`。接口、字段、状态码和示例见[契约](openapi/README.md)。
 
-| 方法与路径 | 用途 | 成功结果 |
-| --- | --- | --- |
-| `GET /api/v1/notifications` | 查询本人通知列表 | 200，数组；无数据为 `[]` |
-| `GET /api/v1/notifications/{id}` | 查询本人通知详情 | 200，详情对象 |
+以下接口要求登录，只读取当前账号自己的通知，不判断 `USER`、`DOCTOR` 或 `ADMIN` 角色。列表按 `occurredAt` 降序、`id` 降序排列，首版不分页；详情在列表字段外增加 `detail` 和 `appointmentId`，`detail` 是事件生成时保存的完整文案，后续修改就诊人或医疗目录不会改变。通知类型为预约成功、签到成功、开始接诊和完成接诊。
 
-列表按 `occurredAt` 降序、`id` 降序排列，首版不分页。列表项字段为 `id`、`type`、`title`、`patientName`、`occurredAt`。详情在上述字段外增加 `detail` 和 `appointmentId`。
-
-通知不存在或不属于当前账号时返回 `404 / 4001`，不区分两种情况。`appointmentId` 可用于跳转现有预约详情接口，预约归属校验继续生效。
-
-`type` 为 `APPOINTMENT_CONFIRMED`（预约成功）、`CHECKED_IN`（签到成功）、`VISIT_STARTED`（开始接诊）或 `VISIT_COMPLETED`（完成接诊）。`detail` 是事件生成时保存的完整中文文案，后续修改就诊人或医疗目录不会改变。通知异步投递，刚完成业务操作后稍等或刷新列表即可看到。
+通知不存在或不属于当前账号时返回 `404 / 4001`，不区分两种情况。`appointmentId` 可用于跳转预约详情接口，预约归属校验继续生效。通知异步投递，刚完成业务操作后稍等或刷新列表即可看到。
 
 ## 管理员医院、科室与医生目录
 
@@ -193,23 +132,19 @@ ID 在 JSON 中为字符串，容量、序号和 `expiresIn` 为数字。创建�
 
 ## 本地环境识别
 
-`GET /api/v1/local-environment` 在常驻环境提供无需登录的探测。后端接受流量时返回 HTTP 200，已能响应请求且尚未就绪时返回 HTTP 503。响应直接返回状态对象。由 Python 脚本启动时，`launchId` 为当次启动标识。单独启动后端时通常为 `null`。
+> OpenAPI：`LocalEnvironment`。接口、字段、状态码和示例见[契约](openapi/README.md)。
 
-```json
-{ "profile": "demo", "ready": true, "launchId": null }
-```
+`GET /api/v1/local-environment` 在常驻环境提供无需登录的探测。后端接受流量时返回 200，已能响应请求且尚未就绪时返回 503；响应直接返回 `profile`、`ready` 和 `launchId`，不使用统一 `{ code, message, data }` 包装，并设置 `Cache-Control: no-store`。由 Python 脚本启动时 `launchId` 为当次启动标识；单独启动后端时通常为 `null`。
 
 本地前端给 API 请求附带 `X-Appoint-Environment`。标识与正在运行的 profile 不匹配时返回 `409 / 1003`，提示刷新页面。直接调用 API 的客户端可省略此标识。
 
 ## test环境业务调时
 
-调时接口在常驻 `test` 环境提供，需要 `ADMIN` 角色。成功响应包含 `businessTime` 和 `mode`（`realtime` 或 `adjusted`）。[调时操作和影响](environments.md#test-业务调时)
+> OpenAPI：`TestClock`。接口、字段、状态码和示例见[契约](openapi/README.md)。
 
-| 方法与路径 | 用途 |
-| --- | --- |
-| `GET /api/v1/test-control/clock` | 查询业务时间 |
-| `PUT /api/v1/test-control/clock` | 设置业务时间，请求体中的 `instant` 为带时区偏移的 ISO 时间字符串 |
-| `DELETE /api/v1/test-control/clock` | 恢复实时 |
+调时接口在常驻 `test` 环境存在，需要 `ADMIN` 角色；其他环境不存在。提供查询、设置和恢复实时三个操作，响应包含 `businessTime` 和 `mode`（`realtime` 或 `adjusted`）。设置时使用带时区偏移的 ISO 时间字符串。
+
+设置后业务时钟继续走秒；调时影响下单、支付、过期扫描和签到，并可能使已有待支付预约到期；回拨时间保留已提交的操作结果。Redis 有效期和 JWT 使用真实时间。后端重启或恢复实时后回到实时时钟。[调时操作和影响](environments.md#test-业务调时)
 
 ## 主要错误
 
