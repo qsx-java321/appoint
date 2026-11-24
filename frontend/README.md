@@ -24,5 +24,5 @@ Vitest 中的 API 调用使用模拟响应。构建输出 `dist`。独立部署�
 ## 代码入口
 
 - `src/router/`、`src/views/` 负责路由和页面。
-- `src/api/` 负责请求与类型，接口字段见 [REST API](../docs/api.md)。
+- `src/api/` 负责请求与类型，接口字段见 [OpenAPI 契约](../docs/openapi/README.md)，通用规则见 [REST API](../docs/api.md)。
 - `src/stores/` 管理会话和预约选择。会话及待确认的预约提交按环境保存在当前标签页的 `sessionStorage`。提交结果未确认时，原页面再次点击「提交预约」沿用服务端签发的原令牌和原请求体。[下单幂等设计](../docs/booking-idempotency.md)
