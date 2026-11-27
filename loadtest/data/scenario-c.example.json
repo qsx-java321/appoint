@@ -1,0 +1,10 @@
+{
+  "email": "test-admin@example.local",
+  "hospitalId": "1",
+  "departmentId": "1",
+  "doctorId": "1",
+  "appointmentId": "301",
+  "appointmentDate": "2026-11-28",
+  "sessionType": "MORNING_FIRST",
+  "patientId": "201"
+}
