@@ -6,7 +6,8 @@
 | --- | --- |
 | `auth`、`user`、`patient` | 邮箱注册、JWT 登录、角色、就诊人和用户头像 |
 | `catalog` | 医疗目录、场次查询、统一预约设置和医生账号绑定 |
-| `appointment`、`payment` | 暂占与库存、预约凭证、支付单 |
+| `inventory` | 场次库存懒生成、条件占号、锁定、确认与释放；复用 catalog 的 `schedules` 表与 SQL |
+| `appointment`、`payment` | 预约凭证、有效占用、支付单 |
 | `coordination` | 创建预约、付款确认、取消和过期的事务编排 |
 | `visit`、`bookingquery` | 签到与接诊写入、用户预约详情和医生工作台查询 |
 | `notification` | 通知事件记录、Outbox 发布、RabbitMQ 消费和消息中心查询 |
@@ -14,7 +15,7 @@
 
 ## 核心数据
 
-- `schedules` 按医生、日期和场次类型唯一，保存库存、费用快照和下一个就诊序号。
+- `schedules` 按医生、日期和场次类型唯一，保存库存、费用快照和下一个就诊序号；库存由 `inventory` 模块维护。
 - `appointment_orders` 保存预约凭证和最晚支付时间，与 `payment_orders` 一对一。
 - `appointment_create_requests` 按账号记录幂等键和创建回执。`appointment_active_claims` 用唯一约束限制同场次同就诊人和同证件的有效占用。
 - `visit_records` 在签到时创建，一张预约至多一条，保存就诊进度和动作时间。
@@ -27,12 +28,12 @@
 
 | 操作 | 写入和并发处理 |
 | --- | --- |
-| 创建 | 查询回执或消费令牌后进入 MySQL 事务。先登记幂等键，再按需建场并用条件更新暂占名额。锁定就诊人后复验下单资格，创建预约单、支付单并保存回执。失败时整笔回滚。[下单幂等设计](booking-idempotency.md) |
+| 创建 | 查询回执或消费令牌后进入 MySQL 事务。先登记幂等键，再通过库存端口按需建场并用条件更新暂占名额。锁定就诊人后复验下单资格，创建预约单、支付单并保存回执。失败时整笔回滚。[下单幂等设计](booking-idempotency.md) |
 | 付款 | 按场次 → 预约单 → 支付单加锁。锁后采样业务时间，在同一事务记录付款、确认名额、分配序号并写入「预约成功」待发布事件。已付款请求重试沿用原支付时间和序号，不重复写事件。 |
 | 取消与过期 | 沿用付款锁序。过期处理锁后复核待支付状态、截止时间和支付单。关单、释放暂占和删除有效占用在同一事务提交，不产生通知。 |
 | 签到与接诊 | 按预约归属和当前进度校验资格，写就诊记录并在同一事务追加对应待发布事件。唯一约束和条件更新保护首次成功的动作时间和唯一通知。 |
 
-[创建事务](../src/main/java/com/qsx/appoint/coordination/application/BookingCreationTransaction.java) · [预约生命周期协调器](../src/main/java/com/qsx/appoint/coordination/application/DefaultBookingLifecycleCoordinator.java) · [就诊服务](../src/main/java/com/qsx/appoint/visit/application/DefaultVisitService.java)
+[创建事务](../src/main/java/com/qsx/appoint/coordination/application/BookingCreationTransaction.java) · [预约生命周期协调器](../src/main/java/com/qsx/appoint/coordination/application/DefaultBookingLifecycleCoordinator.java) · [就诊服务](../src/main/java/com/qsx/appoint/visit/application/DefaultVisitService.java) · [库存端口](../src/main/java/com/qsx/appoint/inventory/application/ScheduleInventory.java)
 
 [过期任务](../src/main/java/com/qsx/appoint/appointment/job/AppointmentExpirationJob.java)默认在每轮结束 30 秒后开始下一轮，按支付截止时间和预约 ID 每批查询最多 100 条，逐单开启事务处理。单笔失败记日志，其余订单继续处理。支付接口独立校验截止时间，查询也可在扫描关单前显示过期。
 

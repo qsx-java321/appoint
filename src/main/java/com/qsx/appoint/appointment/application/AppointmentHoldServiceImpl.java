@@ -9,15 +9,16 @@ import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
 import com.qsx.appoint.catalog.entity.Department;
 import com.qsx.appoint.catalog.entity.Doctor;
 import com.qsx.appoint.catalog.entity.Hospital;
-import com.qsx.appoint.catalog.entity.Schedule;
 import com.qsx.appoint.catalog.mapper.DepartmentMapper;
 import com.qsx.appoint.catalog.mapper.DoctorMapper;
 import com.qsx.appoint.catalog.mapper.HospitalMapper;
-import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.catalog.model.AppointmentSession;
 import com.qsx.appoint.catalog.model.BookingTimeRules;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
+import com.qsx.appoint.inventory.application.InventorySnapshot;
+import com.qsx.appoint.inventory.application.ReserveCommand;
+import com.qsx.appoint.inventory.application.ScheduleInventory;
 import com.qsx.appoint.patient.entity.Patient;
 import com.qsx.appoint.patient.mapper.PatientMapper;
 import lombok.RequiredArgsConstructor;
@@ -32,9 +33,9 @@ import java.time.Clock;
 import java.time.temporal.ChronoUnit;
 
 /**
- * 在同库创建事务中完成预约侧暂占：按需生成场次、锁定就诊人、占号、保存快照与有效占用。
+ * 在同库创建事务中完成预约侧暂占：通过库存端口生成场次并占号，锁定就诊人，保存快照与有效占用。
  * <p>统一设置仅决定首次生成场次的容量/费用；已生成场次以自身快照为准。
- * 条件更新取得场次锁，就诊人也锁定后再采样准入时间并复验日期与截止。
+ * 库存端口通过条件更新取得场次锁，就诊人也锁定后再采样准入时间并复验日期与截止。
  * @see AppointmentHoldService
  */
 @Service
@@ -42,7 +43,7 @@ import java.time.temporal.ChronoUnit;
 class AppointmentHoldServiceImpl implements AppointmentHoldService {
     private final AppointmentActiveClaimMapper activeClaimMapper;
     private final PatientMapper patientMapper;
-    private final ScheduleMapper scheduleMapper;
+    private final ScheduleInventory scheduleInventory;
     private final DoctorMapper doctorMapper;
     private final DepartmentMapper departmentMapper;
     private final HospitalMapper hospitalMapper;
@@ -62,7 +63,8 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
         validateBookingTime(command.appointmentDate(), session.startTime(), checkedAt);
         Doctor doctor = doctorMapper.selectById(command.doctorId());
         if (doctor == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
-        Schedule schedule = holdOne(command, session, checkedAt);
+        InventorySnapshot inventory = scheduleInventory.reserve(new ReserveCommand(
+                command.doctorId(), command.appointmentDate(), session.name(), checkedAt));
 
         // 先场次后就诊人：保持创建锁序，并避免占号与资料更新交错生成不完整凭证。
         Patient patient = requireOwnedPatient(command.patientId(), command.userId());
@@ -73,14 +75,14 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         }
         LocalDateTime acceptedAt = now();
-        validateBookingTime(schedule.getAppointmentDate(), schedule.getStartTime(), acceptedAt);
+        validateBookingTime(inventory.appointmentDate(), inventory.startTime(), acceptedAt);
 
         AppointmentOrder appointment = createAppointmentSnapshot(
-                command, schedule, patient, doctor, department, hospital, acceptedAt);
+                command, inventory, patient, doctor, department, hospital, acceptedAt);
         appointmentOrderMapper.insert(appointment);
 
         // 唯一占用冲突会回滚前面的库存和预约；不能捕获后继续完成支付建单。
-        claimActiveAppointment(schedule, appointment, patient, acceptedAt);
+        claimActiveAppointment(inventory, appointment, patient, acceptedAt);
 
         return new AppointmentHold(appointment.getId(), appointment.getAppointmentNo(), command.userId(),
                 appointment.getStatus(), appointment.getFeeAmount(), appointment.getFeeCurrency(),
@@ -88,56 +90,17 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
     }
 
     /**
-     * 仅首次预约从统一设置生成场次。建场后读取当前行，包含其他事务刚提交的场次。
-     */
-    private Long findOrCreateScheduleId(CreateAppointmentHoldCommand command, AppointmentSession session) {
-        Schedule schedule = scheduleMapper.selectByDoctorDateSession(
-                command.doctorId(), command.appointmentDate(), session.name());
-        if (schedule == null) {
-            scheduleMapper.insertGeneratedFromSettings(command.doctorId(), command.appointmentDate(),
-                    session.startTime(), session.endTime(), session.name());
-            schedule = scheduleMapper.selectByDoctorDateSessionForUpdate(
-                    command.doctorId(), command.appointmentDate(), session.name());
-            if (schedule == null) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        }
-        return schedule.getId();
-    }
-
-    /**
-     * 条件更新取得场次行锁并暂占，随后用本事务已更新的场次生成凭证。
-     * <p>SQL使用入口校验时间。等待锁期间跨过截止时，后续校验会回滚暂占。
-     */
-    private Schedule holdOne(CreateAppointmentHoldCommand command, AppointmentSession session,
-                             LocalDateTime checkedAt) {
-        Long scheduleId = findOrCreateScheduleId(command, session);
-        var dates = BookingTimeRules.selectableDates(checkedAt);
-        LocalDateTime earliestStart = checkedAt.plus(BookingTimeRules.MINIMUM_BOOKING_ADVANCE);
-        if (scheduleMapper.holdOneBookableSession(scheduleId, command.doctorId(), command.appointmentDate(),
-                session.name(), dates.getFirst(), dates.getLast(),
-                earliestStart.toLocalDate(), earliestStart.toLocalTime()) != 1) {
-            throw new BusinessException(ErrorCode.SCHEDULE_UNAVAILABLE);
-        }
-        Schedule schedule = scheduleMapper.selectById(scheduleId);
-        if (schedule == null) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        if (schedule.getRegistrationFee() == null || schedule.getRegistrationFee().signum() <= 0
-                || !"CNY".equals(schedule.getFeeCurrency())) {
-            throw new BusinessException(ErrorCode.SCHEDULE_UNAVAILABLE);
-        }
-        return schedule;
-    }
-
-    /**
      * 登记有效预约占用，由唯一约束防止同就诊人或同规范化证件重复持有本场预约。
      * <p>跨账号同证件也受约束；统一返回重复有效预约错误，不泄露其他账号订单。
-     * @param schedule 已暂占的场次
+     * @param inventory 已暂占的场次库存快照
      * @param appointment 已插入且获得ID的预约
      * @param patient 加锁读取的就诊人资料
      * @param now 创建时间，与预约凭证保持一致
      */
-    private void claimActiveAppointment(Schedule schedule, AppointmentOrder appointment, Patient patient,
+    private void claimActiveAppointment(InventorySnapshot inventory, AppointmentOrder appointment, Patient patient,
                                         LocalDateTime now) {
         AppointmentActiveClaim claim = new AppointmentActiveClaim();
-        claim.setScheduleId(schedule.getId());
+        claim.setScheduleId(inventory.scheduleId());
         claim.setAppointmentOrderId(appointment.getId());
         claim.setPatientId(patient.getId());
         claim.setDocumentType(patient.getDocumentType());
@@ -168,13 +131,13 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
      * <p>费用来自场次快照，截止取准入时间加支付时限与场次开始的较早者；已创建订单不重算。
      * @return 尚未插入的PENDING_PAYMENT预约Entity，仅在本模块内部使用
      */
-    private AppointmentOrder createAppointmentSnapshot(CreateAppointmentHoldCommand command, Schedule schedule,
+    private AppointmentOrder createAppointmentSnapshot(CreateAppointmentHoldCommand command, InventorySnapshot inventory,
                                                         Patient patient, Doctor doctor, Department department,
                                                         Hospital hospital, LocalDateTime now) {
         AppointmentOrder appointment = new AppointmentOrder();
         appointment.setAppointmentNo(command.appointmentNo());
         appointment.setUserId(command.userId());
-        appointment.setScheduleId(schedule.getId());
+        appointment.setScheduleId(inventory.scheduleId());
         appointment.setPatientId(patient.getId());
         appointment.setPatientName(patient.getName());
         appointment.setPatientDocumentType(patient.getDocumentType());
@@ -190,16 +153,16 @@ class AppointmentHoldServiceImpl implements AppointmentHoldService {
         appointment.setHospitalId(hospital.getId());
         appointment.setHospitalName(hospital.getName());
         appointment.setHospitalAddress(hospital.getAddress());
-        appointment.setAppointmentDate(schedule.getAppointmentDate());
-        appointment.setStartTime(schedule.getStartTime());
-        appointment.setEndTime(schedule.getEndTime());
+        appointment.setAppointmentDate(inventory.appointmentDate());
+        appointment.setStartTime(inventory.startTime());
+        appointment.setEndTime(inventory.endTime());
         appointment.setStatus(AppointmentStatus.PENDING_PAYMENT.name());
         appointment.setCreatedAt(now);
         appointment.setUpdatedAt(now);
         appointment.setPaymentExpiresAt(BookingTimeRules.paymentExpiresAt(now,
-                schedule.getAppointmentDate().atTime(schedule.getStartTime()), appointmentProperties.paymentTimeout()));
-        appointment.setFeeAmount(schedule.getRegistrationFee().setScale(2, RoundingMode.UNNECESSARY));
-        appointment.setFeeCurrency(schedule.getFeeCurrency());
+                inventory.appointmentDate().atTime(inventory.startTime()), appointmentProperties.paymentTimeout()));
+        appointment.setFeeAmount(inventory.registrationFee().setScale(2, RoundingMode.UNNECESSARY));
+        appointment.setFeeCurrency(inventory.feeCurrency());
         return appointment;
     }
 

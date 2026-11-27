@@ -6,8 +6,9 @@ import java.time.LocalDateTime;
 /**
  * 预约完整生命周期操作，供协调层在同一数据库事务内调用。
  *
- * <p>库存、有效占用和就诊序号都由本模块维护；调用者只选择确认或关闭动作。
- * 锁定及写方法要求已有事务，find 仅返回普通事实快照。支付资格由协调层判断。
+ * <p>场次库存通过 inventory 端口维护；本模块维护有效占用、预约状态并分配就诊序号。
+ * 调用者只选择确认或关闭动作。锁定及写方法要求已有事务，find 仅返回普通事实快照。
+ * 支付资格由协调层判断。
  * @see AppointmentLifecycleCase
  */
 public interface AppointmentLifecycle {

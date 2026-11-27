@@ -5,10 +5,10 @@ import com.qsx.appoint.appointment.domain.AppointmentStatus;
 import com.qsx.appoint.appointment.entity.AppointmentOrder;
 import com.qsx.appoint.appointment.mapper.AppointmentActiveClaimMapper;
 import com.qsx.appoint.appointment.mapper.AppointmentOrderMapper;
-import com.qsx.appoint.catalog.entity.Schedule;
-import com.qsx.appoint.catalog.mapper.ScheduleMapper;
 import com.qsx.appoint.common.BusinessException;
 import com.qsx.appoint.common.ErrorCode;
+import com.qsx.appoint.inventory.application.InventorySnapshot;
+import com.qsx.appoint.inventory.application.ScheduleInventory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
 import java.util.IdentityHashMap;
 
 /**
- * 预约生命周期的数据库实现：在外层事务中维护库存、预约状态、有效占用和就诊序号。
+ * 预约生命周期的数据库实现：在外层事务中通过库存端口维护场次库存，并维护预约状态、有效占用和就诊序号。
  *
  * <p>协调层只调用完整动作；本类内部固定场次→预约锁序。锁定Case以对象身份绑定当前事务，
  * 不能把只读快照或上一次事务的Case拿来写。条件更新任一步失败都会抛异常，使外层整笔回滚。
@@ -30,7 +30,7 @@ import java.util.IdentityHashMap;
 class DefaultAppointmentLifecycle implements AppointmentLifecycle {
     private final AppointmentOrderMapper appointmentOrderMapper;
     private final AppointmentActiveClaimMapper activeClaimMapper;
-    private final ScheduleMapper scheduleMapper;
+    private final ScheduleInventory scheduleInventory;
 
     /**
      * {@inheritDoc}
@@ -48,27 +48,27 @@ class DefaultAppointmentLifecycle implements AppointmentLifecycle {
     public AppointmentLifecycleCase lock(Long id) {
         AppointmentOrder lookup = appointmentOrderMapper.selectByIdForLookup(id);
         if (lookup == null) return null;
-        Schedule schedule = scheduleMapper.selectByIdForUpdate(lookup.getScheduleId());
-        if (schedule == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        InventorySnapshot inventory = scheduleInventory.lock(lookup.getScheduleId());
+        if (inventory == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         AppointmentOrder order = appointmentOrderMapper.selectByIdForUpdate(id);
         if (order == null) return null;
-        if (!order.getScheduleId().equals(schedule.getId())) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        if (!order.getScheduleId().equals(inventory.scheduleId())) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
         AppointmentLifecycleCase appointment = view(order);
-        context(true).locked.put(appointment, schedule);
+        context(true).locked.put(appointment, inventory);
         return appointment;
     }
 
     /**
      * {@inheritDoc}
-     * <p>使用上下文保存的已锁场次分配序号；库存和预约条件更新都必须恰好影响一行。
+     * <p>使用上下文保存的已锁库存快照分配序号；库存和预约条件更新都必须恰好影响一行。
      */
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public AppointmentConfirmation confirm(AppointmentLifecycleCase appointment) {
-        Schedule schedule = requireLocked(appointment, AppointmentStatus.PENDING_PAYMENT);
+        InventorySnapshot inventory = requireLocked(appointment, AppointmentStatus.PENDING_PAYMENT);
         // 场次行锁串行化序号分配；确认和库存写入同属外层事务，失败不能只消耗序号。
-        int visitNumber = schedule.getNextVisitNumber();
-        requireOne(scheduleMapper.confirmOne(schedule.getId(), visitNumber));
+        int visitNumber = inventory.nextVisitNumber();
+        scheduleInventory.confirm(inventory.scheduleId(), visitNumber);
         requireOne(appointmentOrderMapper.confirmIfPending(appointment.id(), visitNumber));
         // 一次完整写入后撤销此Case的写授权，后续操作必须重新lock获取最新事实。
         context(false).locked.remove(appointment);
@@ -82,23 +82,23 @@ class DefaultAppointmentLifecycle implements AppointmentLifecycle {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public void closePending(AppointmentLifecycleCase appointment, AppointmentCloseReason reason, LocalDateTime closedAt) {
-        Schedule schedule = requireLocked(appointment, AppointmentStatus.PENDING_PAYMENT);
-        requireOne(scheduleMapper.releaseHeldOne(schedule.getId()));
+        InventorySnapshot inventory = requireLocked(appointment, AppointmentStatus.PENDING_PAYMENT);
+        scheduleInventory.release(inventory.scheduleId());
         requireOne(appointmentOrderMapper.closeIfPending(appointment.id(), reason.status().name(), closedAt));
         requireOne(activeClaimMapper.deleteByAppointmentOrderId(appointment.id()));
         context(false).locked.remove(appointment);
     }
 
     /**
-     * 校验Case的对象身份和预期状态，返回当前事务锁住的场次。
+     * 校验Case的对象身份和预期状态，返回当前事务锁住的库存快照。
      * <p>不按record值相等匹配，防止复制或伪造Case绕过锁定前置条件。
-     * @return 与该Case绑定的已锁场次；不满足契约时抛INTERNAL_ERROR
+     * @return 与该Case绑定的已锁库存快照；不满足契约时抛INTERNAL_ERROR
      */
-    private Schedule requireLocked(AppointmentLifecycleCase appointment, AppointmentStatus expected) {
+    private InventorySnapshot requireLocked(AppointmentLifecycleCase appointment, AppointmentStatus expected) {
         Context context = context(false);
-        Schedule schedule = context == null ? null : context.locked.get(appointment);
-        if (schedule == null || appointment.status() != expected) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        return schedule;
+        InventorySnapshot inventory = context == null ? null : context.locked.get(appointment);
+        if (inventory == null || appointment.status() != expected) throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        return inventory;
     }
 
     /**
@@ -117,7 +117,7 @@ class DefaultAppointmentLifecycle implements AppointmentLifecycle {
         return context;
     }
     private static final class Context implements TransactionSynchronization {
-        final IdentityHashMap<AppointmentLifecycleCase, Schedule> locked = new IdentityHashMap<>();
+        final IdentityHashMap<AppointmentLifecycleCase, InventorySnapshot> locked = new IdentityHashMap<>();
         @Override public void afterCompletion(int status) { locked.clear(); }
     }
 
