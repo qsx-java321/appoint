@@ -12,9 +12,8 @@ function ms(n) {
 
 export function bookingSummary(data, scenario) {
   const lines = [];
-  const file = scenario === 'b'
-    ? 'loadtest/results/scenario-b-summary.json'
-    : 'loadtest/results/scenario-a-summary.json';
+  const label = __ENV.RUN_LABEL || (scenario === 'b' ? 'b' : 'a');
+  const file = `loadtest/results/scenario-${label}-summary.json`;
 
   if (scenario === 'b') {
     const attempts = num(metric(data, 'booking_attempts'), 'count');

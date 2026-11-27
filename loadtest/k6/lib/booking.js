@@ -215,15 +215,19 @@ export function bookingFlow(authToken, patientId, slot) {
 }
 
 // 场景 A：按 scenario offset + 迭代序号分配唯一的 (patient, schedule)。
+// 先用与 P*S 互质的乘数打散索引，避免同一患者或同一场次在短时间内形成人为热点。
+const PAIR_MULTIPLIER = 104729;
+
 export function pairFor(data, offset) {
   const index = offset + exec.scenario.iterationInTest;
   const patients = data.patients;
   const slots = data.slots;
   const limit = patients.length * slots.length;
   if (index >= limit) return null;
+  const permuted = (index * PAIR_MULTIPLIER) % limit;
   return {
     index,
-    patientId: patients[Math.floor(index / slots.length) % patients.length],
-    slot: slots[index % slots.length],
+    patientId: patients[permuted % patients.length],
+    slot: slots[Math.floor(permuted / patients.length) % slots.length],
   };
 }

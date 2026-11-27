@@ -10,7 +10,7 @@
 | --- | --- | --- | --- |
 | 1 | C. 读接口基线 | 验证压测脚本和数据准备流程，建立读路径基线 | 已完成 |
 | 2 | B. 单场次抢号 | 验证并发下不超卖、不重复预约 | 已完成 |
-| 3 | A. 下单主链路容量 | 测最大可持续业务 TPS 和写链路瓶颈 | 待实现 |
+| 3 | A. 下单主链路容量 | 测最大可持续业务 TPS 和写链路瓶颈 | 已完成 |
 
 每个场景独立重置 test、独立准备数据、独立写报告；审查通过后再进入下一个场景。
 
@@ -30,7 +30,8 @@ loadtest/
 │   │   ├── summary.js           # 场景 C 的 handleSummary
 │   │   └── summary-booking.js   # 场景 B/A 的 handleSummary
 │   ├── 01-read-baseline.js      # 场景 C
-│   └── 02-single-slot-race.js   # 场景 B
+│   ├── 02-single-slot-race.js   # 场景 B
+│   └── 03-booking-capacity.js   # 场景 A
 ├── scripts/
 │   ├── loadtest_common.py       # 环境、HTTP、目录/场次、身份证、DB 查询
 │   ├── prepare_data.py          # 场景 C 数据准备
@@ -196,6 +197,50 @@ python3 loadtest/scripts/verify_inventory.py --scenario b \
 失败时不要自动重置，保留数据库现场用于排查。
 
 报告：[02-single-slot-race.md](reports/02-single-slot-race.md)
+
+## 场景 A：下单主链路容量
+
+### 1. 重置并启动 test
+
+```bash
+./loadtest/scripts/reset_and_start.sh --yes
+```
+
+### 2. 设置容量并准备 300 个就诊人、144 个场次
+
+```bash
+python3 loadtest/scripts/set_capacity.py --capacity 1000
+python3 loadtest/scripts/prepare_patients.py --scenario a --patients 300 --capacity 1000 \
+  --min-slots 144 --out loadtest/data/scenario-a.json
+```
+
+### 3. 执行分档
+
+```bash
+./loadtest/scripts/collect_metrics.sh --scenario a6 --phase before
+set -a; . ./.env.test; set +a
+k6 run -e TIERS=10,30,50,80,100,120,160 -e RUN_LABEL=a6 \
+  -e LOAD_PASSWORD="$LOCAL_SEED_PASSWORD" loadtest/k6/03-booking-capacity.js
+```
+
+一次业务迭代 = 领令牌 → 下单 → 支付 → 查详情，共 4 个 HTTP 请求；报告同时记录业务 TPS 和 HTTP QPS。`RUN_LABEL` 用于区分不同的 summary 文件。
+
+### 4. 验证与清理
+
+```bash
+./loadtest/scripts/collect_metrics.sh --scenario a6 --phase after
+python3 loadtest/scripts/verify_inventory.py --scenario a \
+  --data loadtest/data/scenario-a.json \
+  --summary loadtest/results/scenario-a6-summary.json
+
+./loadtest/scripts/stop_and_reset.sh --yes
+```
+
+验证内容包括：库存不变量、场次与订单对账、`visit_number` 连续性、有效占用唯一性、支付一致性，以及 k6 与数据库的 create/pay/detail 对账。
+
+> 如果 WSL 的 `systemd-timesyncd` 回拨系统时钟，MyBatis-Plus 雪花 ID 可能抛 `Clock moved backwards`，导致插入返回 500。可在压测期间临时 `sudo timedatectl set-ntp false`，结束后恢复。
+
+报告：[03-booking-capacity.md](reports/03-booking-capacity.md)
 
 ## 数据、密钥与结果
 

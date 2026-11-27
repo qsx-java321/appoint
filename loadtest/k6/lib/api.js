@@ -70,7 +70,7 @@ export function createAppointment(token, idempotencyKey, body) {
 export function payAppointment(token, appointmentId) {
   return http.post(`${BASE_URL}/appointments/${appointmentId}/pay`, null, {
     headers: authHeaders(token),
-    tags: { endpoint: 'booking_pay' },
+    tags: { endpoint: 'booking_pay', name: 'POST /appointments/{id}/pay' },
     responseCallback: bookingResponseCallback,
   });
 }
@@ -78,7 +78,7 @@ export function payAppointment(token, appointmentId) {
 export function getAppointment(token, appointmentId) {
   return http.get(`${BASE_URL}/appointments/${appointmentId}`, {
     headers: authHeaders(token),
-    tags: { endpoint: 'booking_detail' },
+    tags: { endpoint: 'booking_detail', name: 'GET /appointments/{id}' },
     responseCallback: bookingResponseCallback,
   });
 }
