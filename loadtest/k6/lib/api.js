@@ -43,3 +43,42 @@ export function checkRead(res) {
     },
   });
 }
+
+// 预约写接口明确预期的状态码；5xx 仍由自定义 booking_5xx 统计。
+export const bookingResponseCallback = http.expectedStatuses(200, 201, 202, 409, 503);
+
+export function issueToken(token) {
+  return http.post(`${BASE_URL}/appointments/token`, null, {
+    headers: authHeaders(token),
+    tags: { endpoint: 'booking_token' },
+    responseCallback: bookingResponseCallback,
+  });
+}
+
+export function createAppointment(token, idempotencyKey, body) {
+  return http.post(`${BASE_URL}/appointments`, JSON.stringify(body), {
+    headers: {
+      ...authHeaders(token),
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey,
+    },
+    tags: { endpoint: 'booking_create' },
+    responseCallback: bookingResponseCallback,
+  });
+}
+
+export function payAppointment(token, appointmentId) {
+  return http.post(`${BASE_URL}/appointments/${appointmentId}/pay`, null, {
+    headers: authHeaders(token),
+    tags: { endpoint: 'booking_pay' },
+    responseCallback: bookingResponseCallback,
+  });
+}
+
+export function getAppointment(token, appointmentId) {
+  return http.get(`${BASE_URL}/appointments/${appointmentId}`, {
+    headers: authHeaders(token),
+    tags: { endpoint: 'booking_detail' },
+    responseCallback: bookingResponseCallback,
+  });
+}

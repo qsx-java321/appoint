@@ -1,0 +1,22 @@
+{
+  "email": "test-admin@example.local",
+  "capacity": 1000,
+  "patients": [
+    "201",
+    "202"
+  ],
+  "slots": [
+    {
+      "doctorId": "1",
+      "appointmentDate": "2026-11-28",
+      "sessionType": "MORNING_FIRST",
+      "startTime": "08:00:00"
+    },
+    {
+      "doctorId": "1",
+      "appointmentDate": "2026-11-28",
+      "sessionType": "MORNING_SECOND",
+      "startTime": "10:30:00"
+    }
+  ]
+}

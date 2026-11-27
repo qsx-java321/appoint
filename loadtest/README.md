@@ -8,8 +8,8 @@
 
 | 顺序 | 场景 | 目标 | 状态 |
 | --- | --- | --- | --- |
-| 1 | C. 读接口基线 | 验证压测脚本和数据准备流程，建立读路径基线 | 已实现 |
-| 2 | B. 单场次抢号 | 验证并发下不超卖、不重复预约 | 待实现 |
+| 1 | C. 读接口基线 | 验证压测脚本和数据准备流程，建立读路径基线 | 已完成 |
+| 2 | B. 单场次抢号 | 验证并发下不超卖、不重复预约 | 已完成 |
 | 3 | A. 下单主链路容量 | 测最大可持续业务 TPS 和写链路瓶颈 | 待实现 |
 
 每个场景独立重置 test、独立准备数据、独立写报告；审查通过后再进入下一个场景。
@@ -23,13 +23,22 @@ loadtest/
 ├── .gitignore
 ├── k6/
 │   ├── lib/
-│   │   ├── api.js               # 登录、请求、业务码校验
-│   │   ├── metrics.js           # 自定义 Trend 和错误计数
-│   │   └── summary.js           # handleSummary 与控制台摘要
-│   └── 01-read-baseline.js      # 场景 C
+│   │   ├── api.js               # 登录、请求、业务码校验、预约写接口
+│   │   ├── booking.js           # 创建/支付/详情流程、重试、pair 映射
+│   │   ├── metrics.js           # 场景 C 的 Trend 和错误计数
+│   │   ├── metrics-booking.js   # 场景 B/A 的 Counter/Rate/Trend
+│   │   ├── summary.js           # 场景 C 的 handleSummary
+│   │   └── summary-booking.js   # 场景 B/A 的 handleSummary
+│   ├── 01-read-baseline.js      # 场景 C
+│   └── 02-single-slot-race.js   # 场景 B
 ├── scripts/
-│   ├── prepare_data.py          # 创建读基线所需的就诊人和已支付预约
+│   ├── loadtest_common.py       # 环境、HTTP、目录/场次、身份证、DB 查询
+│   ├── prepare_data.py          # 场景 C 数据准备
+│   ├── prepare_patients.py      # 场景 B/A 批量就诊人
+│   ├── set_capacity.py          # 设置统一场次容量
+│   ├── verify_inventory.py      # 库存与业务一致性验证
 │   ├── reset_and_start.sh       # stop → reset → start test
+│   ├── stop_and_reset.sh        # stop → reset test，不启动
 │   └── collect_metrics.sh       # Docker/MySQL 状态快照
 ├── data/                        # 批量数据，默认不提交
 ├── results/                     # k6 原始 summary JSON，默认不提交
@@ -116,6 +125,77 @@ k6 run -e LOAD_PASSWORD="$LOCAL_SEED_PASSWORD" loadtest/k6/01-read-baseline.js
 ### 5. 写报告
 
 复制 `reports/TEMPLATE.md` 为 `reports/01-read-baseline.md`，填入真实结果。报告是提交物，原始 JSON 不提交。
+
+## 场景 B：单场次抢号正确性
+
+### 1. 重置并启动 test
+
+```bash
+./loadtest/scripts/reset_and_start.sh --yes
+```
+
+### 2. 设置容量为 1
+
+```bash
+python3 loadtest/scripts/set_capacity.py --capacity 1
+```
+
+脚本会先确认 `schedules` 为空，避免把容量设到已生成的场次上。
+
+### 3. 准备 100 个就诊人和一个目标场次
+
+```bash
+python3 loadtest/scripts/prepare_patients.py --scenario b --patients 100 --capacity 1 \
+  --out loadtest/data/scenario-b.json
+```
+
+脚本会生成 100 个合法且唯一的身份证号、创建就诊人，并选出明天/后天的一个 `bookable` 场次。
+
+### 4. 执行 k6
+
+```bash
+set -a; . ./.env.test; set +a
+k6 run -e LOAD_PASSWORD="$LOCAL_SEED_PASSWORD" loadtest/k6/02-single-slot-race.js
+```
+
+100 个 VU 先领令牌，等到统一 `startAt` 后同时抢 1 个名额。
+
+预期：
+
+| 结果 | 数量 |
+| --- | --- |
+| 成功 | 1 |
+| `409 / 4002` 号源约满 | 99 |
+| 其他错误 | 0 |
+
+阈值：`booking_attempts=100`、`booking_success=1`、`booking_schedule_full=99`、`booking_unexpected=0`、`booking_outcome_ok > 99%`、`booking_5xx < 1%`。
+
+### 5. 验证库存与支付
+
+```bash
+./loadtest/scripts/collect_metrics.sh --scenario b --phase after
+python3 loadtest/scripts/verify_inventory.py --scenario b \
+  --data loadtest/data/scenario-b.json \
+  --summary loadtest/results/scenario-b-summary.json --pay-winner
+```
+
+验证内容：
+
+- 创建后：`schedules total=1, available=0, held=1, confirmed=0, next=1`；订单、支付、占用、幂等请求各 1 行。
+- 支付胜者后：`available=0, held=0, confirmed=1, next=2`，`visit_number=1`。
+- 重复支付幂等；已确认预约取消返回 `409 / 4003`，库存不变。
+
+### 6. 写报告并清理
+
+审查通过后写 `reports/02-single-slot-race.md`，然后：
+
+```bash
+./loadtest/scripts/stop_and_reset.sh --yes
+```
+
+失败时不要自动重置，保留数据库现场用于排查。
+
+报告：[02-single-slot-race.md](reports/02-single-slot-race.md)
 
 ## 数据、密钥与结果
 
